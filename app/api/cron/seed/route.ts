@@ -497,3 +497,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }
 }
+
+// Vercel Cron invokes scheduled routes with GET requests. Keep POST for manual triggers,
+// but support GET so vercel.json crons work without extra tooling.
+export async function GET(req: Request) {
+  return POST(req)
+}

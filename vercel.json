@@ -1,0 +1,8 @@
+{
+  "crons": [
+    { "path": "/api/cron/patch", "schedule": "*/2 * * * *" },
+    { "path": "/api/cron/memory", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/schedule", "schedule": "0 * * * *" }
+  ]
+}
+
