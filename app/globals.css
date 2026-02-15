@@ -1,26 +1,380 @@
-@import "tailwindcss";
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #ffffff;
+  --text: rgba(0, 0, 0, 0.92);
+  --muted: rgba(0, 0, 0, 0.55);
+  --border: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  
+  --accent: rgba(145, 70, 185, 0.98);
+  --accent-border: rgba(160, 90, 190, 0.35);
+  --accent-bg: rgba(240, 230, 255, 0.92);
+  --accent-bg-2: rgba(250, 246, 255, 0.92);
+
+  --radius-lg: 22px;
+  --radius-md: 14px;
+
+  --shadow-lg: 0 40px 120px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 20px 60px rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0 18px 50px rgba(160, 90, 190, 0.10);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "SF Pro Display", "SF Pro Text",
+    "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+/* Layout */
+.uiPage {
+  min-height: 100vh;
+  background: #fff;
+}
+
+.uiTopbar {
+  position: sticky;
+  top: 0;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  z-index: 10;
+}
+
+.uiTopbarInner {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 22px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.uiMain {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 28px 24px 80px;
+}
+
+.uiTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.uiTitle {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+}
+
+.uiSubtitle {
+  margin: 6px 0 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.uiBadge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  background: rgba(240, 230, 255, 0.55);
+}
+
+.uiActions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Buttons */
+.uiBtn {
+  appearance: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.uiBtnPrimary {
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.uiBtnPrimary:hover {
+  background: rgba(240, 230, 255, 1);
+  border-color: rgba(160, 90, 190, 0.55);
+  transform: translateY(-1px);
+}
+
+.uiBtnGhost {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.uiBtnGhost:hover {
+  border-color: rgba(160, 90, 190, 0.45);
+  color: var(--accent);
+  background: var(--accent-bg-2);
+}
+
+.uiBtnSecondary {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.uiBtnSecondary:hover {
+  border-color: rgba(160, 90, 190, 0.45);
+  color: var(--accent);
+  background: var(--accent-bg-2);
+}
+
+/* Cards / empty */
+.uiSkeleton {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.uiEmpty {
+  margin-top: 18px;
+  padding: 40px 18px;
+  border-radius: 20px;
+  border: 1px dashed rgba(160, 90, 190, 0.22);
+  background: rgba(250, 246, 255, 0.55);
+}
+
+.uiEmptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.uiEmptyDesc {
+  margin-top: 8px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.uiGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.uiCard {
+  padding: 16px 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  transition: all 160ms ease;
+}
+
+.uiCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(160, 90, 190, 0.22);
+  box-shadow: var(--shadow-soft);
+}
+
+.uiCardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+
+.uiCardMeta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* Toast */
+.uiToast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-md);
+  z-index: 60;
+}
+
+.uiToastOk {
+  color: rgba(40, 130, 90, 0.98);
+}
+
+.uiToastErr {
+  color: rgba(190, 60, 80, 0.98);
+}
+
+/* Modal */
+.uiModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.22);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 50;
+}
+
+.uiModal {
+  width: 100%;
+  max-width: 720px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.uiModalHeader {
+  padding: 18px 18px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.uiModalTitle {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.uiModalSub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.uiModalFooter {
+  padding: 14px 18px 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.uiForm {
+  padding: 0 18px 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.uiLabel {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.uiInput,
+.uiTextarea {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 12px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  outline: none;
+  font-size: 14px;
+  transition: all 140ms ease;
+}
+
+.uiInput:focus,
+.uiTextarea:focus {
+  border-color: rgba(160, 90, 190, 0.50);
+  box-shadow: 0 0 0 4px rgba(200, 150, 255, 0.20);
+}
+
+.uiTextarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
+.uiIconBtn {
+  appearance: none;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(255, 255, 255, 0.85);
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 140ms ease;
+  display: grid;
+  place-items: center;
+}
+
+.uiIconBtn:hover {
+  border-color: rgba(160, 90, 190, 0.35);
+  background: rgba(250, 246, 255, 0.95);
+}
+
+.uiX {
+  position: relative;
+  width: 14px;
+  height: 14px;
+}
+
+.uiX::before,
+.uiX::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 0;
+  width: 2px;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 2px;
+}
+
+.uiX::before {
+  transform: rotate(45deg);
+}
+
+.uiX::after {
+  transform: rotate(-45deg);
+}
+
+@media (max-width: 960px) {
+  .uiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .uiTopbarInner,
+  .uiMain {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .uiGrid {
+    grid-template-columns: 1fr;
+  }
 }
