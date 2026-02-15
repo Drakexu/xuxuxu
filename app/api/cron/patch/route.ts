@@ -1,0 +1,397 @@
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+type JsonObject = Record<string, unknown>
+
+type PatchJobRow = {
+  id: string
+  user_id: string
+  conversation_id: string
+  character_id: string
+  turn_seq: number
+  patch_input: unknown
+  status: 'pending' | 'processing' | 'done' | 'failed' | string
+  attempts: number
+}
+
+type MiniMaxResponse = {
+  choices?: Array<{ message?: { content?: string } }>
+  reply?: string
+  output_text?: string
+  base_resp?: { status_code?: number; status_msg?: string }
+}
+
+function joinUrl(base: string, path: string) {
+  const b = base.replace(/\/+$/, '')
+  const p = path.startsWith('/') ? path : `/${path}`
+  return `${b}${p}`
+}
+
+async function callMiniMax(mmBase: string, mmKey: string, body: JsonObject) {
+  const url = joinUrl(mmBase, '/v1/text/chatcompletion_v2')
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${mmKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const text = await resp.text()
+  if (!resp.ok) throw new Error(`MiniMax error: ${resp.status} ${text}`)
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error('MiniMax returned non-JSON response')
+  }
+}
+
+function requireCronSecret(req: Request) {
+  const secret = (process.env.CRON_SECRET || '').trim()
+  if (!secret) throw new Error('Missing CRON_SECRET')
+  const url = new URL(req.url)
+  const q = (url.searchParams.get('secret') || '').trim()
+  const h = (req.headers.get('x-cron-secret') || '').trim()
+  const auth = (req.headers.get('authorization') || '').trim()
+  const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice('bearer '.length).trim() : ''
+  const got = q || h || token
+  if (got !== secret) throw new Error('Invalid CRON secret')
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
+
+function asRecord(v: unknown): JsonObject {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as JsonObject) : {}
+}
+
+function asArray(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : []
+}
+
+function safeExtractJsonObject(text: string) {
+  const s = String(text || '').trim()
+  if (!s) return null
+  try {
+    return JSON.parse(s)
+  } catch {
+    const start = s.indexOf('{')
+    const end = s.lastIndexOf('}')
+    if (start < 0 || end <= start) return null
+    const sub = s.slice(start, end + 1)
+    try {
+      return JSON.parse(sub)
+    } catch {
+      return null
+    }
+  }
+}
+
+function stableKey(x: unknown) {
+  if (typeof x === 'string') return x.trim()
+  const r = asRecord(x)
+  const id = r['id']
+  const name = r['name']
+  const title = r['title']
+  const content = r['content']
+  const t =
+    (typeof id === 'string' && id) ||
+    (typeof name === 'string' && name) ||
+    (typeof title === 'string' && title) ||
+    (typeof content === 'string' && content)
+  return typeof t === 'string' ? t.trim() : ''
+}
+
+function uniqPushByKey<T>(arr: T[], item: T, keyFn: (x: T) => string) {
+  const k = keyFn(item)
+  if (!k) return
+  if (arr.some((x) => keyFn(x) === k)) return
+  arr.push(item)
+}
+
+function applyPlotBoardPatch(conversationState: JsonObject, plotPatch: JsonObject) {
+  const curr = asRecord(conversationState['plot_board'])
+  const next: JsonObject = { ...curr }
+
+  const openThreads = [...asArray(curr['open_threads'])]
+  for (const it of asArray(plotPatch['open_threads_add'])) uniqPushByKey(openThreads, it, stableKey)
+  const close = new Set(asArray(plotPatch['open_threads_close']).map(stableKey).filter(Boolean))
+  next.open_threads = openThreads.filter((x) => !close.has(stableKey(x))).slice(-60)
+
+  const pending = [...asArray(curr['pending_scenes'])]
+  for (const it of asArray(plotPatch['pending_scenes_add'])) uniqPushByKey(pending, it, stableKey)
+  const close2 = new Set(asArray(plotPatch['pending_scenes_close']).map(stableKey).filter(Boolean))
+  next.pending_scenes = pending.filter((x) => !close2.has(stableKey(x))).slice(-40)
+
+  const beat = [...asArray(curr['beat_history'])]
+  const append = plotPatch['beat_history_append']
+  if (append) beat.push(append)
+  next.beat_history = beat.slice(-80)
+
+  conversationState['plot_board'] = next
+}
+
+function applyLedgerPatch(conversationState: JsonObject, ledgerPatch: JsonObject) {
+  const curr = asRecord(conversationState['ledger'])
+  const next: JsonObject = { ...curr }
+
+  const eventLog = [...asArray(curr['event_log'])]
+  for (const it of asArray(ledgerPatch['event_log_add'])) eventLog.push(it)
+  next.event_log = eventLog.slice(-200)
+
+  const npcDb = [...asArray(curr['npc_database'])]
+  for (const it of asArray(ledgerPatch['npc_db_add_or_update'])) {
+    const k = stableKey(it)
+    if (!k) continue
+    const idx = npcDb.findIndex((x) => stableKey(x) === k)
+    if (idx >= 0) npcDb[idx] = { ...asRecord(npcDb[idx]), ...asRecord(it) }
+    else npcDb.push(it)
+  }
+  next.npc_database = npcDb.slice(-200)
+
+  const inv = [...asArray(curr['inventory'])]
+  for (const d of asArray(ledgerPatch['inventory_delta'])) {
+    const r = asRecord(d)
+    const name = (r['name'] ?? r['item'] ?? r['id']) as unknown
+    const key = typeof name === 'string' ? name.trim() : ''
+    if (!key) continue
+    const delta = Number(r['delta'] ?? r['count_delta'] ?? r['n'] ?? 0)
+    const idx = inv.findIndex((x) => stableKey(x) === key)
+    if (idx >= 0) {
+      const cur = asRecord(inv[idx])
+      const curCount = Number(cur['count'] ?? cur['qty'] ?? 0)
+      inv[idx] = { ...cur, name: cur['name'] ?? key, count: curCount + delta }
+    } else {
+      inv.push({ name: key, count: delta })
+    }
+  }
+  next.inventory = inv.slice(-200)
+
+  const wardrobe = { ...asRecord(curr['wardrobe']) }
+  const w = asRecord(ledgerPatch['wardrobe_update'])
+  if (typeof w['current_outfit'] === 'string' && String(w['current_outfit']).trim()) wardrobe.current_outfit = String(w['current_outfit']).trim()
+  if (typeof w['confirmed'] === 'boolean') wardrobe.confirmed = w['confirmed']
+  if (Array.isArray(w['items'])) wardrobe.items = w['items']
+  next.wardrobe = wardrobe
+
+  const rel = [...asArray(curr['relation_ledger'])]
+  for (const it of asArray(ledgerPatch['relation_ledger_add'])) rel.push(it)
+  next.relation_ledger = rel.slice(-120)
+
+  conversationState['ledger'] = next
+}
+
+function applyMemoryPatch(conversationState: JsonObject, memoryPatch: JsonObject) {
+  const curr = asRecord(conversationState['memory'])
+  const next: JsonObject = { ...curr, ...asRecord(memoryPatch || {}) }
+  const ep = asRecord(memoryPatch['memory_b_episode'])
+  const summary = ep['summary']
+  if (typeof summary === 'string' && summary.trim()) {
+    const recent = [...asArray(curr['memory_b_recent'])]
+    recent.push({ bucket_start: ep['bucket_start'] ?? '', summary: summary.trim(), open_loops: ep['open_loops'] ?? [], tags: ep['tags'] ?? [] })
+    next.memory_b_recent = recent.slice(-20)
+  }
+  conversationState['memory'] = next
+}
+
+function patchSystemPrompt() {
+  return `你是“PatchScribe”。你将收到 PATCH_INPUT（JSON）。你必须只输出一个 JSON 对象，不要输出任何其它文字。
+
+规则：
+1) 严格 JSON：不要 markdown，不要注释，不要多余空行说明。
+2) 所有顶层字段必须存在，即使为空也要给空对象/空数组：
+focus_panel_next, run_state_patch, plot_board_patch, persona_system_patch, ip_pack_patch,
+schedule_board_patch, ledger_patch, memory_patch, style_guard_patch, fact_patch_add, moderation_flags
+3) ledger_patch 的 confirmed=true 只能来自对话明确确认；否则 confirmed=false。
+4) experience_axes_delta 的每个轴范围 [-0.2, 0.2]。
+5) 允许在 run_state_patch 中更新：narration_mode（DIALOG|NARRATION|MULTI_CAST|CG|SCHEDULE）、present_characters、current_main_role、relationship_stage 等，但必须与对话与 input_event 一致，禁止凭空大幅跳变。
+6) 若用户输入出现“结束演绎/回到单聊/停止多角色”等退出指令，应将 narration_mode 置为 DIALOG，并停止多角色格式约束。
+
+输出 schema（示意）：
+{
+  "focus_panel_next": { ... },
+  "run_state_patch": { ... },
+  "plot_board_patch": { "experience_axes_delta": {...}, "beat_history_append": {...}, "open_threads_add":[], "open_threads_close":[], "pending_scenes_add":[], "pending_scenes_close":[] },
+  "persona_system_patch": { ... },
+  "ip_pack_patch": { "add_entries": [], "remove_anchor_ids": [], "replace": false },
+  "schedule_board_patch": { ... },
+  "ledger_patch": { "event_log_add": [], "npc_db_add_or_update": [], "inventory_delta": [], "wardrobe_update": { "current_outfit":"", "confirmed": false }, "relation_ledger_add": [] },
+  "memory_patch": { "memory_b_episode": { "bucket_start":"", "summary":"", "open_loops":[], "tags":[] } },
+  "style_guard_patch": { ... },
+  "fact_patch_add": [],
+  "moderation_flags": { }
+}`
+}
+
+export async function POST(req: Request) {
+  try {
+    requireCronSecret(req)
+
+    const mmKey = process.env.MINIMAX_API_KEY
+    const mmBase = process.env.MINIMAX_BASE_URL
+    if (!mmKey || !mmBase) return NextResponse.json({ error: 'Missing MINIMAX env (MINIMAX_API_KEY / MINIMAX_BASE_URL)' }, { status: 500 })
+
+    const patchModel = (process.env.MINIMAX_PATCH_MODEL || 'MiniMax-M2.5').trim()
+
+    const sb = createAdminClient()
+    const max = clamp(Number(process.env.PATCH_CRON_BATCH ?? 10), 1, 50)
+
+    const pending = await sb
+      .from('patch_jobs')
+      .select('id,user_id,conversation_id,character_id,turn_seq,patch_input,status,attempts')
+      .in('status', ['pending', 'failed'])
+      .order('created_at', { ascending: true })
+      .limit(max)
+
+    if (pending.error) return NextResponse.json({ error: pending.error.message }, { status: 500 })
+
+    let processed = 0
+    let ok = 0
+    let failed = 0
+
+    const rows = (pending.data ?? []) as PatchJobRow[]
+
+    for (const row of rows) {
+      const jobId = String(row.id || '')
+      if (!jobId) continue
+
+      // Lock the job (best-effort).
+      {
+        const up = await sb.from('patch_jobs').update({ status: 'processing' }).eq('id', jobId).in('status', ['pending', 'failed'])
+        if (up.error) continue
+      }
+
+      processed++
+      try {
+        const pi = asRecord(row.patch_input)
+        if (!Object.keys(pi).length) throw new Error('Missing patch_input')
+
+        const conversationId = String(row.conversation_id || '')
+        const characterId = String(row.character_id || '')
+
+        const st = await sb.from('conversation_states').select('state,version').eq('conversation_id', conversationId).maybeSingle()
+        if (st.error || !st.data?.state) throw new Error(`Load conversation_states failed: ${st.error?.message || 'no state'}`)
+        const conversationState = st.data.state as JsonObject
+        const conversationStateVersion = Number(st.data.version ?? 0)
+
+        const ch = await sb.from('character_states').select('state,version').eq('character_id', characterId).maybeSingle()
+        if (ch.error || !ch.data?.state) throw new Error(`Load character_states failed: ${ch.error?.message || 'no state'}`)
+        const characterState = ch.data.state as JsonObject
+        const characterStateVersion = Number(ch.data.version ?? 0)
+
+        const pJson = (await callMiniMax(mmBase, mmKey, {
+          model: patchModel,
+          messages: [
+            { role: 'system', name: 'System', content: patchSystemPrompt() },
+            { role: 'user', name: 'User', content: `PATCH_INPUT:\n${JSON.stringify(pi)}` },
+          ],
+          temperature: 0.2,
+          top_p: 0.7,
+          max_completion_tokens: 2048,
+        })) as MiniMaxResponse
+
+        const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
+        const patchObj = safeExtractJsonObject(patchText)
+        if (!patchObj || typeof patchObj !== 'object') throw new Error('PatchScribe output is not valid JSON object')
+
+        // Minimal schema presence check.
+        const requiredKeys = [
+          'focus_panel_next',
+          'run_state_patch',
+          'plot_board_patch',
+          'persona_system_patch',
+          'ip_pack_patch',
+          'schedule_board_patch',
+          'ledger_patch',
+          'memory_patch',
+          'style_guard_patch',
+          'fact_patch_add',
+          'moderation_flags',
+        ]
+        for (const k of requiredKeys) {
+          if (!(k in patchObj)) throw new Error(`Patch missing key: ${k}`)
+        }
+
+        const p = asRecord(patchObj)
+
+        // Apply patch: run_state / focus
+        conversationState['run_state'] = { ...asRecord(conversationState['run_state']), ...asRecord(p['run_state_patch']) }
+        conversationState['focus_panel'] = p['focus_panel_next'] || conversationState['focus_panel']
+
+        // Plot: axes delta
+        {
+          const pb = asRecord(conversationState['plot_board'])
+          const axes = asRecord(pb['experience_axes'])
+          const plotPatch = asRecord(p['plot_board_patch'])
+          const d = asRecord(asRecord(plotPatch['experience_axes_delta']))
+          const nextAxes = {
+            intimacy: clamp(Number(axes.intimacy ?? 0) + Number(d.intimacy ?? 0), 0, 1),
+            risk: clamp(Number(axes.risk ?? 0) + Number(d.risk ?? 0), 0, 1),
+            information: clamp(Number(axes.information ?? 0) + Number(d.information ?? 0), 0, 1),
+            action: clamp(Number(axes.action ?? 0) + Number(d.action ?? 0), 0, 1),
+            relationship: clamp(Number(axes.relationship ?? 0) + Number(d.relationship ?? 0), 0, 1),
+            growth: clamp(Number(axes.growth ?? 0) + Number(d.growth ?? 0), 0, 1),
+          }
+          conversationState['plot_board'] = { ...pb, ...plotPatch, experience_axes: nextAxes }
+          applyPlotBoardPatch(conversationState, plotPatch)
+        }
+
+        // Schedule
+        conversationState['schedule_board'] = { ...asRecord(conversationState['schedule_board']), ...asRecord(p['schedule_board_patch']) }
+
+        // Ledger
+        applyLedgerPatch(conversationState, asRecord(p['ledger_patch']))
+
+        // Memory
+        applyMemoryPatch(conversationState, asRecord(p['memory_patch']))
+
+        // Style guard / facts / moderation
+        conversationState['style_guard'] = { ...asRecord(conversationState['style_guard']), ...asRecord(p['style_guard_patch']) }
+        if (Array.isArray(p['fact_patch_add']) && (p['fact_patch_add'] as unknown[]).length) {
+          const prev = Array.isArray(conversationState['fact_patch']) ? (conversationState['fact_patch'] as unknown[]) : []
+          conversationState['fact_patch'] = [...prev, ...(p['fact_patch_add'] as unknown[])].slice(-60)
+        }
+        conversationState['moderation_flags'] = {
+          ...asRecord(conversationState['moderation_flags']),
+          ...asRecord(p['moderation_flags']),
+        }
+
+        // Character-level
+        characterState['persona_system'] = { ...asRecord(characterState['persona_system']), ...asRecord(p['persona_system_patch']) }
+        characterState['ip_pack'] = { ...asRecord(characterState['ip_pack']), ...asRecord(p['ip_pack_patch']) }
+
+        // Persist snapshots
+        const up1 = await sb.from('conversation_states').upsert({
+          conversation_id: conversationId,
+          user_id: String(row.user_id || ''),
+          character_id: characterId,
+          state: conversationState,
+          version: conversationStateVersion + 1,
+        })
+        if (up1.error) throw new Error(`Save conversation_states failed: ${up1.error.message}`)
+
+        const up2 = await sb.from('character_states').upsert({
+          character_id: characterId,
+          user_id: String(row.user_id || ''),
+          state: characterState,
+          version: characterStateVersion + 1,
+        })
+        if (up2.error) throw new Error(`Save character_states failed: ${up2.error.message}`)
+
+        await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
+        ok++
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        const attempts = Number(row.attempts ?? 0) + 1
+        const nextStatus = attempts >= 5 ? 'failed' : 'pending'
+        await sb.from('patch_jobs').update({ status: nextStatus, attempts, last_error: msg }).eq('id', jobId)
+        failed++
+      }
+    }
+
+    return NextResponse.json({ ok: true, processed, ok_count: ok, failed_count: failed })
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+  }
+}

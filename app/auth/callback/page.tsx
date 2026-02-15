@@ -7,32 +7,28 @@ import { supabase } from '@/lib/supabaseClient'
 export default function CallbackPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const verifyOtp = async () => {
+    const run = async () => {
       const { data, error } = await supabase.auth.getSession()
-
       if (error || !data?.session?.user) {
-        router.push('/login')
-      } else {
-        router.push('/characters')
+        setError('登录验证失败，请重试。')
+        setLoading(false)
+        return
       }
-
-      setLoading(false)
+      router.replace('/characters')
     }
-
-    verifyOtp()
+    run()
   }, [router])
 
   return (
     <div className="uiPage">
       <main className="uiMain">
-        {loading ? (
-          <p className="uiLoading">正在验证，请稍等...</p>
-        ) : (
-          <p className="uiLoading">登录成功，跳转中...</p>
-        )}
+        {loading && <div className="uiSkeleton">正在验证登录...</div>}
+        {!loading && error && <div className="uiAlert uiAlertErr">{error}</div>}
       </main>
     </div>
   )
 }
+

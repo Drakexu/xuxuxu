@@ -78,6 +78,20 @@ body {
   letter-spacing: -0.4px;
 }
 
+.uiSectionTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.uiHint {
+  margin: 10px 0 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 72ch;
+}
+
 .uiSubtitle {
   margin: 6px 0 0 0;
   font-size: 13px;
@@ -207,78 +221,146 @@ body {
   color: rgba(0, 0, 0, 0.5);
 }
 
-/* Toast */
-.uiToast {
-  position: fixed;
-  left: 50%;
-  bottom: 22px;
-  transform: translateX(-50%);
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 13px;
-  border: 1px solid rgba(0, 0, 0, 0.10);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-md);
-  z-index: 60;
-}
-
-.uiToastOk {
-  color: rgba(40, 130, 90, 0.98);
-}
-
-.uiToastErr {
-  color: rgba(190, 60, 80, 0.98);
-}
-
-/* Modal */
-.uiModalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(10, 10, 12, 0.22);
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-  z-index: 50;
-}
-
-.uiModal {
-  width: 100%;
-  max-width: 720px;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: var(--shadow-lg);
+.uiCardMedia {
+  height: 168px;
+  border-radius: 16px;
   overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: radial-gradient(100% 120% at 30% 20%, rgba(240, 230, 255, 0.95) 0%, rgba(250, 246, 255, 0.75) 40%, rgba(255, 255, 255, 1) 100%);
+  margin-bottom: 12px;
 }
 
-.uiModalHeader {
-  padding: 18px 18px 14px;
+.uiCardMedia img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.uiCardMediaFallback {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+
+.uiAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(255, 255, 255, 0.85);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+
+.uiAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.uiAvatarFallback {
+  font-size: 12px;
+  font-weight: 650;
+  color: rgba(0, 0, 0, 0.68);
+}
+
+.chatRow {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 10px;
 }
 
-.uiModalTitle {
+.chatRowUser {
+  justify-content: flex-end;
+}
+
+.chatRowAssistant {
+  justify-content: flex-start;
+}
+
+.chatBubble {
+  max-width: 78%;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+.chatBubbleUser {
+  background: rgba(240, 230, 255, 0.92);
+}
+
+.chatBubbleAssistant {
+  background: #fff;
+}
+
+/* Inline panel (no popups/modals) */
+.uiPanel {
+  margin-top: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(250, 246, 255, 0.55);
+}
+
+.uiPanelHeader {
+  padding: 16px 18px 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.uiPanelTitle {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.2px;
 }
 
-.uiModalSub {
+.uiPanelSub {
   margin-top: 6px;
   font-size: 12px;
   color: rgba(0, 0, 0, 0.55);
 }
 
-.uiModalFooter {
+.uiPanelFooter {
   padding: 14px 18px 18px;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Inline alert (replaces toast) */
+.uiAlert {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.uiAlertOk {
+  border-color: rgba(40, 130, 90, 0.30);
+  color: rgba(40, 130, 90, 0.98);
+  background: rgba(240, 255, 248, 0.85);
+}
+
+.uiAlertErr {
+  border-color: rgba(190, 60, 80, 0.28);
+  color: rgba(190, 60, 80, 0.98);
+  background: rgba(255, 245, 246, 0.9);
 }
 
 .uiForm {

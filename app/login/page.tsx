@@ -12,22 +12,30 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
 
-    if (!email) {
-      setError('请输入有效的邮箱地址')
+    const v = email.trim()
+    if (!v) {
+      setError('请输入有效的邮箱地址。')
       return
     }
 
     setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({ email })
+    const { error } = await supabase.auth.signInWithOtp({
+      email: v,
+      options: {
+        // Supabase dashboard should set redirect URL allow-list too.
+        emailRedirectTo: process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback` : undefined,
+      },
+    })
+    setLoading(false)
 
     if (error) {
       setError(error.message)
-    } else {
-      router.push('/auth/callback')
+      return
     }
 
-    setLoading(false)
+    router.push('/auth/callback')
   }
 
   return (
@@ -41,21 +49,26 @@ export default function LoginPage() {
       <main className="uiMain">
         <form className="uiForm" onSubmit={handleLogin}>
           <label className="uiLabel">
-            输入你的邮箱：
+            邮箱
             <input
               className="uiInput"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="example@example.com"
+              autoComplete="email"
+              inputMode="email"
             />
           </label>
-          {error && <div className="uiError">{error}</div>}
+
+          {error && <div className="uiAlert uiAlertErr">{error}</div>}
+
           <button type="submit" className="uiBtn uiBtnPrimary" disabled={loading}>
-            {loading ? '加载中…' : '发送验证码'}
+            {loading ? '发送中...' : '发送登录链接'}
           </button>
         </form>
       </main>
     </div>
   )
 }
+

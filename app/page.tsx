@@ -11,14 +11,8 @@ export default function HomePage() {
   useEffect(() => {
     const checkSession = async () => {
       const { data: userData } = await supabase.auth.getUser()
-
-      if (userData.user) {
-        // 如果用户已登录，直接跳转到角色页面
-        router.push('/characters')
-      } else {
-        // 如果用户未登录，继续在首页
-        setLoading(false)
-      }
+      if (userData.user) router.push('/characters')
+      else setLoading(false)
     }
 
     checkSession()
@@ -37,8 +31,10 @@ export default function HomePage() {
 
       <main className="uiMain">
         <h2 className="uiSectionTitle">欢迎来到 XuxuXu AI 角色平台</h2>
-        <p className="uiHint">创建属于你的个性化 AI 角色，开始一段虚拟旅程。</p>
+        <p className="uiHint">创建属于你的角色，开始沉浸式文字聊天。</p>
+        {loading && <div className="uiSkeleton">加载中...</div>}
       </main>
     </div>
   )
 }
+
