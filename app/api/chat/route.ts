@@ -1043,12 +1043,19 @@ export async function POST(req: Request) {
         if (!ins.error && ins.data?.id) patchJobId = String(ins.data.id)
         else if (ins.error) {
           const msg = ins.error.message || ''
-          const looksLikeMissing = msg.includes('relation') && msg.includes('patch_jobs')
+          // When the DB schema hasn't been updated yet, PostgREST returns errors like:
+          // "Could not find the table 'public.patch_jobs' in the schema cache".
+          // Treat that as a non-fatal "queue unavailable" case.
+          const looksLikeMissing =
+            (msg.includes('patch_jobs') && msg.includes('schema cache')) ||
+            (msg.includes('patch_jobs') && msg.toLowerCase().includes('could not find the table')) ||
+            (msg.includes('relation') && msg.includes('patch_jobs'))
           if (!looksLikeMissing) throw new Error(msg)
         }
-      } catch (e: unknown) {
-        patchOk = false
-        patchError = e instanceof Error ? e.message : String(e)
+      } catch {
+        // Queue is optional. Don't surface an error to the user for queue-only failures.
+        patchOk = true
+        patchError = ''
       }
     }
 
