@@ -107,6 +107,30 @@ body {
   background: rgba(240, 230, 255, 0.55);
 }
 
+.uiPill {
+  appearance: none;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(255, 255, 255, 0.9);
+  color: rgba(0, 0, 0, 0.72);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.uiPill:hover {
+  border-color: rgba(160, 90, 190, 0.35);
+  background: rgba(250, 246, 255, 0.92);
+  color: var(--accent);
+}
+
+.uiPillActive {
+  border-color: rgba(160, 90, 190, 0.55);
+  background: rgba(240, 230, 255, 0.92);
+  color: var(--accent);
+}
+
 .uiActions {
   display: flex;
   gap: 10px;

@@ -1,20 +1,19 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
-export default function HomePage() {
+export default function LandingPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const checkSession = async () => {
       const { data: userData } = await supabase.auth.getUser()
-      if (userData.user) router.push('/characters')
+      if (userData.user) router.push('/home')
       else setLoading(false)
     }
-
     checkSession()
   }, [router])
 
@@ -37,4 +36,3 @@ export default function HomePage() {
     </div>
   )
 }
-

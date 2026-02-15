@@ -1,0 +1,446 @@
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+type JsonObject = Record<string, unknown>
+
+type MiniMaxResponse = {
+  choices?: Array<{ message?: { content?: string } }>
+  reply?: string
+  output_text?: string
+  base_resp?: { status_code?: number; status_msg?: string }
+}
+
+function joinUrl(base: string, path: string) {
+  const b = base.replace(/\/+$/, '')
+  const p = path.startsWith('/') ? path : `/${path}`
+  return `${b}${p}`
+}
+
+async function callMiniMax(mmBase: string, mmKey: string, body: JsonObject) {
+  const url = joinUrl(mmBase, '/v1/text/chatcompletion_v2')
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${mmKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const text = await resp.text()
+  if (!resp.ok) throw new Error(`MiniMax error: ${resp.status} ${text}`)
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error('MiniMax returned non-JSON response')
+  }
+}
+
+function requireCronSecret(req: Request) {
+  const secret = (process.env.CRON_SECRET || '').trim()
+  if (!secret) throw new Error('Missing CRON_SECRET')
+  const url = new URL(req.url)
+  const q = (url.searchParams.get('secret') || '').trim()
+  const h = (req.headers.get('x-cron-secret') || '').trim()
+  const auth = (req.headers.get('authorization') || '').trim()
+  const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice('bearer '.length).trim() : ''
+  const got = q || h || token
+  if (got !== secret) throw new Error('Invalid CRON secret')
+}
+
+function asRecord(v: unknown): JsonObject {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as JsonObject) : {}
+}
+
+function asArray(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : []
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
+
+function dayKeyUtc(d: Date) {
+  return d.toISOString().slice(0, 10)
+}
+
+function dayStartUtc(d: Date) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0))
+}
+
+function minutesAgo(d: Date, mins: number) {
+  return new Date(d.getTime() - mins * 60 * 1000)
+}
+
+function pickMiniMaxText(r: MiniMaxResponse) {
+  return r?.choices?.[0]?.message?.content ?? r?.reply ?? r?.output_text ?? ''
+}
+
+function clip(s: unknown, max: number) {
+  const t = String(s || '').trim()
+  return t.length > max ? t.slice(0, max) : t
+}
+
+async function nextTurnSeqForConversation(args: {
+  sb: ReturnType<typeof createAdminClient>
+  conversationId: string
+  conversationState: unknown
+}) {
+  const { sb, conversationId, conversationState } = args
+  try {
+    type PatchJobRow = { turn_seq: number }
+    const r = await sb
+      .from('patch_jobs')
+      .select('turn_seq')
+      .eq('conversation_id', conversationId)
+      .order('turn_seq', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const row = r.data as unknown as PatchJobRow | null
+    if (!r.error && row && typeof row.turn_seq !== 'undefined') {
+      const last = Number(row.turn_seq ?? 0)
+      return last + 1
+    }
+  } catch {
+    // ignore
+  }
+  const rs = asRecord(asRecord(conversationState)['run_state'])
+  return Number(rs['turn_seq'] ?? 0) + 1
+}
+
+async function enqueuePatchJobBestEffort(args: {
+  sb: ReturnType<typeof createAdminClient>
+  userId: string
+  conversationId: string
+  characterId: string
+  inputEvent: 'SCHEDULE_TICK' | 'DIARY_DAILY'
+  userInput: string
+  assistantText: string
+  conversationState: unknown
+  characterState: unknown
+  recentMessages: Array<{ role: string; content: string }>
+}) {
+  const { sb, userId, conversationId, characterId, inputEvent, userInput, assistantText, conversationState, characterState, recentMessages } = args
+  try {
+    const turnSeq = await nextTurnSeqForConversation({ sb, conversationId, conversationState })
+    const patchInput = {
+      state_before: {
+        conversation_state: conversationState,
+        character_state: characterState,
+      },
+      turn: {
+        time_local: new Date().toISOString(),
+        region: 'GLOBAL',
+        turn_seq: turnSeq,
+        input_event: inputEvent,
+        user_input: userInput,
+        assistant_text: assistantText,
+        user_card: '',
+      },
+      dynamic_context_used: '',
+      recent_messages: recentMessages.slice(-12),
+      facts_before_digest: asRecord(asRecord(conversationState)['ledger']),
+    }
+    await sb.from('patch_jobs').insert({
+      user_id: userId,
+      conversation_id: conversationId,
+      character_id: characterId,
+      turn_seq: turnSeq,
+      patch_input: patchInput,
+      status: 'pending',
+    })
+  } catch {
+    // Best-effort: schedule should not fail if patch queueing fails.
+  }
+}
+
+async function genScheduleSnippet(args: {
+  mmBase: string
+  mmKey: string
+  characterName: string
+  characterSystemPrompt: string
+  conversationState: unknown
+  recentMessages: Array<{ role: string; content: string }>
+}) {
+  const { mmBase, mmKey, characterName, characterSystemPrompt, conversationState, recentMessages } = args
+  const cs = asRecord(conversationState)
+  const mem = asRecord(cs['memory'])
+  const ledger = asRecord(cs['ledger'])
+  const plot = asRecord(cs['plot_board'])
+  const memoryBRecent = asArray(mem['memory_b_recent'])
+  const highlights = asArray(mem['highlights'])
+  const wardrobe = asRecord(ledger['wardrobe'])
+  const npcDb = asArray(ledger['npc_database'])
+  const inventory = asArray(ledger['inventory'])
+  const openThreads = asArray(plot['open_threads'])
+  const axes = asRecord(plot['experience_axes'])
+
+  const ctx = [
+    `角色名：${characterName}`,
+    '',
+    '【角色设定】',
+    characterSystemPrompt || '',
+    '',
+    '【最近对话（原文）】',
+    recentMessages
+      .slice(-18)
+      .map((m) => `${m.role === 'assistant' ? characterName : '{user}'}: ${m.content}`)
+      .join('\n'),
+    '',
+    '【记忆摘要】',
+    JSON.stringify({ memory_b_recent: memoryBRecent, highlights }).slice(0, 1800),
+    '',
+    '【账本摘要】',
+    JSON.stringify({ wardrobe, npc_database: npcDb, inventory }).slice(0, 1200),
+    '',
+    '【剧情板摘要】',
+    JSON.stringify({ open_threads: openThreads, experience_axes: axes }).slice(0, 1200),
+  ].join('\n')
+
+  const sys = `你正在扮演一个沉浸式角色。你不是助手。你要输出一条“聊天窗口里的括号生活片段”。
+
+硬约束：
+- 只输出一条括号消息，格式类似：（...）
+- 内容必须是角色在用户不在时的生活小片段：做了什么/看到了什么/结果/感受
+- 必须贴合角色设定、世界观、以及最近对话
+- 禁止输出对话台词（不能出现“角色名：”或引号台词），只能是括号旁白
+- 80~180 字，中文
+- 禁止元叙事（不要提到模型/提示词/数据库）`
+
+  const out = (await callMiniMax(mmBase, mmKey, {
+    model: 'M2-her',
+    messages: [
+      { role: 'system', name: 'System', content: sys },
+      { role: 'user', name: 'User', content: ctx },
+    ],
+    temperature: 0.9,
+    top_p: 0.9,
+    max_completion_tokens: 320,
+  })) as MiniMaxResponse
+
+  const text = clip(pickMiniMaxText(out), 500)
+  const m = text.match(/（[\s\S]{10,300}）/)
+  if (m) return m[0].trim()
+  const inner = text.replace(/^[（(]|[)）]$/g, '').trim()
+  return `（${inner}）`
+}
+
+async function genDailyDiary(args: {
+  mmBase: string
+  mmKey: string
+  characterName: string
+  characterSystemPrompt: string
+  recentMessages: Array<{ role: string; content: string }>
+}) {
+  const { mmBase, mmKey, characterName, characterSystemPrompt, recentMessages } = args
+
+  const ctx = [
+    `角色名：${characterName}`,
+    '',
+    '【角色设定】',
+    characterSystemPrompt || '',
+    '',
+    '【今天的对话（原文节选）】',
+    recentMessages
+      .slice(-26)
+      .map((m) => `${m.role === 'assistant' ? characterName : '{user}'}: ${m.content}`)
+      .join('\n'),
+  ].join('\n')
+
+  const sys = `你正在扮演一个沉浸式角色。请你写一篇“日记”，内容是角色对自己生活、以及与 {user} 有关的事情的柔软感想。
+
+硬约束：
+- 只输出日记正文，不要标题/日期
+- 第一人称（用“我”）
+- 220~520 字，中文
+- 不能出现对话格式（不要“角色名：”）
+- 避免露骨内容
+- 不要提到模型/提示词/数据库`
+
+  const out = (await callMiniMax(mmBase, mmKey, {
+    model: 'M2-her',
+    messages: [
+      { role: 'system', name: 'System', content: sys },
+      { role: 'user', name: 'User', content: ctx },
+    ],
+    temperature: 0.95,
+    top_p: 0.9,
+    max_completion_tokens: 900,
+  })) as MiniMaxResponse
+
+  return clip(pickMiniMaxText(out), 1400)
+}
+
+export async function POST(req: Request) {
+  try {
+    requireCronSecret(req)
+
+    const mmKey = process.env.MINIMAX_API_KEY
+    const mmBase = process.env.MINIMAX_BASE_URL
+    if (!mmKey || !mmBase) return NextResponse.json({ error: 'Missing MINIMAX env (MINIMAX_API_KEY / MINIMAX_BASE_URL)' }, { status: 500 })
+
+    const sb = createAdminClient()
+    const now = new Date()
+    const idleMins = clamp(Number(process.env.SCHEDULE_IDLE_MINUTES ?? 60), 10, 24 * 60)
+    const maxConversations = clamp(Number(process.env.SCHEDULE_CRON_MAX_CONVERSATIONS ?? 20), 1, 80)
+
+    const convs = await sb.from('conversations').select('id,user_id,character_id,created_at,title').order('created_at', { ascending: false }).limit(300)
+    if (convs.error) return NextResponse.json({ error: convs.error.message }, { status: 500 })
+
+    let scheduleOk = 0
+    let diaryOk = 0
+    let considered = 0
+
+    type ConvRow = { id: string; user_id: string; character_id: string }
+    type MsgRow = { role: string; content: string; created_at?: string | null }
+
+    for (const c of (convs.data ?? []) as ConvRow[]) {
+      if (considered >= maxConversations) break
+      const convId = String(c.id || '')
+      const userId = String(c.user_id || '')
+      const characterId = String(c.character_id || '')
+      if (!convId || !userId || !characterId) continue
+
+      considered++
+
+      const ch = await sb.from('characters').select('name,system_prompt').eq('id', characterId).maybeSingle()
+      if (ch.error || !ch.data?.system_prompt) continue
+      const characterName = String(ch.data.name || '角色')
+      const sysPrompt = String(ch.data.system_prompt || '')
+
+      const lastUser = await sb
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', convId)
+        .eq('role', 'user')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const lastUserAt = lastUser.data?.created_at ? new Date(String(lastUser.data.created_at)) : null
+      if (!lastUserAt) continue
+      if (lastUserAt > minutesAgo(now, idleMins)) continue
+
+      const lastTick = await sb
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', convId)
+        .eq('role', 'assistant')
+        .eq('input_event', 'SCHEDULE_TICK')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const lastTickAt = lastTick.data?.created_at ? new Date(String(lastTick.data.created_at)) : null
+      if (!lastTickAt || lastTickAt <= minutesAgo(now, idleMins)) {
+        const st = await sb.from('conversation_states').select('state').eq('conversation_id', convId).maybeSingle()
+        const chst = await sb.from('character_states').select('state').eq('character_id', characterId).maybeSingle()
+        const msg = await sb
+          .from('messages')
+          .select('role,content,created_at')
+          .eq('conversation_id', convId)
+          .order('created_at', { ascending: false })
+          .limit(40)
+
+        const recent = ((msg.data ?? []) as MsgRow[])
+          .slice()
+          .reverse()
+          .map((m) => ({ role: String(m.role || ''), content: String(m.content || '') }))
+
+        const snippet = await genScheduleSnippet({
+          mmBase,
+          mmKey,
+          characterName,
+          characterSystemPrompt: sysPrompt,
+          conversationState: st.data?.state ?? {},
+          recentMessages: recent,
+        })
+
+        const ins = await sb.from('messages').insert({
+          user_id: userId,
+          conversation_id: convId,
+          role: 'assistant',
+          content: snippet,
+          input_event: 'SCHEDULE_TICK',
+        })
+        if (!ins.error) {
+          scheduleOk++
+          await enqueuePatchJobBestEffort({
+            sb,
+            userId,
+            conversationId: convId,
+            characterId,
+            inputEvent: 'SCHEDULE_TICK',
+            userInput: '',
+            assistantText: snippet,
+            conversationState: st.data?.state ?? {},
+            characterState: chst.data?.state ?? {},
+            recentMessages: recent,
+          })
+        }
+      }
+
+      const day = dayKeyUtc(now)
+      const start = dayStartUtc(now)
+      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+      const diaryExists = await sb
+        .from('messages')
+        .select('id')
+        .eq('conversation_id', convId)
+        .eq('role', 'assistant')
+        .eq('input_event', 'DIARY_DAILY')
+        .gte('created_at', start.toISOString())
+        .lt('created_at', end.toISOString())
+        .limit(1)
+        .maybeSingle()
+
+      if (!diaryExists.data?.id) {
+        const dayMsgs = await sb
+          .from('messages')
+          .select('role,content,created_at')
+          .eq('conversation_id', convId)
+          .gte('created_at', start.toISOString())
+          .lt('created_at', end.toISOString())
+          .order('created_at', { ascending: true })
+          .limit(120)
+
+        const diary = await genDailyDiary({
+          mmBase,
+          mmKey,
+          characterName,
+          characterSystemPrompt: sysPrompt,
+          recentMessages: ((dayMsgs.data ?? []) as MsgRow[]).map((m) => ({ role: String(m.role || ''), content: String(m.content || '') })),
+        })
+
+        const content = `【日记 ${day}】\n${diary}`
+        const ins2 = await sb.from('messages').insert({
+          user_id: userId,
+          conversation_id: convId,
+          role: 'assistant',
+          content,
+          input_event: 'DIARY_DAILY',
+        })
+        if (!ins2.error) {
+          diaryOk++
+          const st2 = await sb.from('conversation_states').select('state').eq('conversation_id', convId).maybeSingle()
+          const chst2 = await sb.from('character_states').select('state').eq('character_id', characterId).maybeSingle()
+          await enqueuePatchJobBestEffort({
+            sb,
+            userId,
+            conversationId: convId,
+            characterId,
+            inputEvent: 'DIARY_DAILY',
+            userInput: '',
+            assistantText: content,
+            conversationState: st2.data?.state ?? {},
+            characterState: chst2.data?.state ?? {},
+            recentMessages: ((dayMsgs.data ?? []) as MsgRow[]).map((m) => ({ role: String(m.role || ''), content: String(m.content || '') })),
+          })
+        }
+      }
+    }
+
+    return NextResponse.json({ ok: true, considered, schedule_ok: scheduleOk, diary_ok: diaryOk })
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+  }
+}

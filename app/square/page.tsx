@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -14,16 +14,41 @@ type PubCharacter = {
   created_at?: string
 }
 
+type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
+
 type Alert = { type: 'ok' | 'err'; text: string } | null
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+}
+
+function getStr(r: Record<string, unknown>, k: string) {
+  const v = r[k]
+  return typeof v === 'string' ? v : ''
+}
+
+function pickAssetPath(rows: CharacterAssetRow[]) {
+  // Prefer cover > full_body > head.
+  const byKind: Record<string, CharacterAssetRow[]> = {}
+  for (const r of rows) {
+    if (!r.kind || !r.storage_path) continue
+    if (!byKind[r.kind]) byKind[r.kind] = []
+    byKind[r.kind].push(r)
+  }
+  const prefer = ['cover', 'full_body', 'head']
+  for (const k of prefer) {
+    const list = byKind[k]
+    if (list?.length) return list[0].storage_path
+  }
+  return ''
+}
 
 export default function SquarePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<PubCharacter[]>([])
-  const [fullBodyById, setFullBodyById] = useState<Record<string, string>>({})
+  const [imgById, setImgById] = useState<Record<string, string>>({})
   const [alert, setAlert] = useState<Alert>(null)
-
-  const [cloningId, setCloningId] = useState<string>('')
 
   const canRefresh = useMemo(() => !loading, [loading])
 
@@ -36,7 +61,7 @@ export default function SquarePage() {
   const load = async () => {
     setLoading(true)
     setAlert(null)
-    setFullBodyById({})
+    setImgById({})
 
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) {
@@ -58,52 +83,58 @@ export default function SquarePage() {
         setAlert({ type: 'err', text: `加载失败：${msg}` })
         setItems([])
       } else {
-        // Legacy schema has no "public" concept; show empty.
+        // Legacy schema has no "public" concept.
         setItems([])
       }
-    } else {
-      const nextItems = (r1.data ?? []) as PubCharacter[]
-      setItems(nextItems)
+      setLoading(false)
+      return
+    }
 
-      // Best-effort media: load latest full_body per character and sign URLs (if allowed by RLS/policies).
-      try {
-        const ids = nextItems.map((c) => c.id).filter(Boolean)
-        if (ids.length) {
-          const assets = await supabase
-            .from('character_assets')
-            .select('character_id,kind,storage_path,created_at')
-            .in('character_id', ids)
-            .eq('kind', 'full_body')
-            .order('created_at', { ascending: false })
-            .limit(200)
+    const nextItems = (r1.data ?? []) as PubCharacter[]
+    setItems(nextItems)
 
-          if (!assets.error) {
-            const chosen: Record<string, string> = {}
-            for (const row of (assets.data ?? []) as Array<{ character_id: string; storage_path: string }>) {
-              if (!row.character_id || !row.storage_path) continue
-              if (!chosen[row.character_id]) chosen[row.character_id] = row.storage_path
+    // Best-effort media: sign latest cover/full_body/head per character.
+    try {
+      const ids = nextItems.map((c) => c.id).filter(Boolean)
+      if (ids.length) {
+        const assets = await supabase
+          .from('character_assets')
+          .select('character_id,kind,storage_path,created_at')
+          .in('character_id', ids)
+          .in('kind', ['cover', 'full_body', 'head'])
+          .order('created_at', { ascending: false })
+          .limit(400)
+
+        if (!assets.error) {
+          const grouped: Record<string, CharacterAssetRow[]> = {}
+          for (const row of (assets.data ?? []) as CharacterAssetRow[]) {
+            if (!row.character_id) continue
+            if (!grouped[row.character_id]) grouped[row.character_id] = []
+            grouped[row.character_id].push(row)
+          }
+
+          const entries = Object.entries(grouped)
+            .map(([characterId, rows]) => [characterId, pickAssetPath(rows)] as const)
+            .filter(([, path]) => !!path)
+
+          if (entries.length) {
+            const signed = await Promise.all(
+              entries.map(async ([characterId, path]) => {
+                const r = await supabase.storage.from('character-assets').createSignedUrl(path, 60 * 60)
+                return [characterId, r.data?.signedUrl || ''] as const
+              }),
+            )
+
+            const map: Record<string, string> = {}
+            for (const [characterId, url] of signed) {
+              if (url) map[characterId] = url
             }
-
-            const entries = Object.entries(chosen)
-            if (entries.length) {
-              const signed = await Promise.all(
-                entries.map(async ([characterId, path]) => {
-                  const r = await supabase.storage.from('character-assets').createSignedUrl(path, 60 * 60)
-                  return [characterId, r.data?.signedUrl || ''] as const
-                }),
-              )
-
-              const map: Record<string, string> = {}
-              for (const [characterId, url] of signed) {
-                if (url) map[characterId] = url
-              }
-              setFullBodyById(map)
-            }
+            setImgById(map)
           }
         }
-      } catch {
-        // ignore: media is optional
       }
+    } catch {
+      // ignore: media is optional
     }
 
     setLoading(false)
@@ -114,68 +145,6 @@ export default function SquarePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
-  const clone = async (c: PubCharacter) => {
-    if (cloningId) return
-    setCloningId(c.id)
-    setAlert(null)
-
-    const { data: userData } = await supabase.auth.getUser()
-    const userId = userData.user?.id
-    if (!userId) {
-      router.replace('/login')
-      return
-    }
-
-    // Best-effort: works for new schema; fall back to legacy insert if columns don't exist.
-    const payloadV2: {
-      user_id: string
-      name: string
-      system_prompt: string
-      visibility: 'private'
-      profile: Record<string, unknown>
-      settings: Record<string, unknown>
-    } = {
-      user_id: userId,
-      name: `${c.name}（复制）`,
-      system_prompt: c.system_prompt,
-      visibility: 'private',
-      profile: c.profile ?? {},
-      settings: c.settings ?? {},
-    }
-
-    const r1 = await supabase.from('characters').insert(payloadV2).select('id').single()
-    if (r1.error) {
-      const msg = r1.error.message || ''
-      const looksLikeLegacy = msg.includes('column') && (msg.includes('profile') || msg.includes('settings') || msg.includes('visibility'))
-      if (!looksLikeLegacy) {
-        setAlert({ type: 'err', text: `复制失败：${msg}` })
-        setCloningId('')
-        return
-      }
-
-      const r2 = await supabase
-        .from('characters')
-        .insert({ user_id: userId, name: `${c.name}（复制）`, system_prompt: c.system_prompt })
-        .select('id')
-        .single()
-
-      if (r2.error || !r2.data?.id) {
-        setAlert({ type: 'err', text: `复制失败：${r2.error?.message || 'unknown error'}` })
-        setCloningId('')
-        return
-      }
-
-      setAlert({ type: 'ok', text: '已复制到你的角色列表。' })
-      setCloningId('')
-      router.push(`/chat/${r2.data.id}`)
-      return
-    }
-
-    setAlert({ type: 'ok', text: '已复制到你的角色列表。' })
-    setCloningId('')
-    router.push(`/chat/${r1.data.id}`)
-  }
-
   return (
     <div className="uiPage">
       <header className="uiTopbar">
@@ -185,14 +154,14 @@ export default function SquarePage() {
               <h1 className="uiTitle">广场</h1>
               <span className="uiBadge">public</span>
             </div>
-            <p className="uiSubtitle">浏览公开角色，并复制到你的账号。</p>
+            <p className="uiSubtitle">浏览所有用户公开的角色，点击进入详情页。</p>
           </div>
           <div className="uiActions">
             <button className="uiBtn uiBtnPrimary" onClick={() => router.push('/characters/new')}>
               创建角色
             </button>
-            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
-              返回
+            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
+              首页
             </button>
             <button className="uiBtn uiBtnGhost" onClick={load} disabled={!canRefresh}>
               刷新
@@ -209,31 +178,33 @@ export default function SquarePage() {
         {!loading && items.length === 0 && (
           <div className="uiEmpty">
             <div className="uiEmptyTitle">暂无公开角色</div>
-            <div className="uiEmptyDesc">你可以先在“角色”页把角色设置为公开。</div>
+            <div className="uiEmptyDesc">你可以先去创建角色，并在角色设置里设为公开。</div>
           </div>
         )}
 
         {!loading && items.length > 0 && (
           <div className="uiGrid">
-            {items.map((c) => (
-              <div key={c.id} className="uiCard">
-                <div className="uiCardMedia">
-                  {fullBodyById[c.id] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={fullBodyById[c.id]} alt="" />
-                  ) : (
-                    <div className="uiCardMediaFallback">No image</div>
-                  )}
+            {items.map((c) => {
+              const p = asRecord(c.profile)
+              const age = getStr(p, 'age').trim()
+              const occupation = getStr(p, 'occupation').trim()
+              const meta = [age ? `${age}岁` : '', occupation].filter(Boolean).join(' · ')
+
+              return (
+                <div key={c.id} className="uiCard" style={{ cursor: 'pointer' }} onClick={() => router.push(`/square/${c.id}`)}>
+                  <div className="uiCardMedia">
+                    {imgById[c.id] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={imgById[c.id]} alt="" />
+                    ) : (
+                      <div className="uiCardMediaFallback">No image</div>
+                    )}
+                  </div>
+                  <div className="uiCardTitle">{c.name}</div>
+                  <div className="uiCardMeta">{meta || '公开角色'}</div>
                 </div>
-                <div className="uiCardTitle">{c.name}</div>
-                <div className="uiCardMeta">公开角色</div>
-                <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
-                  <button className="uiBtn uiBtnPrimary" onClick={() => clone(c)} disabled={!!cloningId}>
-                    {cloningId === c.id ? '复制中...' : '复制到我的角色'}
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </main>

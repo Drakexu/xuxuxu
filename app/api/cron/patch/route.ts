@@ -224,6 +224,46 @@ schedule_board_patch, ledger_patch, memory_patch, style_guard_patch, fact_patch_
 }`
 }
 
+async function optimisticUpdateConversationState(args: {
+  sb: ReturnType<typeof createAdminClient>
+  convId: string
+  state: unknown
+  expectedVersion: number
+}) {
+  const { sb, convId, state, expectedVersion } = args
+  const nextVersion = expectedVersion + 1
+  const upd = await sb
+    .from('conversation_states')
+    .update({ state, version: nextVersion, updated_at: new Date().toISOString() })
+    .eq('conversation_id', convId)
+    .eq('version', expectedVersion)
+    .select('version')
+
+  if (upd.error) throw new Error(upd.error.message)
+  if (!upd.data || (Array.isArray(upd.data) && upd.data.length === 0)) throw new Error('Conversation state version conflict')
+  return nextVersion
+}
+
+async function optimisticUpdateCharacterState(args: {
+  sb: ReturnType<typeof createAdminClient>
+  characterId: string
+  state: unknown
+  expectedVersion: number
+}) {
+  const { sb, characterId, state, expectedVersion } = args
+  const nextVersion = expectedVersion + 1
+  const upd = await sb
+    .from('character_states')
+    .update({ state, version: nextVersion, updated_at: new Date().toISOString() })
+    .eq('character_id', characterId)
+    .eq('version', expectedVersion)
+    .select('version')
+
+  if (upd.error) throw new Error(upd.error.message)
+  if (!upd.data || (Array.isArray(upd.data) && upd.data.length === 0)) throw new Error('Character state version conflict')
+  return nextVersion
+}
+
 export async function POST(req: Request) {
   try {
     requireCronSecret(req)
@@ -279,6 +319,17 @@ export async function POST(req: Request) {
         if (ch.error || !ch.data?.state) throw new Error(`Load character_states failed: ${ch.error?.message || 'no state'}`)
         const characterState = ch.data.state as JsonObject
         const characterStateVersion = Number(ch.data.version ?? 0)
+
+        // Idempotency: if this job was already applied, mark done and skip.
+        {
+          const rs = asRecord(conversationState['run_state'])
+          const applied = asArray(rs['applied_patch_job_ids']).map(String)
+          if (applied.includes(jobId)) {
+            await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
+            ok++
+            continue
+          }
+        }
 
         const pJson = (await callMiniMax(mmBase, mmKey, {
           model: patchModel,
@@ -361,23 +412,14 @@ export async function POST(req: Request) {
         characterState['persona_system'] = { ...asRecord(characterState['persona_system']), ...asRecord(p['persona_system_patch']) }
         characterState['ip_pack'] = { ...asRecord(characterState['ip_pack']), ...asRecord(p['ip_pack_patch']) }
 
-        // Persist snapshots
-        const up1 = await sb.from('conversation_states').upsert({
-          conversation_id: conversationId,
-          user_id: String(row.user_id || ''),
-          character_id: characterId,
-          state: conversationState,
-          version: conversationStateVersion + 1,
-        })
-        if (up1.error) throw new Error(`Save conversation_states failed: ${up1.error.message}`)
-
-        const up2 = await sb.from('character_states').upsert({
-          character_id: characterId,
-          user_id: String(row.user_id || ''),
-          state: characterState,
-          version: characterStateVersion + 1,
-        })
-        if (up2.error) throw new Error(`Save character_states failed: ${up2.error.message}`)
+        // Persist snapshots with optimistic locking: if conflict, let the job retry later.
+        {
+          const rs = asRecord(conversationState['run_state'])
+          const applied = asArray(rs['applied_patch_job_ids']).map(String).filter(Boolean)
+          rs['applied_patch_job_ids'] = [...applied, jobId].slice(-240)
+        }
+        await optimisticUpdateConversationState({ sb, convId: conversationId, state: conversationState, expectedVersion: conversationStateVersion })
+        await optimisticUpdateCharacterState({ sb, characterId, state: characterState, expectedVersion: characterStateVersion })
 
         await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
         ok++

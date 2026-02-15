@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -12,7 +12,24 @@ type CharacterRow = {
   created_at?: string
 }
 
+type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
+
 type Alert = { type: 'ok' | 'err'; text: string } | null
+
+function pickAssetPath(rows: CharacterAssetRow[]) {
+  const byKind: Record<string, CharacterAssetRow[]> = {}
+  for (const r of rows) {
+    if (!r.kind || !r.storage_path) continue
+    if (!byKind[r.kind]) byKind[r.kind] = []
+    byKind[r.kind].push(r)
+  }
+  const prefer = ['cover', 'full_body', 'head']
+  for (const k of prefer) {
+    const list = byKind[k]
+    if (list?.length) return list[0].storage_path
+  }
+  return ''
+}
 
 export default function CharactersPage() {
   const router = useRouter()
@@ -20,6 +37,7 @@ export default function CharactersPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const [characters, setCharacters] = useState<CharacterRow[]>([])
+  const [imgById, setImgById] = useState<Record<string, string>>({})
   const [alert, setAlert] = useState<Alert>(null)
   const [manageMode, setManageMode] = useState(false)
   const [deletingId, setDeletingId] = useState<string>('')
@@ -35,6 +53,7 @@ export default function CharactersPage() {
   const load = async () => {
     setLoading(true)
     setAlert(null)
+    setImgById({})
 
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) {
@@ -43,10 +62,7 @@ export default function CharactersPage() {
     }
     setEmail(userData.user.email ?? '')
 
-    const r1 = await supabase
-      .from('characters')
-      .select('id,name,system_prompt,visibility,created_at')
-      .order('created_at', { ascending: false })
+    const r1 = await supabase.from('characters').select('id,name,system_prompt,visibility,created_at').order('created_at', { ascending: false })
 
     if (r1.error) {
       const msg = r1.error.message || ''
@@ -64,7 +80,52 @@ export default function CharactersPage() {
         }
       }
     } else {
-      setCharacters((r1.data ?? []) as CharacterRow[])
+      const rows = (r1.data ?? []) as CharacterRow[]
+      setCharacters(rows)
+
+      // Best-effort media.
+      try {
+        const ids = rows.map((c) => c.id).filter(Boolean)
+        if (ids.length) {
+          const assets = await supabase
+            .from('character_assets')
+            .select('character_id,kind,storage_path,created_at')
+            .in('character_id', ids)
+            .in('kind', ['cover', 'full_body', 'head'])
+            .order('created_at', { ascending: false })
+            .limit(400)
+
+          if (!assets.error) {
+            const grouped: Record<string, CharacterAssetRow[]> = {}
+            for (const row of (assets.data ?? []) as CharacterAssetRow[]) {
+              if (!row.character_id) continue
+              if (!grouped[row.character_id]) grouped[row.character_id] = []
+              grouped[row.character_id].push(row)
+            }
+
+            const entries = Object.entries(grouped)
+              .map(([characterId, rows]) => [characterId, pickAssetPath(rows)] as const)
+              .filter(([, path]) => !!path)
+
+            if (entries.length) {
+              const signed = await Promise.all(
+                entries.map(async ([characterId, path]) => {
+                  const r = await supabase.storage.from('character-assets').createSignedUrl(path, 60 * 60)
+                  return [characterId, r.data?.signedUrl || ''] as const
+                }),
+              )
+
+              const map: Record<string, string> = {}
+              for (const [characterId, url] of signed) {
+                if (url) map[characterId] = url
+              }
+              setImgById(map)
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
     }
 
     setLoading(false)
@@ -114,6 +175,9 @@ export default function CharactersPage() {
           </div>
 
           <div className="uiActions">
+            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
+              首页
+            </button>
             <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
               广场
             </button>
@@ -141,7 +205,7 @@ export default function CharactersPage() {
         {!loading && characters.length === 0 && (
           <div className="uiEmpty">
             <div className="uiEmptyTitle">还没有角色</div>
-            <div className="uiEmptyDesc">去广场右上角“创建角色”，创建成功后会回到这里。</div>
+            <div className="uiEmptyDesc">去创建一个角色，或在广场解锁别人公开的角色。</div>
           </div>
         )}
 
@@ -156,6 +220,15 @@ export default function CharactersPage() {
                   if (!manageMode) router.push(`/chat/${c.id}`)
                 }}
               >
+                <div className="uiCardMedia">
+                  {imgById[c.id] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={imgById[c.id]} alt="" />
+                  ) : (
+                    <div className="uiCardMediaFallback">No image</div>
+                  )}
+                </div>
+
                 <div className="uiCardTitle">{c.name}</div>
                 <div className="uiCardMeta">{c.visibility === 'public' ? '公开' : '私密'}</div>
 
@@ -179,4 +252,3 @@ export default function CharactersPage() {
     </div>
   )
 }
-
