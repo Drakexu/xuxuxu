@@ -30,12 +30,27 @@ function mapAuthErrorMessage(raw: string, fallbackWaitSec = OTP_COOLDOWN_SECONDS
   return text || '登录邮件发送失败，请稍后重试。'
 }
 
+function formatClockTime(ts: number) {
+  const d = new Date(ts)
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  return `${hh}:${mm}:${ss}`
+}
+
+function readLastSentAt() {
+  if (typeof window === 'undefined') return 0
+  const last = Number(window.localStorage.getItem(LAST_OTP_SENT_AT_KEY) || 0)
+  return Number.isFinite(last) && last > 0 ? last : 0
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
   const [cooldownLeft, setCooldownLeft] = useState(() => readCooldownLeft())
+  const [lastSentAt, setLastSentAt] = useState(() => readLastSentAt())
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -45,6 +60,10 @@ export default function LoginPage() {
   }, [])
 
   const canSubmit = useMemo(() => email.trim().length > 3 && !loading && cooldownLeft === 0, [email, loading, cooldownLeft])
+  const retryAtLabel = useMemo(() => {
+    if (!lastSentAt) return ''
+    return formatClockTime(lastSentAt + OTP_COOLDOWN_SECONDS * 1000)
+  }, [lastSentAt])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,7 +76,7 @@ export default function LoginPage() {
       return
     }
     if (cooldownLeft > 0) {
-      setError(`请等待 ${cooldownLeft} 秒后再发送。`)
+      setError(retryAtLabel ? `请等待 ${cooldownLeft} 秒后再发送（约 ${retryAtLabel} 可重试）。` : `请等待 ${cooldownLeft} 秒后再发送。`)
       return
     }
 
@@ -72,23 +91,28 @@ export default function LoginPage() {
 
     if (signError) {
       const nextWait = Math.max(readCooldownLeft(), OTP_COOLDOWN_SECONDS)
-      setError(mapAuthErrorMessage(signError.message, nextWait))
+      const retryAt = formatClockTime(Date.now() + nextWait * 1000)
+      setError(`${mapAuthErrorMessage(signError.message, nextWait)}（约 ${retryAt} 可重试）`)
       if (String(signError.message || '').toLowerCase().includes('rate limit')) {
+        const now = Date.now()
         try {
-          window.localStorage.setItem(LAST_OTP_SENT_AT_KEY, String(Date.now()))
+          window.localStorage.setItem(LAST_OTP_SENT_AT_KEY, String(now))
         } catch {
           // ignore
         }
+        setLastSentAt(now)
         setCooldownLeft(nextWait)
       }
       return
     }
 
+    const now = Date.now()
     try {
-      window.localStorage.setItem(LAST_OTP_SENT_AT_KEY, String(Date.now()))
+      window.localStorage.setItem(LAST_OTP_SENT_AT_KEY, String(now))
     } catch {
       // ignore
     }
+    setLastSentAt(now)
     setCooldownLeft(OTP_COOLDOWN_SECONDS)
     setSent(true)
   }
@@ -122,7 +146,7 @@ export default function LoginPage() {
               登录邮件已发送，请在邮箱中点击链接完成验证（可同时检查垃圾邮件箱）。
             </div>
           )}
-          {cooldownLeft > 0 && <div className="uiHint">发送冷却中：{cooldownLeft} 秒</div>}
+          {cooldownLeft > 0 && <div className="uiHint">发送冷却中：{cooldownLeft} 秒（约 {retryAtLabel} 可重发）</div>}
 
           <button type="submit" className="uiBtn uiBtnPrimary" disabled={!canSubmit}>
             {loading ? '发送中...' : cooldownLeft > 0 ? `请等待 ${cooldownLeft}s` : '发送登录邮件'}

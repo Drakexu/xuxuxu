@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v17 - login rate-limit cooldown guard)
+Last updated: 2026-02-16 (checkpoint: high-target execution v18 - login retry-at timestamp hint)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -182,6 +182,19 @@ Repo: `d:/projects/xuxuxu`
   - Persisted last send timestamp in localStorage for refresh-safe cooldown behavior.
   - Added dedicated user-friendly error mapping for `email rate limit exceeded` / too-many-requests cases.
   - Updated submit button/hint to reflect cooldown state and remaining seconds.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Login cooldown UX v18 checkpoint (latest)
+- File changed:
+  - `app/login/page.tsx`
+- Completed:
+  - Added explicit retry clock hint on login page:
+    - cooldown message now includes `约 HH:MM:SS 可重发`
+    - rate-limit error also includes absolute retry time
+  - Added persistent `lastSentAt` state derived from localStorage for stable retry-time rendering.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
