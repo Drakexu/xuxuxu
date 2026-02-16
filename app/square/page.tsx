@@ -36,6 +36,20 @@ function getStr(r: Record<string, unknown>, k: string) {
   return typeof v === 'string' ? v : ''
 }
 
+function normalizeUnlockedSettings(sourceSettings: unknown, sourceId: string) {
+  const src = asRecord(sourceSettings)
+  const teen = src.teen_mode === true || src.age_mode === 'teen'
+  return {
+    ...(teen ? { ...src, teen_mode: true, age_mode: 'teen', romance_mode: 'ROMANCE_OFF' } : src),
+    source_character_id: sourceId,
+    unlocked_from_square: true,
+    activated: true,
+    home_hidden: false,
+    activated_at: new Date().toISOString(),
+    activated_order: Date.now(),
+  }
+}
+
 function getAudienceTab(c: PubCharacter): AudienceTab {
   const p = asRecord(c.profile)
   const s = asRecord(c.settings)
@@ -87,6 +101,7 @@ export default function SquarePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [togglingId, setTogglingId] = useState('')
+  const [unlockingId, setUnlockingId] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'ALL' | 'LOCKED' | 'UNLOCKED' | 'ACTIVE'>('ALL')
   const [audienceTab, setAudienceTab] = useState<AudienceTab>('ALL')
@@ -257,6 +272,47 @@ export default function SquarePage() {
       setAlert({ type: 'err', text: e instanceof Error ? e.message : String(e) })
     } finally {
       setTogglingId('')
+    }
+  }
+
+  const unlockCharacterFromCard = async (source: PubCharacter) => {
+    if (!source?.id || unlockingId) return
+    setUnlockingId(source.id)
+    setAlert(null)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        router.push('/login')
+        return
+      }
+
+      const payloadV2 = {
+        user_id: userId,
+        name: source.name,
+        system_prompt: source.system_prompt,
+        visibility: 'private' as const,
+        profile: source.profile ?? {},
+        settings: normalizeUnlockedSettings(source.settings, source.id),
+      }
+
+      const r1 = await supabase.from('characters').insert(payloadV2).select('id').single()
+      if (r1.error) {
+        const msg = r1.error.message || ''
+        const looksLikeLegacy = msg.includes('column') && (msg.includes('profile') || msg.includes('settings') || msg.includes('visibility'))
+        if (!looksLikeLegacy) throw new Error(msg)
+        const r2 = await supabase.from('characters').insert({ user_id: userId, name: source.name, system_prompt: source.system_prompt }).select('id').single()
+        if (r2.error || !r2.data?.id) throw new Error(r2.error?.message || 'unlock failed')
+        setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId: r2.data.id, active: true } }))
+      } else {
+        setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId: String(r1.data.id), active: true } }))
+      }
+
+      setAlert({ type: 'ok', text: '已解锁并激活到首页队列。' })
+    } catch (e: unknown) {
+      setAlert({ type: 'err', text: e instanceof Error ? `解锁失败：${e.message}` : String(e) })
+    } finally {
+      setUnlockingId('')
     }
   }
 
@@ -563,12 +619,26 @@ export default function SquarePage() {
                       <div className="uiCardActions">
                         <button
                           className="uiBtn uiBtnPrimary"
+                          disabled={unlockingId === c.id}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (!isLoggedIn) {
+                              router.push('/login')
+                              return
+                            }
+                            void unlockCharacterFromCard(c)
+                          }}
+                        >
+                          {!isLoggedIn ? '登录后解锁' : unlockingId === c.id ? '解锁中...' : '一键解锁'}
+                        </button>
+                        <button
+                          className="uiBtn uiBtnGhost"
                           onClick={(e) => {
                             e.stopPropagation()
                             router.push(`/square/${c.id}`)
                           }}
                         >
-                          {isLoggedIn ? '去解锁' : '登录后解锁'}
+                          详情
                         </button>
                         {!isLoggedIn ? (
                           <button
@@ -685,12 +755,26 @@ export default function SquarePage() {
                     <div className="uiCardActions">
                       <button
                         className="uiBtn uiBtnPrimary"
+                        disabled={unlockingId === c.id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!isLoggedIn) {
+                            router.push('/login')
+                            return
+                          }
+                          void unlockCharacterFromCard(c)
+                        }}
+                      >
+                        {!isLoggedIn ? '登录后解锁' : unlockingId === c.id ? '解锁中...' : '一键解锁'}
+                      </button>
+                      <button
+                        className="uiBtn uiBtnGhost"
                         onClick={(e) => {
                           e.stopPropagation()
                           router.push(`/square/${c.id}`)
                         }}
                       >
-                        {isLoggedIn ? '去解锁' : '登录后解锁'}
+                        详情
                       </button>
                       {!isLoggedIn ? (
                         <button

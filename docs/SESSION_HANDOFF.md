@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v20 - teen-mode romance lock)
+Last updated: 2026-02-16 (checkpoint: high-target execution v21 - square one-click unlock flow)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -232,6 +232,21 @@ Repo: `d:/projects/xuxuxu`
     - square unlock flow normalizes teen roles to `romance_mode=ROMANCE_OFF` in copied local role settings.
     - chat runtime state reflection and prompt policy sync now force `run_state.romance_mode='ROMANCE_OFF'` when `age_mode='teen'`.
   - Square cards/detail now render romance label as “恋爱关闭” under teen mode.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Square conversion v21 checkpoint (latest)
+- File changed:
+  - `app/square/page.tsx`
+- Completed:
+  - Added one-click unlock on square cards for logged-in users:
+    - no longer forced to open detail page before unlock
+    - unlock action directly copies public role into local role queue and activates to home feed
+  - Added per-card unlock loading state (`unlockingId`) and success/failure alerts.
+  - Preserved detail entry for users who want to inspect first.
+  - Unlock path now reuses teen safety normalization (`teen => romance off`) in card-level conversion too.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
