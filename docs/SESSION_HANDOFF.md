@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v13 - square guest-browse unlock funnel)
+Last updated: 2026-02-16 (checkpoint: high-target execution v14 - schedule output normalization)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -117,6 +117,20 @@ Repo: `d:/projects/xuxuxu`
     - detail page allows full preview and switches CTA to login-first unlock
   - Kept unlock/activate operations protected behind authenticated checks.
   - Removed stale lint suppression in square page effect block.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Schedule quality v14 checkpoint (latest)
+- File changed:
+  - `app/api/cron/schedule/route.ts`
+- Completed:
+  - Added output normalization guards for autonomous role content:
+    - `ensureScheduleSnippet`: enforces bracketed life-snippet format for `SCHEDULE_TICK`
+    - `normalizeMomentPost`: strips accidental bracket wrappers and stabilizes social-post text
+  - Applied normalization on cron generation path before `messages` insert.
+  - Capped diary payload length on insert (`clip(..., 1800)`) and kept explicit `【日记 YYYY-MM-DD】` header.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

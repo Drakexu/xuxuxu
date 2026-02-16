@@ -80,6 +80,25 @@ function clip(s: unknown, max: number) {
   return t.length > max ? t.slice(0, max) : t
 }
 
+function ensureScheduleSnippet(v: unknown) {
+  const raw = clip(v, 700).replace(/\s+/g, ' ').trim()
+  const body = raw
+    .replace(/^[()\[\]{}<>（）【】「」『』\s]+/, '')
+    .replace(/[()\[\]{}<>（）【】「」『』\s]+$/, '')
+    .trim()
+  const text = (body || '她安静地处理完手头的事，给自己留了一点放空的时间。').slice(0, 180)
+  return `（${text}）`
+}
+
+function normalizeMomentPost(v: unknown) {
+  const raw = clip(v, 900).replace(/\s+/g, ' ').trim()
+  const body = raw
+    .replace(/^[()\[\]{}<>（）【】「」『』\s]+/, '')
+    .replace(/[()\[\]{}<>（）【】「」『』\s]+$/, '')
+    .trim()
+  return (body || '今天过得还算充实，晚点再和你分享细节。').slice(0, 260)
+}
+
 function parseIsoDate(v: unknown) {
   const s = typeof v === 'string' ? v.trim() : ''
   if (!s) return null
@@ -506,7 +525,7 @@ export async function POST(req: Request) {
           .reverse()
           .map((m) => ({ role: String(m.role || ''), content: String(m.content || '') }))
 
-        const snippet = await genScheduleSnippet({
+        const snippetRaw = await genScheduleSnippet({
           mmBase,
           mmKey,
           characterName,
@@ -514,6 +533,7 @@ export async function POST(req: Request) {
           conversationState: stState,
           recentMessages: recent,
         })
+        const snippet = ensureScheduleSnippet(snippetRaw)
 
         const ins = await sb.from('messages').insert({
           user_id: userId,
@@ -555,7 +575,7 @@ export async function POST(req: Request) {
           const prob = clamp(Number(process.env.MOMENT_POST_PROB ?? 1), 0, 1)
           const shouldPost = !momentRecent.data?.id && Math.random() < prob
           if (shouldPost) {
-            const postText = await genMomentPost({
+            const postTextRaw = await genMomentPost({
               mmBase,
               mmKey,
               characterName,
@@ -563,6 +583,7 @@ export async function POST(req: Request) {
               conversationState: stState,
               recentMessages: recent,
             })
+            const postText = normalizeMomentPost(postTextRaw)
             const insM = await sb.from('messages').insert({
               user_id: userId,
               conversation_id: convId,
@@ -623,7 +644,7 @@ export async function POST(req: Request) {
           recentMessages: ((dayMsgs.data ?? []) as MsgRow[]).map((m) => ({ role: String(m.role || ''), content: String(m.content || '') })),
         })
 
-        const content = `【日记 ${day}】\n${diary}`
+        const content = `【日记 ${day}】\n${clip(diary, 1800)}`
         const ins2 = await sb.from('messages').insert({
           user_id: userId,
           conversation_id: convId,
