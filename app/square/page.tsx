@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
   id: string
@@ -20,6 +21,13 @@ type Alert = { type: 'ok' | 'err'; text: string } | null
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+}
+
+function isActivatedBySettings(settings: unknown) {
+  const s = asRecord(settings)
+  if (s.activated === false) return false
+  if (s.home_hidden === true) return false
+  return true
 }
 
 function getStr(r: Record<string, unknown>, k: string) {
@@ -48,6 +56,7 @@ export default function SquarePage() {
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<PubCharacter[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
+  const [unlockedInfoBySourceId, setUnlockedInfoBySourceId] = useState<Record<string, { localId: string; active: boolean }>>({})
   const [alert, setAlert] = useState<Alert>(null)
 
   const canRefresh = useMemo(() => !loading, [loading])
@@ -62,9 +71,11 @@ export default function SquarePage() {
     setLoading(true)
     setAlert(null)
     setImgById({})
+    setUnlockedInfoBySourceId({})
 
     const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
+    const userId = userData.user?.id
+    if (!userId) {
       router.replace('/login')
       return
     }
@@ -92,6 +103,27 @@ export default function SquarePage() {
 
     const nextItems = (r1.data ?? []) as PubCharacter[]
     setItems(nextItems)
+
+    // Best-effort: show "已解锁" badges by checking user's copied characters.
+    try {
+      const mine = await supabase
+        .from('characters')
+        .select('id,settings')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(600)
+      if (!mine.error) {
+        const map: Record<string, { localId: string; active: boolean }> = {}
+        for (const row of (mine.data ?? []) as Array<{ id: string; settings?: unknown }>) {
+          const s = asRecord(row.settings)
+          const src = typeof s.source_character_id === 'string' ? s.source_character_id.trim() : ''
+          if (src) map[src] = { localId: row.id, active: isActivatedBySettings(row.settings) }
+        }
+        setUnlockedInfoBySourceId(map)
+      }
+    } catch {
+      // ignore
+    }
 
     // Best-effort media: sign latest cover/full_body/head per character.
     try {
@@ -147,30 +179,16 @@ export default function SquarePage() {
 
   return (
     <div className="uiPage">
-      <header className="uiTopbar">
-        <div className="uiTopbarInner">
-          <div>
-            <div className="uiTitleRow">
-              <h1 className="uiTitle">广场</h1>
-              <span className="uiBadge">public</span>
-            </div>
-            <p className="uiSubtitle">浏览所有用户公开的角色，点击进入详情页。</p>
-          </div>
-          <div className="uiActions">
-            <button className="uiBtn uiBtnPrimary" onClick={() => router.push('/characters/new')}>
-              创建角色
-            </button>
-            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
-              首页
-            </button>
-            <button className="uiBtn uiBtnGhost" onClick={load} disabled={!canRefresh}>
-              刷新
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="uiMain">
+      <AppShell
+        title="Discover"
+        badge="public"
+        subtitle="浏览所有用户公开的角色，点击进入详情页。"
+        actions={
+          <button className="uiBtn uiBtnGhost" onClick={load} disabled={!canRefresh}>
+            刷新
+          </button>
+        }
+      >
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
 
         {loading && <div className="uiSkeleton">加载中...</div>}
@@ -189,6 +207,7 @@ export default function SquarePage() {
               const age = getStr(p, 'age').trim()
               const occupation = getStr(p, 'occupation').trim()
               const meta = [age ? `${age}岁` : '', occupation].filter(Boolean).join(' · ')
+              const info = unlockedInfoBySourceId[c.id]
 
               return (
                 <div key={c.id} className="uiCard" style={{ cursor: 'pointer' }} onClick={() => router.push(`/square/${c.id}`)}>
@@ -201,13 +220,39 @@ export default function SquarePage() {
                     )}
                   </div>
                   <div className="uiCardTitle">{c.name}</div>
-                  <div className="uiCardMeta">{meta || '公开角色'}</div>
+                  <div className="uiCardMeta">
+                    {meta || '公开角色'}
+                    {info ? ` · 已解锁${info.active ? ' · 已激活' : ''}` : ''}
+                  </div>
+
+                  {info && (
+                    <div className="uiCardActions">
+                      <button
+                        className="uiBtn uiBtnPrimary"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/chat/${info.localId}`)
+                        }}
+                      >
+                        对话
+                      </button>
+                      <button
+                        className="uiBtn uiBtnGhost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/square/${c.id}`)
+                        }}
+                      >
+                        详情
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })}
           </div>
         )}
-      </main>
+      </AppShell>
     </div>
   )
 }

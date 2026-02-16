@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
   id: string
@@ -46,6 +47,7 @@ export default function SquareDetailPage() {
   const [alert, setAlert] = useState<Alert>(null)
   const [item, setItem] = useState<PubCharacter | null>(null)
   const [unlockedCharId, setUnlockedCharId] = useState<string>('') // user's local character id
+  const [unlockedActive, setUnlockedActive] = useState<boolean>(false)
   const [imgUrl, setImgUrl] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -66,7 +68,8 @@ export default function SquareDetailPage() {
       setImgUrl('')
 
       const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) {
+      const userId = userData.user?.id
+      if (!userId) {
         router.replace('/login')
         return
       }
@@ -94,14 +97,23 @@ export default function SquareDetailPage() {
 
       // Already unlocked?
       try {
-        const me = await supabase.from('characters').select('id,settings,created_at').order('created_at', { ascending: false }).limit(300)
+        const me = await supabase
+          .from('characters')
+          .select('id,settings,created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(400)
         if (!me.error) {
           const rows = (me.data ?? []) as Array<{ id: string; settings?: unknown }>
           const found = rows.find((x) => {
             const s = asRecord(x.settings)
             return typeof s.source_character_id === 'string' && s.source_character_id === id
           })
-          if (found?.id) setUnlockedCharId(found.id)
+          if (found?.id) {
+            setUnlockedCharId(found.id)
+            const s = asRecord(found.settings)
+            setUnlockedActive(s.activated !== false && s.home_hidden !== true)
+          }
         }
       } catch {
         // ignore
@@ -159,7 +171,15 @@ export default function SquareDetailPage() {
       system_prompt: item.system_prompt,
       visibility: 'private',
       profile: item.profile ?? {},
-      settings: { ...(item.settings ?? {}), source_character_id: item.id, unlocked_from_square: true },
+      settings: {
+        ...(item.settings ?? {}),
+        source_character_id: item.id,
+        unlocked_from_square: true,
+        activated: true,
+        home_hidden: false,
+        activated_at: new Date().toISOString(),
+        activated_order: Date.now(),
+      },
     }
 
     const r1 = await supabase.from('characters').insert(payloadV2).select('id').single()
@@ -180,36 +200,72 @@ export default function SquareDetailPage() {
       }
 
       setUnlockedCharId(r2.data.id)
+      setUnlockedActive(true)
       setAlert({ type: 'ok', text: '已解锁。' })
       setBusy(false)
       return
     }
 
     setUnlockedCharId(r1.data.id)
+    setUnlockedActive(true)
     setAlert({ type: 'ok', text: '已解锁。' })
     setBusy(false)
   }
 
+  const toggleActivation = async (nextActive: boolean) => {
+    if (!unlockedCharId || busy) return
+    setBusy(true)
+    setAlert(null)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        router.replace('/login')
+        return
+      }
+
+      const r = await supabase
+        .from('characters')
+        .select('settings')
+        .eq('id', unlockedCharId)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (r.error) throw new Error(r.error.message)
+      const s = asRecord(r.data?.settings)
+      const nextSettings = {
+        ...s,
+        activated: nextActive,
+        home_hidden: nextActive ? false : s.home_hidden,
+        activated_at: nextActive ? new Date().toISOString() : s.activated_at,
+        activated_order: nextActive ? Date.now() : s.activated_order,
+      }
+      const upd = await supabase
+        .from('characters')
+        .update({ settings: nextSettings })
+        .eq('id', unlockedCharId)
+        .eq('user_id', userId)
+      if (upd.error) throw new Error(upd.error.message)
+      setUnlockedActive(nextActive)
+      setAlert({ type: 'ok', text: nextActive ? '已激活到首页队列。' : '已取消激活。' })
+    } catch (e: unknown) {
+      setAlert({ type: 'err', text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="uiPage">
-      <header className="uiTopbar">
-        <div className="uiTopbarInner">
-          <div>
-            <div className="uiTitleRow">
-              <h1 className="uiTitle">角色详情</h1>
-              <span className="uiBadge">square</span>
-            </div>
-            <p className="uiSubtitle">查看公开角色并解锁到你的账号。</p>
-          </div>
-          <div className="uiActions">
-            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
-              返回广场
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="uiMain">
+      <AppShell
+        title="Character"
+        badge="square"
+        subtitle="查看公开角色，并解锁/激活到你的首页可聊队列。"
+        actions={
+          <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
+            返回广场
+          </button>
+        }
+      >
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
         {loading && <div className="uiSkeleton">加载中...</div>}
 
@@ -218,21 +274,23 @@ export default function SquareDetailPage() {
             <div className="uiPanelHeader">
               <div>
                 <div className="uiPanelTitle">{item.name}</div>
-                <div className="uiPanelSub">公开角色</div>
+                <div className="uiPanelSub">公开角色{item.created_at ? ` · ${new Date(item.created_at).toLocaleDateString()}` : ''}</div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 {unlockedCharId ? (
-                  <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${unlockedCharId}`)}>
-                    发起对话
-                  </button>
+                  <>
+                    <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${unlockedCharId}`)}>
+                      发起对话
+                    </button>
+                    <button className="uiBtn uiBtnSecondary" disabled={busy} onClick={() => toggleActivation(!unlockedActive)}>
+                      {unlockedActive ? '取消激活' : '激活到首页'}
+                    </button>
+                  </>
                 ) : (
                   <button className="uiBtn uiBtnPrimary" disabled={!canUnlock} onClick={unlock}>
                     {busy ? '解锁中...' : '解锁'}
                   </button>
                 )}
-                <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/home')}>
-                  首页
-                </button>
               </div>
             </div>
 
@@ -246,18 +304,67 @@ export default function SquareDetailPage() {
                 )}
               </div>
 
-              <div className="uiHint" style={{ marginTop: 12 }}>
-                System Prompt（仅展示前 400 字）：
-              </div>
-              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, border: '1px solid rgba(0,0,0,.08)', borderRadius: 14, padding: 12, background: '#fff' }}>
-                {(item.system_prompt || '').slice(0, 400)}
-                {(item.system_prompt || '').length > 400 ? '…' : ''}
-              </div>
+              {(() => {
+                const p = asRecord(item.profile)
+                const s = asRecord(item.settings)
+                const age = typeof p.age === 'string' ? p.age.trim() : ''
+                const occupation = typeof p.occupation === 'string' ? p.occupation.trim() : ''
+                const org = typeof p.organization === 'string' ? p.organization.trim() : ''
+                const teen = !!s.teen_mode || s.age_mode === 'teen'
+                const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
+                const authorNote = (() => {
+                  const cf = asRecord(s.creation_form)
+                  const pub = asRecord(cf.publish)
+                  return typeof pub.author_note === 'string' ? pub.author_note.trim() : ''
+                })()
+
+                const meta = [age ? `${age}岁` : '', occupation, org].filter(Boolean).join(' · ')
+                return (
+                  <>
+                    {meta && <div className="uiHint">{meta}</div>}
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+                      <span className="uiBadge">{teen ? 'teen' : 'adult'}</span>
+                      <span className="uiBadge">{romance || 'ROMANCE_ON'}</span>
+                      {unlockedCharId ? <span className="uiBadge">已激活</span> : null}
+                    </div>
+
+                    {authorNote && (
+                      <div className="uiPanel" style={{ marginTop: 12 }}>
+                        <div className="uiPanelHeader">
+                          <div>
+                            <div className="uiPanelTitle">作者说</div>
+                            <div className="uiPanelSub">角色详情说明</div>
+                          </div>
+                        </div>
+                        <div className="uiForm">
+                          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{authorNote}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="uiHint" style={{ marginTop: 12 }}>
+                      System Prompt（仅展示前 400 字）：
+                    </div>
+                    <div
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: 1.6,
+                        border: '1px solid rgba(0,0,0,.08)',
+                        borderRadius: 14,
+                        padding: 12,
+                        background: '#fff',
+                      }}
+                    >
+                      {(item.system_prompt || '').slice(0, 400)}
+                      {(item.system_prompt || '').length > 400 ? '…' : ''}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
         )}
-      </main>
+      </AppShell>
     </div>
   )
 }
-

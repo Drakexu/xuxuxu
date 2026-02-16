@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import AppShell from '@/app/_components/AppShell'
 
 type CharacterRow = {
   id: string
@@ -10,11 +11,29 @@ type CharacterRow = {
   system_prompt: string
   visibility?: 'private' | 'public' | string | null
   created_at?: string
+  settings?: Record<string, unknown>
 }
 
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+}
+
+function isUnlockedFromSquare(c: CharacterRow) {
+  const s = asRecord(c.settings)
+  return (typeof s.source_character_id === 'string' && s.source_character_id.trim().length > 0) || s.unlocked_from_square === true
+}
+
+function isActivatedForHome(c: CharacterRow) {
+  if (!isUnlockedFromSquare(c)) return false
+  const s = asRecord(c.settings)
+  if (s.activated === false) return false
+  if (s.home_hidden === true) return false
+  return true
+}
 
 function pickAssetPath(rows: CharacterAssetRow[]) {
   const byKind: Record<string, CharacterAssetRow[]> = {}
@@ -41,6 +60,7 @@ export default function CharactersPage() {
   const [alert, setAlert] = useState<Alert>(null)
   const [manageMode, setManageMode] = useState(false)
   const [deletingId, setDeletingId] = useState<string>('')
+  const [busyId, setBusyId] = useState<string>('')
 
   const canRefresh = useMemo(() => !loading && !deletingId, [loading, deletingId])
 
@@ -56,22 +76,31 @@ export default function CharactersPage() {
     setImgById({})
 
     const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
+    const userId = userData.user?.id
+    if (!userId) {
       router.replace('/login')
       return
     }
-    setEmail(userData.user.email ?? '')
+    setEmail(userData.user?.email ?? '')
 
-    const r1 = await supabase.from('characters').select('id,name,system_prompt,visibility,created_at').order('created_at', { ascending: false })
+    const r1 = await supabase
+      .from('characters')
+      .select('id,name,system_prompt,visibility,created_at,settings')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
 
     if (r1.error) {
       const msg = r1.error.message || ''
-      const looksLikeLegacy = msg.includes('column') && msg.includes('visibility')
+      const looksLikeLegacy = msg.includes('column') && (msg.includes('visibility') || msg.includes('settings'))
       if (!looksLikeLegacy) {
         setAlert({ type: 'err', text: `加载失败：${msg}` })
         setCharacters([])
       } else {
-        const r2 = await supabase.from('characters').select('id,name,system_prompt,created_at').order('created_at', { ascending: false })
+        const r2 = await supabase
+          .from('characters')
+          .select('id,name,system_prompt,created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
         if (r2.error) {
           setAlert({ type: 'err', text: `加载失败：${r2.error.message || 'unknown error'}` })
           setCharacters([])
@@ -136,11 +165,6 @@ export default function CharactersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
-  const logout = async () => {
-    await supabase.auth.signOut()
-    router.replace('/')
-  }
-
   const deleteCharacter = async (id: string) => {
     if (deletingId) return
     const ok = confirm('确认删除这个角色？删除后不可恢复。')
@@ -149,7 +173,18 @@ export default function CharactersPage() {
     setDeletingId(id)
     setAlert(null)
     try {
-      const r = await supabase.from('characters').delete().eq('id', id)
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        router.replace('/login')
+        return
+      }
+
+      const r = await supabase
+        .from('characters')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId)
       if (r.error) throw new Error(r.error.message)
 
       setCharacters((prev) => prev.filter((c) => c.id !== id))
@@ -162,25 +197,44 @@ export default function CharactersPage() {
     }
   }
 
+  const updateSettings = async (id: string, patch: Record<string, unknown>) => {
+    if (busyId) return
+    setBusyId(id)
+    setAlert(null)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        router.replace('/login')
+        return
+      }
+
+      const row = characters.find((c) => c.id === id)
+      const nextSettings = { ...asRecord(row?.settings), ...patch }
+      const r = await supabase
+        .from('characters')
+        .update({ settings: nextSettings })
+        .eq('id', id)
+        .eq('user_id', userId)
+      if (r.error) throw new Error(r.error.message)
+      setCharacters((prev) => prev.map((c) => (c.id === id ? { ...c, settings: nextSettings } : c)))
+      setAlert({ type: 'ok', text: '已更新。' })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setAlert({ type: 'err', text: `更新失败：${msg}` })
+    } finally {
+      setBusyId('')
+    }
+  }
+
   return (
     <div className="uiPage">
-      <header className="uiTopbar">
-        <div className="uiTopbarInner">
-          <div>
-            <div className="uiTitleRow">
-              <h1 className="uiTitle">我的角色</h1>
-              <span className="uiBadge">v1</span>
-            </div>
-            <p className="uiSubtitle">{email}</p>
-          </div>
-
-          <div className="uiActions">
-            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
-              首页
-            </button>
-            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
-              广场
-            </button>
+      <AppShell
+        title="My Characters"
+        badge="v1"
+        subtitle={email}
+        actions={
+          <>
             <button className="uiBtn uiBtnPrimary" onClick={() => router.push('/characters/new')}>
               创建角色
             </button>
@@ -190,14 +244,9 @@ export default function CharactersPage() {
             <button className="uiBtn uiBtnGhost" onClick={load} disabled={!canRefresh}>
               刷新
             </button>
-            <button className="uiBtn uiBtnGhost" onClick={logout}>
-              退出
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="uiMain">
+          </>
+        }
+      >
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
 
         {loading && <div className="uiSkeleton">加载中...</div>}
@@ -230,12 +279,83 @@ export default function CharactersPage() {
                 </div>
 
                 <div className="uiCardTitle">{c.name}</div>
-                <div className="uiCardMeta">{c.visibility === 'public' ? '公开' : '私密'}</div>
+                <div className="uiCardMeta">
+                  {c.visibility === 'public' ? '公开' : '私密'}
+                  {isUnlockedFromSquare(c) ? ` · 已解锁${isActivatedForHome(c) ? ' · 已激活' : ''}` : ''}
+                  {isUnlockedFromSquare(c) && asRecord(c.settings).home_hidden === true ? ' · 已隐藏' : ''}
+                </div>
 
-                {!manageMode && <div className="uiHint">点击进入聊天</div>}
+                {!manageMode && (
+                  <div className="uiCardActions">
+                    <button
+                      className="uiBtn uiBtnPrimary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/chat/${c.id}`)
+                      }}
+                    >
+                      聊天
+                    </button>
+                    <button
+                      className="uiBtn uiBtnSecondary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/characters/${c.id}/assets`)
+                      }}
+                    >
+                      资产
+                    </button>
+                    {isUnlockedFromSquare(c) && (
+                      <button
+                        className="uiBtn uiBtnGhost"
+                        disabled={busyId === c.id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const s = asRecord(c.settings)
+                          const active = isActivatedForHome(c)
+                          updateSettings(c.id, {
+                            activated: !active,
+                            home_hidden: active ? s.home_hidden : false,
+                            activated_order: !active ? Date.now() : s.activated_order,
+                            activated_at: !active ? new Date().toISOString() : s.activated_at,
+                          })
+                        }}
+                        title="激活到首页可聊队列"
+                      >
+                        {isActivatedForHome(c) ? '取消激活' : '激活到首页'}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {manageMode && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
+                    <button
+                      className="uiBtn uiBtnSecondary"
+                      onClick={() => router.push(`/characters/${c.id}/assets`)}
+                      title="衣柜 / 资产 / 账本"
+                    >
+                      资产
+                    </button>
+                    {isUnlockedFromSquare(c) && (
+                      <>
+                        <button
+                          className="uiBtn uiBtnSecondary"
+                          disabled={busyId === c.id}
+                          onClick={() => {
+                            const s = asRecord(c.settings)
+                            if (s.home_hidden === true) updateSettings(c.id, { home_hidden: false, activated: true, activated_order: Date.now() })
+                            else updateSettings(c.id, { home_hidden: true })
+                          }}
+                          title="在首页显示/隐藏"
+                        >
+                          {asRecord(c.settings).home_hidden === true ? '取消隐藏' : '从首页隐藏'}
+                        </button>
+                        <button className="uiBtn uiBtnGhost" disabled={busyId === c.id} onClick={() => updateSettings(c.id, { activated: false })}>
+                          取消激活
+                        </button>
+                      </>
+                    )}
                     <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${c.id}/edit`)}>
                       编辑
                     </button>
@@ -248,7 +368,7 @@ export default function CharactersPage() {
             ))}
           </div>
         )}
-      </main>
+      </AppShell>
     </div>
   )
 }

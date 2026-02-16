@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import AppShell from '@/app/_components/AppShell'
 
 type InputEvent =
   | 'TALK_HOLD'
@@ -13,8 +14,8 @@ type InputEvent =
   | 'SCHEDULE_PLAY'
   | 'SCHEDULE_PAUSE'
 
-type Msg = { id?: string; created_at?: string; role: 'user' | 'assistant'; content: string }
-type DbMessageRow = { id: string; role: string; content: string; created_at: string }
+type Msg = { id?: string; created_at?: string; role: 'user' | 'assistant'; content: string; input_event?: string | null }
+type DbMessageRow = { id: string; role: string; content: string; created_at: string; input_event?: string | null }
 type CharacterAssetRow = { kind: string; storage_path: string; created_at?: string }
 
 export default function ChatPage() {
@@ -28,10 +29,13 @@ export default function ChatPage() {
   const [title, setTitle] = useState('')
 
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [conversationList, setConversationList] = useState<Array<{ id: string; created_at?: string }>>([])
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
 
   const [assistantAvatarUrl, setAssistantAvatarUrl] = useState('')
+  const [chatBgUrl, setChatBgUrl] = useState('')
+  const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [userCard, setUserCard] = useState('')
   const [showUserCard, setShowUserCard] = useState(false)
   const [userCardDraft, setUserCardDraft] = useState('')
@@ -43,11 +47,26 @@ export default function ChatPage() {
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [oldestTs, setOldestTs] = useState<string>('')
+  const [showTimestamps, setShowTimestamps] = useState(false)
+  const [showScrollDown, setShowScrollDown] = useState(false)
+  const [outfitHint, setOutfitHint] = useState('')
+  const [showDetails, setShowDetails] = useState(false)
+  const [savingOutfit, setSavingOutfit] = useState(false)
+  const [manualOutfit, setManualOutfit] = useState('')
+  const [details, setDetails] = useState<{
+    inventory: Array<{ name: string; count?: number }>
+    npcs: string[]
+    highlights: Array<{ day_start?: string; item?: string }>
+    eventLog: string[]
+    outfit: string
+    wardrobeItems: string[]
+  } | null>(null)
 
   const listRef = useRef<HTMLDivElement | null>(null)
 
   const canSend = useMemo(() => input.trim().length > 0 && !sending, [input, sending])
   const convKey = useMemo(() => `xuxuxu:conversationId:${characterId}`, [characterId])
+  const bgKey = useMemo(() => `xuxuxu:chatBgPath:${characterId}`, [characterId])
 
   const assistantInitial = useMemo(() => {
     const t = (title || 'AI').trim()
@@ -61,7 +80,7 @@ export default function ChatPage() {
     try {
       const r = await supabase
         .from('messages')
-        .select('id,role,content,created_at')
+        .select('id,role,content,created_at,input_event')
         .eq('conversation_id', convId)
         .order('created_at', { ascending: false })
         .limit(60)
@@ -76,6 +95,7 @@ export default function ChatPage() {
           created_at: m.created_at,
           role: m.role === 'assistant' ? 'assistant' : 'user',
           content: m.content,
+          input_event: m.input_event ?? null,
         }))
 
       setMessages(next)
@@ -105,7 +125,7 @@ export default function ChatPage() {
     try {
       const r = await supabase
         .from('messages')
-        .select('id,role,content,created_at')
+        .select('id,role,content,created_at,input_event')
         .eq('conversation_id', conversationId)
         .lt('created_at', oldestTs)
         .order('created_at', { ascending: false })
@@ -126,6 +146,7 @@ export default function ChatPage() {
           created_at: m.created_at,
           role: m.role === 'assistant' ? 'assistant' : 'user',
           content: m.content,
+          input_event: m.input_event ?? null,
         }))
 
       setMessages((prev) => [...older, ...prev])
@@ -183,6 +204,14 @@ export default function ChatPage() {
           convId = ''
         }
 
+        // Load recent conversations for this character.
+        try {
+          const rr = await supabase.from('conversations').select('id,created_at').eq('character_id', characterId).order('created_at', { ascending: false }).limit(10)
+          if (!rr.error) setConversationList((rr.data ?? []) as Array<{ id: string; created_at?: string }>)
+        } catch {
+          // ignore
+        }
+
         if (!convId) {
           const r = await supabase
             .from('conversations')
@@ -208,17 +237,51 @@ export default function ChatPage() {
           .from('character_assets')
           .select('kind,storage_path,created_at')
           .eq('character_id', characterId)
-          .in('kind', ['head', 'full_body'])
+          .in('kind', ['head', 'full_body', 'cover'])
           .order('created_at', { ascending: false })
           .limit(12)
 
         if (!assets.error && (assets.data ?? []).length) {
           const rows = (assets.data ?? []) as CharacterAssetRow[]
-          const pick = rows.find((r) => r.kind === 'head') ?? rows[0]
-          if (pick?.storage_path) {
-            const signed = await supabase.storage.from('character-assets').createSignedUrl(pick.storage_path, 60 * 60)
+          const avatar = rows.find((r) => r.kind === 'head') ?? rows.find((r) => r.kind === 'full_body') ?? rows[0]
+          const bg = rows.find((r) => r.kind === 'cover') ?? rows.find((r) => r.kind === 'full_body') ?? null
+
+          // Allow user override for chat background (store storage_path, sign per session).
+          let bgPath = ''
+          try {
+            bgPath = localStorage.getItem(bgKey) || ''
+          } catch {
+            bgPath = ''
+          }
+          const bgPick = (bgPath && rows.find((r) => r.storage_path === bgPath)) || bg
+
+          if (avatar?.storage_path) {
+            const signed = await supabase.storage.from('character-assets').createSignedUrl(avatar.storage_path, 60 * 60)
             if (!signed.error && signed.data?.signedUrl) setAssistantAvatarUrl(signed.data.signedUrl)
           }
+          if (bgPick?.storage_path) {
+            const signed2 = await supabase.storage.from('character-assets').createSignedUrl(bgPick.storage_path, 60 * 60)
+            if (!signed2.error && signed2.data?.signedUrl) setChatBgUrl(signed2.data.signedUrl)
+          }
+
+          // Sign a small list for UI selection (best-effort).
+          const uniquePaths = new Set<string>()
+          const picks = rows
+            .filter((r) => !!r.storage_path && (r.kind === 'cover' || r.kind === 'full_body' || r.kind === 'head'))
+            .filter((r) => {
+              if (uniquePaths.has(r.storage_path)) return false
+              uniquePaths.add(r.storage_path)
+              return true
+            })
+            .slice(0, 6)
+
+          const signedList = await Promise.all(
+            picks.map(async (r) => {
+              const s2 = await supabase.storage.from('character-assets').createSignedUrl(r.storage_path, 60 * 60)
+              return { kind: r.kind, path: r.storage_path, url: s2.data?.signedUrl || '' }
+            }),
+          )
+          setAssetUrls(signedList.filter((x) => !!x.url))
         }
       } catch {
         // ignore
@@ -228,7 +291,135 @@ export default function ChatPage() {
     }
 
     init()
-  }, [characterId, convKey, router])
+  }, [characterId, convKey, bgKey, router])
+
+  const loadOutfitHint = async (convId: string) => {
+    try {
+      const r = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).maybeSingle()
+      if (r.error || !r.data?.state || typeof r.data.state !== 'object') return
+      const st = r.data.state as Record<string, unknown>
+      const ledger = (st.ledger && typeof st.ledger === 'object' ? (st.ledger as Record<string, unknown>) : {}) as Record<string, unknown>
+      const wardrobe = (ledger.wardrobe && typeof ledger.wardrobe === 'object' ? (ledger.wardrobe as Record<string, unknown>) : {}) as Record<string, unknown>
+      const outfit = typeof wardrobe.current_outfit === 'string' ? wardrobe.current_outfit.trim() : ''
+      setOutfitHint(outfit ? `Outfit: ${outfit}` : '')
+    } catch {
+      // ignore (table may not exist)
+    }
+  }
+
+  const loadDetails = async (convId: string) => {
+    try {
+      const r = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).maybeSingle()
+      if (r.error || !r.data?.state || typeof r.data.state !== 'object') return
+      const st = r.data.state as Record<string, unknown>
+      const ledger = (st.ledger && typeof st.ledger === 'object' ? (st.ledger as Record<string, unknown>) : {}) as Record<string, unknown>
+      const wardrobe = (ledger.wardrobe && typeof ledger.wardrobe === 'object' ? (ledger.wardrobe as Record<string, unknown>) : {}) as Record<string, unknown>
+      const outfit = typeof wardrobe.current_outfit === 'string' ? wardrobe.current_outfit.trim() : ''
+
+      const itemsRaw = Array.isArray(wardrobe.items) ? (wardrobe.items as unknown[]) : []
+      const wardrobeItems = itemsRaw
+        .slice(0, 40)
+        .map((x) => {
+          if (typeof x === 'string') return x.trim()
+          const r2 = x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : {}
+          const v =
+            (typeof r2.outfit === 'string' && r2.outfit) ||
+            (typeof r2.name === 'string' && r2.name) ||
+            (typeof r2.title === 'string' && r2.title) ||
+            ''
+          return String(v).trim()
+        })
+        .filter(Boolean)
+
+      const invRaw = Array.isArray(ledger.inventory) ? (ledger.inventory as unknown[]) : []
+      const inventory = invRaw
+        .slice(0, 24)
+        .map((x) => {
+          const r2 = x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : {}
+          const name = typeof r2.name === 'string' ? r2.name : ''
+          const count = typeof r2.count === 'number' ? r2.count : typeof r2.qty === 'number' ? r2.qty : undefined
+          return { name, count }
+        })
+        .filter((x) => x.name)
+
+      const npcRaw = Array.isArray(ledger.npc_database) ? (ledger.npc_database as unknown[]) : []
+      const npcs = npcRaw
+        .slice(0, 40)
+        .map((x) => {
+          const r2 = x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : {}
+          const name = (typeof r2.name === 'string' && r2.name) || (typeof r2.npc === 'string' && r2.npc) || ''
+          return name.trim()
+        })
+        .filter(Boolean)
+
+      const evRaw = Array.isArray(ledger.event_log) ? (ledger.event_log as unknown[]) : []
+      const eventLog = evRaw
+        .slice(-20)
+        .map((x) => {
+          if (typeof x === 'string') return x.trim()
+          const r2 = x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : {}
+          return typeof r2.content === 'string' ? r2.content.trim() : ''
+        })
+        .filter(Boolean)
+
+      const mem = (st.memory && typeof st.memory === 'object' ? (st.memory as Record<string, unknown>) : {}) as Record<string, unknown>
+      const hlRaw = Array.isArray(mem.highlights) ? (mem.highlights as unknown[]) : []
+      const highlights = hlRaw
+        .slice(-20)
+        .map((x) => {
+          const r2 = x && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : {}
+          const item = typeof r2.item === 'string' ? r2.item : typeof r2.text === 'string' ? r2.text : ''
+          const day_start = typeof r2.day_start === 'string' ? r2.day_start : ''
+          return { day_start, item }
+        })
+        .filter((x) => x.item)
+
+      setDetails({ outfit, wardrobeItems, inventory, npcs, highlights, eventLog })
+      setManualOutfit(outfit)
+    } catch {
+      // ignore
+    }
+  }
+
+  const setOutfit = async (nextOutfit: string) => {
+    if (!conversationId) return
+    const v = nextOutfit.trim()
+    if (!v) return
+    if (savingOutfit) return
+
+    setSavingOutfit(true)
+    setError('')
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (!token) throw new Error('登录态失效，请重新登录。')
+
+      const resp = await fetch('/api/state/wardrobe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ conversationId, currentOutfit: v, confirmed: true }),
+      })
+      if (!resp.ok) {
+        const t = await resp.text()
+        throw new Error(t || `请求失败：${resp.status}`)
+      }
+
+      setManualOutfit(v)
+      await loadOutfitHint(conversationId)
+      await loadDetails(conversationId)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(msg)
+    } finally {
+      setSavingOutfit(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!conversationId) return
+    loadOutfitHint(conversationId)
+    if (showDetails) loadDetails(conversationId)
+  }, [conversationId, showDetails])
 
   useEffect(() => {
     // Persist identity card locally (best-effort).
@@ -239,6 +430,16 @@ export default function ChatPage() {
       // ignore
     }
   }, [characterId, userCard])
+
+  const setChatBgPath = async (path: string) => {
+    try {
+      localStorage.setItem(bgKey, path)
+    } catch {}
+    try {
+      const signed = await supabase.storage.from('character-assets').createSignedUrl(path, 60 * 60)
+      if (!signed.error && signed.data?.signedUrl) setChatBgUrl(signed.data.signedUrl)
+    } catch {}
+  }
 
   useEffect(() => {
     if (!showUserCard) return
@@ -253,6 +454,31 @@ export default function ChatPage() {
     const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 180
     if (nearBottom) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [messages])
+
+  const createNewConversation = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        router.replace('/login')
+        return
+      }
+      const title2 = (title || 'Chat').slice(0, 80)
+      const ins = await supabase.from('conversations').insert({ user_id: userId, character_id: characterId, title: title2 }).select('id,created_at').single()
+      if (ins.error || !ins.data?.id) throw new Error(ins.error?.message || 'Create conversation failed')
+      const id2 = String(ins.data.id)
+      setConversationId(id2)
+      setMessages([])
+      setConversationList((prev) => [{ id: id2, created_at: ins.data.created_at }, ...prev].slice(0, 12))
+      try {
+        localStorage.setItem(convKey, id2)
+      } catch {
+        // ignore
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   const post = async (text: string, inputEvent?: InputEvent) => {
     setSending(true)
@@ -319,49 +545,67 @@ export default function ChatPage() {
   if (loading) {
     return (
       <div className="uiPage">
-        <header className="uiTopbar">
-          <div className="uiTopbarInner">
-            <div className="uiTitleRow">
-              <h1 className="uiTitle">聊天</h1>
-            </div>
-          </div>
-        </header>
-        <main className="uiMain">
+        <AppShell title="Chat" badge="m2-her">
           <div className="uiSkeleton">加载中...</div>
-        </main>
+        </AppShell>
       </div>
     )
   }
 
   return (
     <div className="uiPage">
-      <header className="uiTopbar">
-        <div className="uiTopbarInner">
-          <div>
-            <div className="uiTitleRow">
-              <h1 className="uiTitle">{title || '聊天'}</h1>
-              <span className="uiBadge">m2-her</span>
-            </div>
-            <p className="uiSubtitle">对话会自动保存。旁白请用括号输入。</p>
-          </div>
-
-          <div className="uiActions">
+      <AppShell
+        title={title || 'Chat'}
+        badge="m2-her"
+        subtitle={outfitHint || '对话会自动保存。旁白请用括号输入。'}
+        actions={
+          <>
+            {conversationList.length > 0 && (
+              <select
+                className="uiInput"
+                style={{ width: 220, padding: '10px 10px' }}
+                value={conversationId || ''}
+                onChange={async (e) => {
+                  const id2 = e.target.value
+                  if (!id2) return
+                  setConversationId(id2)
+                  try {
+                    localStorage.setItem(convKey, id2)
+                  } catch {
+                    // ignore
+                  }
+                  await loadRecentMessages(id2)
+                }}
+              >
+                {conversationList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.created_at ? new Date(c.created_at).toLocaleString() : c.id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button className="uiBtn uiBtnSecondary" onClick={createNewConversation} disabled={sending}>
+              New
+            </button>
             <button
               className="uiBtn uiBtnGhost"
               onClick={() => {
-                setShowUserCard(true)
+                const next = !showDetails
+                setShowDetails(next)
+                if (next && conversationId) loadDetails(conversationId)
               }}
             >
+              Details
+            </button>
+            <button className="uiBtn uiBtnGhost" onClick={() => setShowTimestamps((v) => !v)}>
+              {showTimestamps ? 'Hide time' : 'Show time'}
+            </button>
+            <button className="uiBtn uiBtnGhost" onClick={() => setShowUserCard(true)}>
               身份卡
             </button>
-            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
-              返回角色
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="uiMain">
+          </>
+        }
+      >
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
         {patchOk === false && patchError && <div className="uiAlert uiAlertErr">PatchScribe: {patchError}</div>}
 
@@ -371,6 +615,8 @@ export default function ChatPage() {
             const el = listRef.current
             if (!el) return
             if (el.scrollTop < 80) loadOlderMessages()
+            const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 180
+            setShowScrollDown(!nearBottom)
           }}
           style={{
             height: '62vh',
@@ -378,10 +624,28 @@ export default function ChatPage() {
             border: '1px solid rgba(0,0,0,.08)',
             borderRadius: 18,
             padding: 16,
-            background: 'rgba(250,246,255,.35)',
+            background: 'rgba(255,255,255,.62)',
             marginTop: 12,
+            position: 'relative',
           }}
         >
+          {chatBgUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              src={chatBgUrl}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                opacity: 0.14,
+                filter: 'saturate(1.05) contrast(1.05)',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
           {loadingHistory && <div className="uiHint">正在加载聊天记录...</div>}
           {!loadingHistory && hasMore && <div className="uiHint">上滑加载更早的聊天记录</div>}
           {loadingOlder && <div className="uiHint">加载更早...</div>}
@@ -393,6 +657,7 @@ export default function ChatPage() {
             </div>
           )}
 
+          <div style={{ position: 'relative' }}>
           {messages.map((m, idx) => (
             <div key={m.id || idx} className={`chatRow ${m.role === 'user' ? 'chatRowUser' : 'chatRowAssistant'}`}>
               {m.role === 'assistant' && (
@@ -406,7 +671,10 @@ export default function ChatPage() {
                 </div>
               )}
 
-              <div className={`chatBubble ${m.role === 'user' ? 'chatBubbleUser' : 'chatBubbleAssistant'}`}>{m.content}</div>
+              <div>
+                {showTimestamps && m.created_at && <div className="uiHint">{new Date(m.created_at).toLocaleString()}</div>}
+                <div className={`chatBubble ${m.role === 'user' ? 'chatBubbleUser' : 'chatBubbleAssistant'}`}>{m.content}</div>
+              </div>
 
               {m.role === 'user' && (
                 <div className="uiAvatar" aria-hidden="true">
@@ -415,7 +683,83 @@ export default function ChatPage() {
               )}
             </div>
           ))}
+          </div>
         </div>
+
+        {showDetails && (
+          <div className="uiPanel" style={{ marginTop: 12 }}>
+            <div className="uiPanelHeader">
+              <div>
+                <div className="uiPanelTitle">Ledger / Memory</div>
+                <div className="uiPanelSub">npc、物品、服装、高光事件（来自状态账本）</div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${characterId}/assets`)}>
+                  资产
+                </button>
+                <button className="uiBtn uiBtnGhost" onClick={() => conversationId && loadDetails(conversationId)}>
+                  Refresh
+                </button>
+              </div>
+            </div>
+            <div className="uiForm">
+              {assetUrls.length > 0 && (
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div className="uiHint">Chat background:</div>
+                  {assetUrls.map((a) => (
+                    <button key={a.path} className="uiBtn uiBtnGhost" onClick={() => setChatBgPath(a.path)}>
+                      {a.kind}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!details && <div className="uiHint">暂无数据（可能还没跑 PatchScribe，或未创建 conversation_states 表）。</div>}
+              {details && (
+                <>
+                  <div className="uiHint">Outfit: {details.outfit || '(none)'}</div>
+
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {(details.wardrobeItems || []).slice(0, 16).map((x) => (
+                      <button key={x} className={`uiPill ${x === details.outfit ? 'uiPillActive' : ''}`} onClick={() => setOutfit(x)} disabled={savingOutfit}>
+                        {x}
+                      </button>
+                    ))}
+                    {details.wardrobeItems.length === 0 && <div className="uiHint">Wardrobe items empty.</div>}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <input
+                      className="uiInput"
+                      value={manualOutfit}
+                      onChange={(e) => setManualOutfit(e.target.value)}
+                      placeholder="手动设置 outfit"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') setOutfit(manualOutfit)
+                      }}
+                    />
+                    <button className="uiBtn uiBtnPrimary" onClick={() => setOutfit(manualOutfit)} disabled={savingOutfit}>
+                      {savingOutfit ? '保存中...' : '保存'}
+                    </button>
+                  </div>
+                  <div className="uiHint">Inventory: {details.inventory.length ? details.inventory.map((x) => `${x.name}${typeof x.count === 'number' ? `x${x.count}` : ''}`).join('、') : '(empty)'}</div>
+                  <div className="uiHint">NPC: {details.npcs.length ? details.npcs.join('、') : '(empty)'}</div>
+                  <div className="uiHint">Highlights: {details.highlights.length ? details.highlights.map((x) => x.item || '').join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">Event log: {details.eventLog.length ? details.eventLog.join(' | ') : '(empty)'}</div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showScrollDown && (
+          <button
+            className="uiBtn uiBtnPrimary"
+            style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 30 }}
+            onClick={() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })}
+          >
+            ↓
+          </button>
+        )}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
           <input
@@ -437,7 +781,7 @@ export default function ChatPage() {
             {sending ? '发送中...' : '发送'}
           </button>
         </div>
-      </main>
+      </AppShell>
 
       {showUserCard && (
         <div
@@ -478,8 +822,8 @@ export default function ChatPage() {
                   保存
                 </button>
                 <button className="uiBtn uiBtnGhost" onClick={() => setShowUserCard(false)}>
-                关闭
-              </button>
+                  关闭
+                </button>
               </div>
             </div>
             <div className="uiForm">

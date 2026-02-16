@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -88,8 +88,8 @@ function safeExtractJsonObject(text: string) {
   }
 }
 
-function shouldRewriteAssistantOutput(args: { text: string; inputEvent: InputEvent | null }) {
-  const { text, inputEvent } = args
+function shouldRewriteAssistantOutput(args: { text: string; inputEvent: InputEvent | null; userMessageForModel?: string }) {
+  const { text, inputEvent, userMessageForModel } = args
   const s = String(text || '').trim()
   if (!s) return true
 
@@ -101,8 +101,8 @@ function shouldRewriteAssistantOutput(args: { text: string; inputEvent: InputEve
     if (j && typeof j === 'object') return true
   }
 
-  // Forbidden: speaking as the user (common failure mode: "你：" or "用户：").
-  if (/(^|\n)\s*(用户|你|\{user\})：/.test(s)) return true
+  // Forbidden: speaking as the user (common failure mode: "用户：" / "{user}:" / "User:").
+  if (/(^|\n)\s*(用户|你|\{user\}|user|User|USER)\s*[:：]/.test(s)) return true
 
   // Mode-specific constraints.
   if (inputEvent === 'FUNC_DBL') {
@@ -113,6 +113,11 @@ function shouldRewriteAssistantOutput(args: { text: string; inputEvent: InputEve
     // Must be a single bracket snippet, not dialog.
     if (!/^（[\s\S]+）$/.test(s)) return true
     if (/(^|\n)\s*[^：\n]{1,12}：/.test(s)) return true
+  }
+
+  // If the user explicitly requested strict multi-cast, enforce the "角色名：" format.
+  if (typeof userMessageForModel === 'string' && isStrictMultiCast(userMessageForModel)) {
+    if (!/(^|\n)\s*[^：\n]{1,12}：/.test(s)) return true
   }
 
   return false
@@ -425,6 +430,30 @@ function stableKey(x: unknown) {
     (typeof title === 'string' && title) ||
     (typeof content === 'string' && content)
   return typeof t === 'string' ? t.trim() : ''
+}
+
+async function nextTurnSeqForConversation(args: {
+  sb: SupabaseClient<{ public: Record<string, never> }, 'public'>
+  conversationId: string
+  conversationState: unknown
+}) {
+  const { sb, conversationId, conversationState } = args
+  try {
+    type PatchJobRow = { turn_seq: number }
+    const r = await sb
+      .from('patch_jobs')
+      .select('turn_seq')
+      .eq('conversation_id', conversationId)
+      .order('turn_seq', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const row = r.data as unknown as PatchJobRow | null
+    if (!r.error && row && typeof row.turn_seq !== 'undefined') return Number(row.turn_seq ?? 0) + 1
+  } catch {
+    // ignore
+  }
+  const rs = asRecord(asRecord(conversationState)['run_state'])
+  return Number(rs['turn_seq'] ?? 0) + 1
 }
 
 function uniqPushByKey<T>(arr: T[], item: T, keyFn: (x: T) => string) {
@@ -1196,7 +1225,7 @@ export async function POST(req: Request) {
     if (!assistantMessage) return NextResponse.json({ error: 'MiniMax returned empty content', raw: mmJson }, { status: 502 })
 
     // Guardrail: rare cases where the model violates output constraints (JSON leak / wrong mode).
-    if (shouldRewriteAssistantOutput({ text: assistantMessage, inputEvent: inputEvent || null })) {
+    if (shouldRewriteAssistantOutput({ text: assistantMessage, inputEvent: inputEvent || null, userMessageForModel })) {
       try {
         const rewrite = (await callMiniMax(mmBase, mmKey, {
           model: 'M2-her',
@@ -1218,7 +1247,7 @@ export async function POST(req: Request) {
         })) as MiniMaxResponse
 
         const fixed = (rewrite?.choices?.[0]?.message?.content ?? rewrite?.reply ?? rewrite?.output_text ?? '').trim()
-        if (fixed && !shouldRewriteAssistantOutput({ text: fixed, inputEvent: inputEvent || null })) assistantMessage = fixed
+        if (fixed && !shouldRewriteAssistantOutput({ text: fixed, inputEvent: inputEvent || null, userMessageForModel })) assistantMessage = fixed
       } catch {
         // ignore: fall back to original output
       }
@@ -1244,8 +1273,7 @@ export async function POST(req: Request) {
     }
 
     // PatchScribe (async): enqueue a job every turn; run best-effort in background so chat latency isn't affected.
-    const rsForTurn = asRecord(asRecord(conversationState)['run_state'])
-    const turnSeqForTurn = Number(rsForTurn['turn_seq'] ?? 0)
+    const turnSeqForTurn = await nextTurnSeqForConversation({ sb, conversationId: convIdFinal, conversationState })
     const patchInput = {
       state_before: {
         conversation_state: conversationState,
@@ -1267,7 +1295,7 @@ export async function POST(req: Request) {
 
     // Enqueue patch job (best-effort). If the table doesn't exist, we'll still run PatchScribe in-memory.
     // patchOk/patchError represent enqueue status only (the actual patch is async).
-    let patchOk = true
+    let patchOk = false
     let patchError = ''
     let patchJobId = ''
     {
@@ -1286,7 +1314,10 @@ export async function POST(req: Request) {
           .select('id')
           .single()
 
-        if (!ins.error && ins.data?.id) patchJobId = String(ins.data.id)
+        if (!ins.error && ins.data?.id) {
+          patchJobId = String(ins.data.id)
+          patchOk = true
+        }
         else if (ins.error) {
           const msg = ins.error.message || ''
           // When the DB schema hasn't been updated yet, PostgREST returns errors like:
@@ -1296,12 +1327,17 @@ export async function POST(req: Request) {
             (msg.includes('patch_jobs') && msg.includes('schema cache')) ||
             (msg.includes('patch_jobs') && msg.toLowerCase().includes('could not find the table')) ||
             (msg.includes('relation') && msg.includes('patch_jobs'))
-          if (!looksLikeMissing) throw new Error(msg)
+          if (looksLikeMissing) {
+            patchOk = false
+            patchError = 'patch_jobs unavailable'
+          } else {
+            patchOk = false
+            patchError = msg || 'patch_jobs insert failed'
+          }
         }
       } catch {
-        // Queue is optional. Don't surface an error to the user for queue-only failures.
-        patchOk = true
-        patchError = ''
+        patchOk = false
+        patchError = patchError || 'patch_jobs insert failed'
       }
     }
 
@@ -1452,16 +1488,14 @@ export async function POST(req: Request) {
       })().catch(() => {})
     }
 
-    // Persist baseline conversation state every turn (turn_seq/time_local/etc). Async patch will build on top.
+    // IMPORTANT: do not persist `state` here. PatchScribe is the only writer, using optimistic locking.
+    // Touch `updated_at` only (best-effort), so the state row still reflects activity.
     try {
-      // Do NOT bump version here: the PatchScribe writer uses optimistic locking on version.
       await sb
         .from('conversation_states')
-        .update({ state: conversationState, updated_at: new Date().toISOString() })
+        .update({ updated_at: new Date().toISOString() } as unknown as never)
         .eq('conversation_id', convIdFinal)
-    } catch {
-      // ignore: chat must still succeed
-    }
+    } catch {}
 
     return NextResponse.json({
       conversationId: convIdFinal,

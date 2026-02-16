@@ -112,7 +112,7 @@ async function enqueuePatchJobBestEffort(args: {
   userId: string
   conversationId: string
   characterId: string
-  inputEvent: 'SCHEDULE_TICK' | 'DIARY_DAILY'
+  inputEvent: 'SCHEDULE_TICK' | 'DIARY_DAILY' | 'MOMENT_POST'
   userInput: string
   assistantText: string
   conversationState: unknown
@@ -224,6 +224,73 @@ async function genScheduleSnippet(args: {
   return `（${inner}）`
 }
 
+async function genMomentPost(args: {
+  mmBase: string
+  mmKey: string
+  characterName: string
+  characterSystemPrompt: string
+  conversationState: unknown
+  recentMessages: Array<{ role: string; content: string }>
+}) {
+  const { mmBase, mmKey, characterName, characterSystemPrompt, conversationState, recentMessages } = args
+  const cs = asRecord(conversationState)
+  const mem = asRecord(cs['memory'])
+  const ledger = asRecord(cs['ledger'])
+  const plot = asRecord(cs['plot_board'])
+
+  const memoryBRecent = asArray(mem['memory_b_recent'])
+  const highlights = asArray(mem['highlights'])
+  const wardrobe = asRecord(ledger['wardrobe'])
+  const npcDb = asArray(ledger['npc_database'])
+  const inventory = asArray(ledger['inventory'])
+  const openThreads = asArray(plot['open_threads'])
+
+  const ctx = [
+    `角色名：${characterName}`,
+    '',
+    '【角色设定】',
+    characterSystemPrompt || '',
+    '',
+    '【最近对话（原文）】',
+    recentMessages
+      .slice(-18)
+      .map((m) => `${m.role === 'assistant' ? characterName : '{user}'}: ${m.content}`)
+      .join('\n'),
+    '',
+    '【记忆摘要】',
+    JSON.stringify({ memory_b_recent: memoryBRecent, highlights }).slice(0, 1800),
+    '',
+    '【账本摘要】',
+    JSON.stringify({ wardrobe, npc_database: npcDb, inventory }).slice(0, 1200),
+    '',
+    '【剧情板摘要】',
+    JSON.stringify({ open_threads: openThreads }).slice(0, 800),
+  ].join('\n')
+
+  const sys = `你正在扮演一个沉浸式角色。请你写一条“朋友圈动态”（不是对话）。\n` +
+    `硬约束：\n` +
+    `- 只输出朋友圈正文，不要标题，不要解释，不要JSON，不要提到模型/提示词/数据库\n` +
+    `- 不能出现对话格式（不能有“角色名：”或引号台词）\n` +
+    `- 内容应该像角色发在社交平台：做了什么、看到了什么、结果/感受\n` +
+    `- 允许轻微暧昧或生活情绪，但避免露骨\n` +
+    `- 80~200字中文，可带1~3个话题标签（例如 #雨夜 #训练 #想你）\n`
+
+  const out = (await callMiniMax(mmBase, mmKey, {
+    model: 'M2-her',
+    messages: [
+      { role: 'system', name: 'System', content: sys },
+      { role: 'user', name: 'User', content: ctx },
+    ],
+    temperature: 0.9,
+    top_p: 0.9,
+    max_completion_tokens: 420,
+  })) as MiniMaxResponse
+
+  const text = clip(pickMiniMaxText(out), 700)
+  // Ensure it's a "post", not bracket narration.
+  return text.replace(/^[（(]|[)）]$/g, '').trim()
+}
+
 async function genDailyDiary(args: {
   mmBase: string
   mmKey: string
@@ -288,6 +355,7 @@ export async function POST(req: Request) {
 
     let scheduleOk = 0
     let diaryOk = 0
+    let momentOk = 0
     let considered = 0
 
     type ConvRow = { id: string; user_id: string; character_id: string }
@@ -318,7 +386,7 @@ export async function POST(req: Request) {
 
       const lastUserAt = lastUser.data?.created_at ? new Date(String(lastUser.data.created_at)) : null
       if (!lastUserAt) continue
-      if (lastUserAt > minutesAgo(now, idleMins)) continue
+      const isIdle = lastUserAt <= minutesAgo(now, idleMins)
 
       const lastTick = await sb
         .from('messages')
@@ -331,7 +399,7 @@ export async function POST(req: Request) {
         .maybeSingle()
 
       const lastTickAt = lastTick.data?.created_at ? new Date(String(lastTick.data.created_at)) : null
-      if (!lastTickAt || lastTickAt <= minutesAgo(now, idleMins)) {
+      if (isIdle && (!lastTickAt || lastTickAt <= minutesAgo(now, idleMins))) {
         const st = await sb.from('conversation_states').select('state').eq('conversation_id', convId).maybeSingle()
         const chst = await sb.from('character_states').select('state').eq('character_id', characterId).maybeSingle()
         const msg = await sb
@@ -376,6 +444,58 @@ export async function POST(req: Request) {
             characterState: chst.data?.state ?? {},
             recentMessages: recent,
           })
+        }
+
+        // Moments: best-effort, not too frequent.
+        try {
+          const now2 = new Date()
+          const momentCutoff = minutesAgo(now2, clamp(Number(process.env.MOMENT_POST_MINUTES ?? 60), 10, 24 * 60))
+          const momentRecent = await sb
+            .from('messages')
+            .select('id')
+            .eq('conversation_id', convId)
+            .eq('role', 'assistant')
+            .eq('input_event', 'MOMENT_POST')
+            .gte('created_at', momentCutoff.toISOString())
+            .limit(1)
+            .maybeSingle()
+
+          const prob = clamp(Number(process.env.MOMENT_POST_PROB ?? 1), 0, 1)
+          const shouldPost = !momentRecent.data?.id && Math.random() < prob
+          if (shouldPost) {
+            const postText = await genMomentPost({
+              mmBase,
+              mmKey,
+              characterName,
+              characterSystemPrompt: sysPrompt,
+              conversationState: st.data?.state ?? {},
+              recentMessages: recent,
+            })
+            const insM = await sb.from('messages').insert({
+              user_id: userId,
+              conversation_id: convId,
+              role: 'assistant',
+              content: postText,
+              input_event: 'MOMENT_POST',
+            })
+            if (!insM.error) {
+              momentOk++
+              await enqueuePatchJobBestEffort({
+                sb,
+                userId,
+                conversationId: convId,
+                characterId,
+                inputEvent: 'MOMENT_POST',
+                userInput: '',
+                assistantText: postText,
+                conversationState: st.data?.state ?? {},
+                characterState: chst.data?.state ?? {},
+                recentMessages: recent,
+              })
+            }
+          }
+        } catch {
+          // ignore
         }
       }
 
@@ -439,7 +559,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, considered, schedule_ok: scheduleOk, diary_ok: diaryOk })
+    return NextResponse.json({ ok: true, considered, schedule_ok: scheduleOk, diary_ok: diaryOk, moment_ok: momentOk })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }
