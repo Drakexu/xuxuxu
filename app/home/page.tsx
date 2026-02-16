@@ -222,6 +222,11 @@ export default function HomeFeedPage() {
   }, [unlocked])
 
   const visibleCharacters = useMemo(() => (viewMode === 'ACTIVE' ? activated : unlocked), [viewMode, activated, unlocked])
+  const selectedCharacter = useMemo(() => {
+    if (!activeCharId) return null
+    return visibleCharacters.find((c) => c.id === activeCharId) || null
+  }, [visibleCharacters, activeCharId])
+  const activatedIdSet = useMemo(() => new Set(activated.map((c) => c.id)), [activated])
   const feedStats = useMemo(() => {
     let moments = 0
     let diaries = 0
@@ -238,6 +243,42 @@ export default function HomeFeedPage() {
       total: items.length,
     }
   }, [items])
+
+  const moveActivated = async (idx: number, direction: 'UP' | 'DOWN') => {
+    if (idx < 0 || idx >= activated.length) return
+    if (direction === 'UP' && idx === 0) return
+    if (direction === 'DOWN' && idx >= activated.length - 1) return
+    const target = direction === 'UP' ? idx - 1 : idx + 1
+    const a = activated[idx]
+    const b = activated[target]
+    try {
+      const ao = activationOrder(a)
+      const bo = activationOrder(b)
+      await updateCharacterSettings(a.id, { activated_order: bo || Date.now() })
+      await updateCharacterSettings(b.id, { activated_order: ao || Date.now() + 1 })
+      setActivated((prev) => prev.slice().sort((x, y) => activationOrder(x) - activationOrder(y)))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  const hideCharacter = async (characterId: string) => {
+    try {
+      await updateCharacterSettings(characterId, { home_hidden: true })
+      setActivated((prev) => prev.filter((x) => x.id !== characterId))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  const deactivateCharacter = async (characterId: string) => {
+    try {
+      await updateCharacterSettings(characterId, { activated: false })
+      setActivated((prev) => prev.filter((x) => x.id !== characterId))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   const eventTitle = (ev: string | null) => {
     if (ev === 'MOMENT_POST') return '朋友圈'
@@ -308,262 +349,212 @@ export default function HomeFeedPage() {
         {loading && <div className="uiSkeleton">加载中...</div>}
 
         {!loading && (
-          <div className="uiPanel" style={{ marginTop: 0 }}>
-            <div className="uiForm" style={{ paddingTop: 14 }}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
-                  去广场解锁
-                </button>
-                <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
-                  管理角色
-                </button>
-                <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters/new')}>
-                  创建新角色
-                </button>
-                <button className={`uiPill ${viewMode === 'ACTIVE' ? 'uiPillActive' : ''}`} onClick={() => setViewMode('ACTIVE')}>
-                  仅看已激活
-                </button>
-                <button className={`uiPill ${viewMode === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setViewMode('UNLOCKED')}>
-                  查看全部已解锁
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!loading && visibleCharacters.length === 0 && (
-          <div className="uiEmpty">
-            <div className="uiEmptyTitle">{viewMode === 'ACTIVE' ? '还没有激活角色' : '还没有已解锁角色'}</div>
-            <div className="uiEmptyDesc">去广场解锁一个公开角色，它会出现在这里并开始产生动态。</div>
-          </div>
-        )}
-
-        {!loading && manage && activated.length > 0 && (
-          <div className="uiPanel" style={{ marginTop: 0 }}>
-            <div className="uiPanelHeader">
-              <div>
-                <div className="uiPanelTitle">激活队列</div>
-                <div className="uiPanelSub">排序影响首页展示顺序；隐藏/取消激活不会删除角色。</div>
-              </div>
-            </div>
-            <div className="uiForm" style={{ paddingTop: 14 }}>
-              {activated.map((c, idx) => (
-                <div key={c.id} className="uiRow">
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                    <div style={{ width: 22, textAlign: 'center', color: 'rgba(0,0,0,.55)', fontSize: 12 }}>{idx + 1}</div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
-                      <div className="uiHint" style={{ marginTop: 4 }}>
-                        {c.id.slice(0, 8)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <button
-                      className="uiBtn uiBtnGhost"
-                      disabled={idx === 0}
-                      onClick={async () => {
-                        if (idx === 0) return
-                        const a = activated[idx - 1]
-                        const b = activated[idx]
-                        try {
-                          const ao = activationOrder(a)
-                          const bo = activationOrder(b)
-                          await updateCharacterSettings(a.id, { activated_order: bo || Date.now() })
-                          await updateCharacterSettings(b.id, { activated_order: ao || Date.now() + 1 })
-                          setActivated((prev) => prev.slice().sort((x, y) => activationOrder(x) - activationOrder(y)))
-                        } catch (e: unknown) {
-                          setError(e instanceof Error ? e.message : String(e))
-                        }
-                      }}
-                    >
-                      上移
-                    </button>
-                    <button
-                      className="uiBtn uiBtnGhost"
-                      disabled={idx === activated.length - 1}
-                      onClick={async () => {
-                        if (idx >= activated.length - 1) return
-                        const a = activated[idx]
-                        const b = activated[idx + 1]
-                        try {
-                          const ao = activationOrder(a)
-                          const bo = activationOrder(b)
-                          await updateCharacterSettings(a.id, { activated_order: bo || Date.now() })
-                          await updateCharacterSettings(b.id, { activated_order: ao || Date.now() + 1 })
-                          setActivated((prev) => prev.slice().sort((x, y) => activationOrder(x) - activationOrder(y)))
-                        } catch (e: unknown) {
-                          setError(e instanceof Error ? e.message : String(e))
-                        }
-                      }}
-                    >
-                      下移
-                    </button>
-                    <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/chat/${c.id}`)}>
-                      聊天
-                    </button>
-                    <button
-                      className="uiBtn uiBtnGhost"
-                      onClick={async () => {
-                        try {
-                          await updateCharacterSettings(c.id, { home_hidden: true })
-                          setActivated((prev) => prev.filter((x) => x.id !== c.id))
-                        } catch (e: unknown) {
-                          setError(e instanceof Error ? e.message : String(e))
-                        }
-                      }}
-                      title="从首页隐藏（仍保留在我的角色里）"
-                    >
-                      隐藏
-                    </button>
-                    <button
-                      className="uiBtn uiBtnGhost"
-                      onClick={async () => {
-                        try {
-                          await updateCharacterSettings(c.id, { activated: false })
-                          setActivated((prev) => prev.filter((x) => x.id !== c.id))
-                        } catch (e: unknown) {
-                          setError(e instanceof Error ? e.message : String(e))
-                        }
-                      }}
-                      title="取消激活（移出可聊天队列）"
-                    >
-                      取消激活
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!loading && visibleCharacters.length > 0 && (
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
-              {visibleCharacters.slice(0, 12).map((c) => (
-                <div
-                  key={c.id}
-                  className="uiCard"
-                  style={{ minWidth: 220, cursor: 'pointer' }}
-                  onClick={() => router.push(`/chat/${c.id}`)}
-                >
-                  <div className="uiCardMedia" style={{ height: 132 }}>
-                    {imgById[c.id] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imgById[c.id]} alt="" />
-                    ) : (
-                      <div className="uiCardMediaFallback">暂无图片</div>
-                    )}
-                  </div>
-                  <div className="uiCardTitle">{c.name}</div>
-                  <div className="uiCardMeta">点击进入对话</div>
-                  {manage && (
-                    <div className="uiCardActions">
-                      <button className="uiBtn uiBtnSecondary" onClick={(e) => { e.stopPropagation(); router.push(`/chat/${c.id}`) }}>
-                        聊天
-                      </button>
-                      <button className="uiBtn uiBtnGhost" onClick={(e) => { e.stopPropagation(); router.push(`/home/${c.id}`) }}>
-                        动态中心
-                      </button>
-                      <button
-                        className="uiBtn uiBtnGhost"
-                        onClick={async (e) => {
-                          e.stopPropagation()
-                          try {
-                            await updateCharacterSettings(c.id, { home_hidden: true })
-                            setActivated((prev) => prev.filter((x) => x.id !== c.id))
-                          } catch (err: unknown) {
-                            setError(err instanceof Error ? err.message : String(err))
-                          }
-                        }}
-                      >
-                        隐藏
-                      </button>
-                    </div>
-                  )}
-                  {!manage && (
-                    <div className="uiCardActions">
-                      <button className="uiBtn uiBtnSecondary" onClick={(e) => { e.stopPropagation(); router.push(`/chat/${c.id}`) }}>
-                        聊天
-                      </button>
-                      <button className="uiBtn uiBtnGhost" onClick={(e) => { e.stopPropagation(); router.push(`/home/${c.id}`) }}>
-                        动态中心
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className={`uiPill ${!activeCharId ? 'uiPillActive' : ''}`} onClick={() => setActiveCharId('')}>
-                全部
-              </button>
-              {visibleCharacters.slice(0, 24).map((c) => (
-                <button key={c.id} className={`uiPill ${activeCharId === c.id ? 'uiPillActive' : ''}`} onClick={() => setActiveCharId(c.id)}>
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!loading && filtered.length === 0 && (
-          <div className="uiEmpty">
-            <div className="uiEmptyTitle">还没有动态</div>
-            <div className="uiEmptyDesc">去聊天，或等一会儿让角色自动发生活片段，写日记。</div>
-          </div>
-        )}
-
-        {!loading && filtered.length > 0 && (
-          <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input
-                className="uiInput"
-                style={{ maxWidth: 360 }}
-                placeholder="搜索动态内容..."
-                value={feedQuery}
-                onChange={(e) => setFeedQuery(e.target.value)}
-              />
-              <button className={`uiPill ${feedTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('ALL')}>
-                全部
-              </button>
-              <button className={`uiPill ${feedTab === 'MOMENT' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('MOMENT')}>
-                朋友圈
-              </button>
-              <button className={`uiPill ${feedTab === 'DIARY' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('DIARY')}>
-                日记
-              </button>
-              <button className={`uiPill ${feedTab === 'SCHEDULE' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('SCHEDULE')}>
-                日程
-              </button>
-            </div>
-            {filtered.map((it) => (
-              <div key={it.id} className="uiPanel">
+          <div className="uiHomeWorkspace">
+            <div className="uiHomeCol">
+              <div className="uiPanel" style={{ marginTop: 0 }}>
                 <div className="uiPanelHeader">
                   <div>
-                    <div className="uiPanelTitle">
-                      <span className="uiBadge" style={eventBadgeStyle(it.input_event)}>
-                        {eventTitle(it.input_event)}
-                      </span>
-                      {(() => {
-                        const cid = String(it.conversations?.character_id || '')
-                        const nm = cid && nameById[cid] ? nameById[cid] : ''
-                        return nm ? ` · ${nm}` : ''
-                      })()}
-                    </div>
-                    <div className="uiPanelSub">{new Date(it.created_at).toLocaleString()}</div>
+                    <div className="uiPanelTitle">角色队列</div>
+                    <div className="uiPanelSub">{viewMode === 'ACTIVE' ? '当前只显示已激活角色' : '当前显示全部已解锁角色'}</div>
                   </div>
-                  <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${String(it.conversations?.character_id || '')}`)}>
-                    去聊天
-                  </button>
                 </div>
-                <div className="uiForm">
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{it.content}</div>
+                <div className="uiForm" style={{ paddingTop: 14 }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
+                      去广场解锁
+                    </button>
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters/new')}>
+                      创建角色
+                    </button>
+                    <button className={`uiPill ${viewMode === 'ACTIVE' ? 'uiPillActive' : ''}`} onClick={() => setViewMode('ACTIVE')}>
+                      仅看已激活
+                    </button>
+                    <button className={`uiPill ${viewMode === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setViewMode('UNLOCKED')}>
+                      全部已解锁
+                    </button>
+                    <button className={`uiPill ${!activeCharId ? 'uiPillActive' : ''}`} onClick={() => setActiveCharId('')}>
+                      全部角色
+                    </button>
+                  </div>
+
+                  {visibleCharacters.length === 0 && (
+                    <div className="uiEmpty" style={{ marginTop: 8 }}>
+                      <div className="uiEmptyTitle">{viewMode === 'ACTIVE' ? '还没有激活角色' : '还没有已解锁角色'}</div>
+                      <div className="uiEmptyDesc">去广场解锁一个公开角色，它会出现在这里并开始产生动态。</div>
+                    </div>
+                  )}
+
+                  {visibleCharacters.length > 0 && (
+                    <div className="uiRoleRail">
+                      {visibleCharacters.slice(0, 40).map((c) => (
+                        <button key={c.id} className={`uiRoleRailItem ${activeCharId === c.id ? 'uiRoleRailItemActive' : ''}`} onClick={() => setActiveCharId(c.id)}>
+                          <div className="uiRoleRailMedia">
+                            {imgById[c.id] ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={imgById[c.id]} alt="" />
+                            ) : (
+                              <span>{c.name.slice(0, 1)}</span>
+                            )}
+                          </div>
+                          <div className="uiRoleRailBody">
+                            <div className="uiRoleRailName">{c.name}</div>
+                            <div className="uiRoleRailMeta">{activatedIdSet.has(c.id) ? '已激活' : '未激活'}</div>
+                          </div>
+                          <div className="uiRoleRailActions">
+                            <span className="uiBadge">动态</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="uiHomeCol">
+              <div className="uiPanel" style={{ marginTop: 0 }}>
+                <div className="uiPanelHeader">
+                  <div>
+                    <div className="uiPanelTitle">动态流</div>
+                    <div className="uiPanelSub">{selectedCharacter ? `${selectedCharacter.name} 的动态` : '全部角色动态'}</div>
+                  </div>
+                </div>
+                <div className="uiForm" style={{ paddingTop: 14 }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      className="uiInput"
+                      style={{ maxWidth: 320 }}
+                      placeholder="搜索动态内容..."
+                      value={feedQuery}
+                      onChange={(e) => setFeedQuery(e.target.value)}
+                    />
+                    <button className={`uiPill ${feedTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('ALL')}>
+                      全部
+                    </button>
+                    <button className={`uiPill ${feedTab === 'MOMENT' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('MOMENT')}>
+                      朋友圈
+                    </button>
+                    <button className={`uiPill ${feedTab === 'DIARY' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('DIARY')}>
+                      日记
+                    </button>
+                    <button className={`uiPill ${feedTab === 'SCHEDULE' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('SCHEDULE')}>
+                      日程
+                    </button>
+                  </div>
+
+                  {filtered.length === 0 && (
+                    <div className="uiEmpty" style={{ marginTop: 8 }}>
+                      <div className="uiEmptyTitle">还没有动态</div>
+                      <div className="uiEmptyDesc">去聊天，或等一会儿让角色自动发生活片段、写日记。</div>
+                    </div>
+                  )}
+
+                  {filtered.length > 0 && (
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      {filtered.map((it) => (
+                        <div key={it.id} className="uiPanel" style={{ marginTop: 0 }}>
+                          <div className="uiPanelHeader">
+                            <div>
+                              <div className="uiPanelTitle">
+                                <span className="uiBadge" style={eventBadgeStyle(it.input_event)}>
+                                  {eventTitle(it.input_event)}
+                                </span>
+                                {(() => {
+                                  const cid = String(it.conversations?.character_id || '')
+                                  const nm = cid && nameById[cid] ? nameById[cid] : ''
+                                  return nm ? ` · ${nm}` : ''
+                                })()}
+                              </div>
+                              <div className="uiPanelSub">{new Date(it.created_at).toLocaleString()}</div>
+                            </div>
+                            <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${String(it.conversations?.character_id || '')}`)}>
+                              去聊天
+                            </button>
+                          </div>
+                          <div className="uiForm">
+                            <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{it.content}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="uiHomeCol">
+              <div className="uiPanel" style={{ marginTop: 0 }}>
+                <div className="uiPanelHeader">
+                  <div>
+                    <div className="uiPanelTitle">快捷入口</div>
+                    <div className="uiPanelSub">聊天、动态中心与队列管理入口</div>
+                  </div>
+                </div>
+                <div className="uiForm" style={{ paddingTop: 14 }}>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/characters')}>
+                      管理角色
+                    </button>
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
+                      去广场
+                    </button>
+                    {selectedCharacter && (
+                      <>
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${selectedCharacter.id}`)}>
+                          与 {selectedCharacter.name} 聊天
+                        </button>
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${selectedCharacter.id}`)}>
+                          打开 {selectedCharacter.name} 动态中心
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="uiPanel" style={{ marginTop: 0 }}>
+                <div className="uiPanelHeader">
+                  <div>
+                    <div className="uiPanelTitle">激活队列</div>
+                    <div className="uiPanelSub">排序影响首页展示顺序；隐藏/取消激活不会删除角色。</div>
+                  </div>
+                  <button className="uiBtn uiBtnGhost" onClick={() => setManage((v) => !v)}>
+                    {manage ? '收起' : '展开管理'}
+                  </button>
+                </div>
+                <div className="uiForm" style={{ paddingTop: 14 }}>
+                  {activated.length === 0 && <div className="uiHint">暂无已激活角色。</div>}
+                  {activated.length > 0 && !manage && <div className="uiHint">已激活 {activated.length} 个角色，点击“展开管理”进行排序和下线。</div>}
+                  {manage &&
+                    activated.map((c, idx) => (
+                      <div key={c.id} className="uiRow">
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {idx + 1}. {c.name}
+                          </div>
+                          <div className="uiHint" style={{ marginTop: 4 }}>
+                            {c.id.slice(0, 8)}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <button className="uiBtn uiBtnGhost" disabled={idx === 0} onClick={() => void moveActivated(idx, 'UP')}>
+                            上移
+                          </button>
+                          <button className="uiBtn uiBtnGhost" disabled={idx === activated.length - 1} onClick={() => void moveActivated(idx, 'DOWN')}>
+                            下移
+                          </button>
+                          <button className="uiBtn uiBtnGhost" onClick={() => void hideCharacter(c.id)}>
+                            隐藏
+                          </button>
+                          <button className="uiBtn uiBtnGhost" onClick={() => void deactivateCharacter(c.id)}>
+                            取消激活
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </AppShell>

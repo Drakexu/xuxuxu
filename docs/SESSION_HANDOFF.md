@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v23 - character home runtime control panel)
+Last updated: 2026-02-16 (checkpoint: high-target execution v24 - home 3-column workspace revamp)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -289,6 +289,30 @@ Repo: `d:/projects/xuxuxu`
   - Added teen-mode guard on home runtime controls:
     - if character is teen-mode, romance remains hard-locked to off in UI interactions.
   - Character query on home page now reads `settings` for age-mode/teen-mode inference.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Home workspace revamp v24 checkpoint (latest)
+- Files changed:
+  - `app/home/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Rebuilt `/home` into a 3-column product workspace (Candy-style information architecture):
+    - left: role queue rail (view mode switch + role selection)
+    - center: feed stream (search + event tabs + card list)
+    - right: quick-entry actions + activation queue management panel
+  - Reworked role browsing interaction:
+    - role rail supports active highlight and role-scoped feed filtering
+    - role cards now show activation state (`已激活/未激活`)
+  - Refactored activation queue operations in home page code:
+    - extracted move/hide/deactivate helpers for consistent behavior
+    - queue management panel supports up/down reordering and offlining from one place
+  - Added responsive layout styles for the new workspace:
+    - desktop 3-column
+    - medium screens 2-column with right rail spanning full width
+    - mobile 1-column fallback
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

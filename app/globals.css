@@ -731,8 +731,108 @@ body {
   gap: 10px;
 }
 
+.uiHomeWorkspace {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.35fr) minmax(260px, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.uiHomeCol {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.uiRoleRail {
+  display: grid;
+  gap: 8px;
+  max-height: 68vh;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.uiRoleRailItem {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid rgba(12, 14, 20, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.76);
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 140ms ease;
+}
+
+.uiRoleRailItem:hover {
+  border-color: rgba(32, 84, 176, 0.35);
+  box-shadow: 0 14px 36px rgba(32, 84, 176, 0.14);
+}
+
+.uiRoleRailItemActive {
+  border-color: rgba(32, 84, 176, 0.44);
+  background: rgba(231, 241, 255, 0.94);
+}
+
+.uiRoleRailMedia {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(12, 14, 20, 0.1);
+  background: linear-gradient(135deg, rgba(32, 84, 176, 0.18) 0%, rgba(242, 125, 30, 0.2) 100%);
+  display: grid;
+  place-items: center;
+  color: rgba(12, 14, 20, 0.8);
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.uiRoleRailMedia img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.uiRoleRailBody {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.uiRoleRailName {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uiRoleRailMeta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.uiRoleRailActions {
+  flex: 0 0 auto;
+}
+
 .uiMobileDock {
   display: none;
+}
+
+@media (max-width: 1240px) {
+  .uiHomeWorkspace {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .uiHomeCol:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 960px) {
@@ -766,6 +866,18 @@ body {
 
   .uiSplit {
     grid-template-columns: 1fr;
+  }
+
+  .uiHomeWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .uiHomeCol:last-child {
+    grid-column: auto;
+  }
+
+  .uiRoleRail {
+    max-height: 40vh;
   }
 
   .uiKpiGrid {
