@@ -80,6 +80,77 @@ function clip(s: unknown, max: number) {
   return t.length > max ? t.slice(0, max) : t
 }
 
+function parseIsoDate(v: unknown) {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (!s) return null
+  const d = new Date(s)
+  return Number.isFinite(d.getTime()) ? d : null
+}
+
+function readScheduleControl(state: unknown, now: Date) {
+  const root = asRecord(state)
+  const run = asRecord(root['run_state'])
+  const board = asRecord(root['schedule_board'])
+
+  const manualControl = board['manual_control'] === true
+  const scheduleStateRaw = String(board['schedule_state'] || run['schedule_state'] || 'PLAY').trim().toUpperCase()
+  const scheduleState = scheduleStateRaw === 'PAUSE' ? 'PAUSE' : 'PLAY'
+  const lockMode = String(board['lock_mode'] || '').trim()
+  const storyLockUntil = String(board['story_lock_until'] || '').trim()
+  const lockUntil = parseIsoDate(storyLockUntil)
+  const lockActive = !!lockUntil && lockUntil.getTime() > now.getTime()
+  const lockExpired = !!lockUntil && lockUntil.getTime() <= now.getTime()
+  const blockedByPause = manualControl && scheduleState === 'PAUSE'
+
+  return {
+    manualControl,
+    scheduleState,
+    lockMode,
+    storyLockUntil,
+    lockActive,
+    lockExpired,
+    blocked: blockedByPause || lockActive,
+  }
+}
+
+async function clearExpiredStoryLockBestEffort(args: {
+  sb: ReturnType<typeof createAdminClient>
+  conversationId: string
+  state: unknown
+  version: number
+}) {
+  const { sb, conversationId, state, version } = args
+  const root = asRecord(state)
+  const run = { ...asRecord(root['run_state']) }
+  const board = { ...asRecord(root['schedule_board']) }
+  const ledger = { ...asRecord(root['ledger']) }
+
+  run.schedule_state = 'PLAY'
+  board.schedule_state = 'PLAY'
+  board.lock_mode = 'manual'
+  board.story_lock_until = ''
+  board.story_lock_reason = ''
+
+  const eventLog = Array.isArray(ledger['event_log']) ? [...(ledger['event_log'] as unknown[])] : []
+  eventLog.push('[SCHEDULE] auto resume after story lock expired')
+  ledger['event_log'] = eventLog.slice(-260)
+
+  root['run_state'] = run
+  root['schedule_board'] = board
+  root['ledger'] = ledger
+
+  const upd = await sb
+    .from('conversation_states')
+    .update({
+      state: root,
+      version: Number(version) + 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('conversation_id', conversationId)
+    .eq('version', version)
+  return !upd.error
+}
+
 async function nextTurnSeqForConversation(args: {
   sb: ReturnType<typeof createAdminClient>
   conversationId: string
@@ -375,6 +446,25 @@ export async function POST(req: Request) {
       const characterName = String(ch.data.name || '角色')
       const sysPrompt = String(ch.data.system_prompt || '')
 
+      const st = await sb.from('conversation_states').select('state,version').eq('conversation_id', convId).maybeSingle()
+      let stState: unknown = st.data?.state ?? {}
+      let stVersion = Number(st.data?.version ?? 0)
+      let scheduleControl = readScheduleControl(stState, now)
+      if (!st.error && st.data && scheduleControl.lockMode === 'story_lock' && scheduleControl.lockExpired) {
+        const cleared = await clearExpiredStoryLockBestEffort({
+          sb,
+          conversationId: convId,
+          state: stState,
+          version: stVersion,
+        })
+        if (cleared) {
+          const stReload = await sb.from('conversation_states').select('state,version').eq('conversation_id', convId).maybeSingle()
+          stState = stReload.data?.state ?? stState
+          stVersion = Number(stReload.data?.version ?? stVersion)
+          scheduleControl = readScheduleControl(stState, now)
+        }
+      }
+
       const lastUser = await sb
         .from('messages')
         .select('created_at')
@@ -399,8 +489,10 @@ export async function POST(req: Request) {
         .maybeSingle()
 
       const lastTickAt = lastTick.data?.created_at ? new Date(String(lastTick.data.created_at)) : null
-      if (isIdle && (!lastTickAt || lastTickAt <= minutesAgo(now, idleMins))) {
-        const st = await sb.from('conversation_states').select('state').eq('conversation_id', convId).maybeSingle()
+      const scheduleWindowOpen = isIdle && (!lastTickAt || lastTickAt <= minutesAgo(now, idleMins))
+      const canRunScheduledContent = scheduleWindowOpen && !scheduleControl.blocked
+
+      if (canRunScheduledContent) {
         const chst = await sb.from('character_states').select('state').eq('character_id', characterId).maybeSingle()
         const msg = await sb
           .from('messages')
@@ -419,7 +511,7 @@ export async function POST(req: Request) {
           mmKey,
           characterName,
           characterSystemPrompt: sysPrompt,
-          conversationState: st.data?.state ?? {},
+          conversationState: stState,
           recentMessages: recent,
         })
 
@@ -440,7 +532,7 @@ export async function POST(req: Request) {
             inputEvent: 'SCHEDULE_TICK',
             userInput: '',
             assistantText: snippet,
-            conversationState: st.data?.state ?? {},
+            conversationState: stState,
             characterState: chst.data?.state ?? {},
             recentMessages: recent,
           })
@@ -468,7 +560,7 @@ export async function POST(req: Request) {
               mmKey,
               characterName,
               characterSystemPrompt: sysPrompt,
-              conversationState: st.data?.state ?? {},
+              conversationState: stState,
               recentMessages: recent,
             })
             const insM = await sb.from('messages').insert({
@@ -488,7 +580,7 @@ export async function POST(req: Request) {
                 inputEvent: 'MOMENT_POST',
                 userInput: '',
                 assistantText: postText,
-                conversationState: st.data?.state ?? {},
+                conversationState: stState,
                 characterState: chst.data?.state ?? {},
                 recentMessages: recent,
               })
@@ -513,7 +605,7 @@ export async function POST(req: Request) {
         .limit(1)
         .maybeSingle()
 
-      if (!diaryExists.data?.id) {
+      if (!scheduleControl.blocked && !diaryExists.data?.id) {
         const dayMsgs = await sb
           .from('messages')
           .select('role,content,created_at')

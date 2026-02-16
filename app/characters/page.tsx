@@ -53,7 +53,6 @@ function pickAssetPath(rows: CharacterAssetRow[]) {
 export default function CharactersPage() {
   const router = useRouter()
 
-  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const [characters, setCharacters] = useState<CharacterRow[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
@@ -81,8 +80,6 @@ export default function CharactersPage() {
       router.replace('/login')
       return
     }
-    setEmail(userData.user?.email ?? '')
-
     const r1 = await supabase
       .from('characters')
       .select('id,name,system_prompt,visibility,created_at,settings')
@@ -230,13 +227,13 @@ export default function CharactersPage() {
   return (
     <div className="uiPage">
       <AppShell
-        title="My Characters"
-        badge="v1"
-        subtitle={email}
+        title="创建角色"
+        badge="studio"
+        subtitle="你创建和管理角色的工作台"
         actions={
           <>
             <button className="uiBtn uiBtnPrimary" onClick={() => router.push('/characters/new')}>
-              创建角色
+              新建角色
             </button>
             <button className="uiBtn uiBtnSecondary" onClick={() => setManageMode((v) => !v)}>
               {manageMode ? '完成' : '管理'}
@@ -247,6 +244,24 @@ export default function CharactersPage() {
           </>
         }
       >
+        <div className="uiPanel" style={{ marginTop: 0 }}>
+          <div className="uiForm" style={{ paddingTop: 14 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <span className="uiBadge">角色总数: {characters.length}</span>
+              <span className="uiBadge">已解锁: {characters.filter((c) => isUnlockedFromSquare(c)).length}</span>
+              <span className="uiBadge">已激活: {characters.filter((c) => isActivatedForHome(c)).length}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
+                去广场解锁角色
+              </button>
+              <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
+                去首页看动态
+              </button>
+            </div>
+          </div>
+        </div>
+
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
 
         {loading && <div className="uiSkeleton">加载中...</div>}

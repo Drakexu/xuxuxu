@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AppShell from '@/app/_components/AppShell'
+import { inferPresentationCue, pickBestBackgroundPath } from '@/lib/presentation/cues'
 
 type InputEvent =
   | 'TALK_HOLD'
@@ -17,6 +18,26 @@ type InputEvent =
 type Msg = { id?: string; created_at?: string; role: 'user' | 'assistant'; content: string; input_event?: string | null }
 type DbMessageRow = { id: string; role: string; content: string; created_at: string; input_event?: string | null }
 type CharacterAssetRow = { kind: string; storage_path: string; created_at?: string }
+type RelationshipStage = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7'
+type RomanceMode = 'ROMANCE_ON' | 'ROMANCE_OFF'
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+}
+
+function normalizeStage(v: unknown): RelationshipStage {
+  const s = String(v || '').trim().toUpperCase()
+  return (['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].includes(s) ? s : 'S1') as RelationshipStage
+}
+
+function normalizeRomance(v: unknown): RomanceMode {
+  const s = String(v || '').trim().toUpperCase()
+  return (s === 'ROMANCE_OFF' ? 'ROMANCE_OFF' : 'ROMANCE_ON') as RomanceMode
+}
+
+function normalizeSchedule(v: unknown): 'PLAY' | 'PAUSE' {
+  return String(v || '').trim().toUpperCase() === 'PAUSE' ? 'PAUSE' : 'PLAY'
+}
 
 export default function ChatPage() {
   const router = useRouter()
@@ -35,7 +56,10 @@ export default function ChatPage() {
 
   const [assistantAvatarUrl, setAssistantAvatarUrl] = useState('')
   const [chatBgUrl, setChatBgUrl] = useState('')
+  const [chatBgPath, setChatBgPathState] = useState('')
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
+  const [bgAutoEnabled, setBgAutoEnabled] = useState(true)
+  const [bgCue, setBgCue] = useState('')
   const [userCard, setUserCard] = useState('')
   const [showUserCard, setShowUserCard] = useState(false)
   const [userCardDraft, setUserCardDraft] = useState('')
@@ -50,6 +74,13 @@ export default function ChatPage() {
   const [showTimestamps, setShowTimestamps] = useState(false)
   const [showScrollDown, setShowScrollDown] = useState(false)
   const [outfitHint, setOutfitHint] = useState('')
+  const [scheduleState, setScheduleState] = useState<'PLAY' | 'PAUSE'>('PLAY')
+  const [lockMode, setLockMode] = useState('manual')
+  const [storyLockUntil, setStoryLockUntil] = useState('')
+  const [relationshipStage, setRelationshipStage] = useState<RelationshipStage>('S1')
+  const [romanceMode, setRomanceMode] = useState<RomanceMode>('ROMANCE_ON')
+  const [updatingSchedule, setUpdatingSchedule] = useState(false)
+  const [updatingRelationship, setUpdatingRelationship] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [savingOutfit, setSavingOutfit] = useState(false)
   const [manualOutfit, setManualOutfit] = useState('')
@@ -72,6 +103,64 @@ export default function ChatPage() {
     const t = (title || 'AI').trim()
     return (t ? t.slice(0, 1) : 'A').toUpperCase()
   }, [title])
+
+  const ledgerHealth = useMemo(() => {
+    if (!details) {
+      return [
+        { key: 'wardrobe', label: '服装', ok: false },
+        { key: 'inventory', label: '物品', ok: false },
+        { key: 'npc', label: 'NPC', ok: false },
+        { key: 'highlights', label: '高光事件', ok: false },
+        { key: 'events', label: '事件日志', ok: false },
+      ]
+    }
+    return [
+      { key: 'wardrobe', label: '服装', ok: !!details.outfit },
+      { key: 'inventory', label: '物品', ok: details.inventory.length > 0 },
+      { key: 'npc', label: 'NPC', ok: details.npcs.length > 0 },
+      { key: 'highlights', label: '高光事件', ok: details.highlights.length > 0 },
+      { key: 'events', label: '事件日志', ok: details.eventLog.length > 0 },
+    ]
+  }, [details])
+
+  const ledgerSummary = useMemo(() => {
+    const ok = ledgerHealth.filter((x) => x.ok).length
+    return { ok, total: ledgerHealth.length }
+  }, [ledgerHealth])
+
+  const messageStats = useMemo(() => {
+    let user = 0
+    let assistant = 0
+    for (const m of messages) {
+      if (m.role === 'user') user += 1
+      else assistant += 1
+    }
+    return { total: messages.length, user, assistant }
+  }, [messages])
+
+  const storyLockLabel = useMemo(() => {
+    if (!storyLockUntil) return ''
+    const t = Date.parse(storyLockUntil)
+    if (!Number.isFinite(t)) return ''
+    const mins = Math.ceil((t - Date.now()) / 60000)
+    if (mins <= 0) return '已到期'
+    if (mins < 60) return `${mins} 分钟后解锁`
+    const h = Math.floor(mins / 60)
+    const m = mins % 60
+    return `${h}小时${m ? `${m}分钟` : ''}后解锁`
+  }, [storyLockUntil])
+
+  const applyControlState = (state: unknown) => {
+    const root = asRecord(state)
+    const run = asRecord(root.run_state)
+    const board = asRecord(root.schedule_board)
+
+    setScheduleState(normalizeSchedule(board.schedule_state || run.schedule_state))
+    setLockMode(String(board.lock_mode || 'manual'))
+    setStoryLockUntil(typeof board.story_lock_until === 'string' ? board.story_lock_until : '')
+    setRelationshipStage(normalizeStage(run.relationship_stage))
+    setRomanceMode(normalizeRomance(run.romance_mode))
+  }
 
   const loadRecentMessages = async (convId: string, userId: string) => {
     setLoadingHistory(true)
@@ -105,6 +194,7 @@ export default function ChatPage() {
 
       requestAnimationFrame(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' })
+        setShowScrollDown(false)
       })
     } catch {
       setHasMore(false)
@@ -258,10 +348,13 @@ export default function ChatPage() {
 
           // Allow user override for chat background (store storage_path, sign per session).
           let bgPath = ''
+          let hasBgOverride = false
           try {
             bgPath = localStorage.getItem(bgKey) || ''
+            hasBgOverride = !!bgPath
           } catch {
             bgPath = ''
+            hasBgOverride = false
           }
           const bgPick = (bgPath && rows.find((r) => r.storage_path === bgPath)) || bg
 
@@ -271,7 +364,11 @@ export default function ChatPage() {
           }
           if (bgPick?.storage_path) {
             const signed2 = await supabase.storage.from('character-assets').createSignedUrl(bgPick.storage_path, 60 * 60)
-            if (!signed2.error && signed2.data?.signedUrl) setChatBgUrl(signed2.data.signedUrl)
+            if (!signed2.error && signed2.data?.signedUrl) {
+              setChatBgUrl(signed2.data.signedUrl)
+              setChatBgPathState(bgPick.storage_path)
+              setBgAutoEnabled(!hasBgOverride)
+            }
           }
 
           // Sign a small list for UI selection (best-effort).
@@ -306,12 +403,21 @@ export default function ChatPage() {
   const loadOutfitHint = async (convId: string, userId: string) => {
     try {
       const r = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).eq('user_id', userId).maybeSingle()
-      if (r.error || !r.data?.state || typeof r.data.state !== 'object') return
-      const st = r.data.state as Record<string, unknown>
-      const ledger = (st.ledger && typeof st.ledger === 'object' ? (st.ledger as Record<string, unknown>) : {}) as Record<string, unknown>
-      const wardrobe = (ledger.wardrobe && typeof ledger.wardrobe === 'object' ? (ledger.wardrobe as Record<string, unknown>) : {}) as Record<string, unknown>
+      if (r.error || !r.data?.state || typeof r.data.state !== 'object') {
+        setOutfitHint('')
+        setScheduleState('PLAY')
+        setLockMode('manual')
+        setStoryLockUntil('')
+        setRelationshipStage('S1')
+        setRomanceMode('ROMANCE_ON')
+        return
+      }
+      const st = asRecord(r.data.state)
+      applyControlState(st)
+      const ledger = asRecord(st.ledger)
+      const wardrobe = asRecord(ledger.wardrobe)
       const outfit = typeof wardrobe.current_outfit === 'string' ? wardrobe.current_outfit.trim() : ''
-      setOutfitHint(outfit ? `Outfit: ${outfit}` : '')
+      setOutfitHint(outfit ? `当前穿搭：${outfit}` : '')
     } catch {
       // ignore (table may not exist)
     }
@@ -321,9 +427,10 @@ export default function ChatPage() {
     try {
       const r = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).eq('user_id', userId).maybeSingle()
       if (r.error || !r.data?.state || typeof r.data.state !== 'object') return
-      const st = r.data.state as Record<string, unknown>
-      const ledger = (st.ledger && typeof st.ledger === 'object' ? (st.ledger as Record<string, unknown>) : {}) as Record<string, unknown>
-      const wardrobe = (ledger.wardrobe && typeof ledger.wardrobe === 'object' ? (ledger.wardrobe as Record<string, unknown>) : {}) as Record<string, unknown>
+      const st = asRecord(r.data.state)
+      applyControlState(st)
+      const ledger = asRecord(st.ledger)
+      const wardrobe = asRecord(ledger.wardrobe)
       const outfit = typeof wardrobe.current_outfit === 'string' ? wardrobe.current_outfit.trim() : ''
 
       const itemsRaw = Array.isArray(wardrobe.items) ? (wardrobe.items as unknown[]) : []
@@ -372,7 +479,7 @@ export default function ChatPage() {
         })
         .filter(Boolean)
 
-      const mem = (st.memory && typeof st.memory === 'object' ? (st.memory as Record<string, unknown>) : {}) as Record<string, unknown>
+      const mem = asRecord(st.memory)
       const hlRaw = Array.isArray(mem.highlights) ? (mem.highlights as unknown[]) : []
       const highlights = hlRaw
         .slice(-20)
@@ -441,6 +548,7 @@ export default function ChatPage() {
       if (showDetails) await loadDetails(conversationId, userId)
     }
     loadHint()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, showDetails])
 
   useEffect(() => {
@@ -453,14 +561,101 @@ export default function ChatPage() {
     }
   }, [characterId, userCard])
 
-  const setChatBgPath = async (path: string) => {
+  const setChatBgPath = async (path: string, opts?: { manual?: boolean; cueLabel?: string }) => {
+    const nextPath = String(path || '').trim()
+    if (!nextPath) return
+    if (nextPath === chatBgPath) return
+
+    if (opts?.manual) setBgAutoEnabled(false)
+    else if (opts?.cueLabel) {
+      setBgAutoEnabled(true)
+      setBgCue(opts.cueLabel)
+    }
+
     try {
-      localStorage.setItem(bgKey, path)
-    } catch {}
+      localStorage.setItem(bgKey, nextPath)
+    } catch {
+      // ignore
+    }
+
     try {
-      const signed = await supabase.storage.from('character-assets').createSignedUrl(path, 60 * 60)
-      if (!signed.error && signed.data?.signedUrl) setChatBgUrl(signed.data.signedUrl)
-    } catch {}
+      const signed = await supabase.storage.from('character-assets').createSignedUrl(nextPath, 60 * 60)
+      if (!signed.error && signed.data?.signedUrl) {
+        setChatBgPathState(nextPath)
+        setChatBgUrl(signed.data.signedUrl)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const updateScheduleControl = async (action: 'PLAY' | 'PAUSE' | 'LOCK' | 'UNLOCK', lockMinutes?: number) => {
+    if (!conversationId || updatingSchedule) return
+
+    setUpdatingSchedule(true)
+    setError('')
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (!token) throw new Error('登录态失效，请重新登录。')
+
+      const payload: Record<string, unknown> = { conversationId, action }
+      if (action === 'LOCK') {
+        payload.lockMinutes = Number(lockMinutes ?? 120)
+        payload.reason = 'story_lock'
+      }
+
+      const resp = await fetch('/api/state/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+
+      setScheduleState(normalizeSchedule(data.scheduleState))
+      setLockMode(String(data.lockMode || 'manual'))
+      setStoryLockUntil(String(data.storyLockUntil || ''))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setUpdatingSchedule(false)
+    }
+  }
+
+  const updateRelationshipControl = async (args: { stage?: RelationshipStage; romance?: RomanceMode }) => {
+    if (!conversationId || updatingRelationship) return
+    if (!args.stage && !args.romance) return
+
+    setUpdatingRelationship(true)
+    setError('')
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (!token) throw new Error('登录态失效，请重新登录。')
+
+      const payload: Record<string, unknown> = {
+        conversationId,
+        persistToCharacter: true,
+      }
+      if (args.stage) payload.relationshipStage = args.stage
+      if (args.romance) payload.romanceMode = args.romance
+
+      const resp = await fetch('/api/state/relationship', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+
+      if (data.relationshipStage) setRelationshipStage(normalizeStage(data.relationshipStage))
+      if (data.romanceMode) setRomanceMode(normalizeRomance(data.romanceMode))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setUpdatingRelationship(false)
+    }
   }
 
   useEffect(() => {
@@ -485,12 +680,21 @@ export default function ChatPage() {
         router.replace('/login')
         return
       }
-      const title2 = (title || 'Chat').slice(0, 80)
+      const title2 = (title || '对话').slice(0, 80)
       const ins = await supabase.from('conversations').insert({ user_id: userId, character_id: characterId, title: title2 }).select('id,created_at').single()
-      if (ins.error || !ins.data?.id) throw new Error(ins.error?.message || 'Create conversation failed')
+      if (ins.error || !ins.data?.id) throw new Error(ins.error?.message || '创建会话失败')
       const id2 = String(ins.data.id)
       setConversationId(id2)
       setMessages([])
+      setDetails(null)
+      setOutfitHint('')
+      setPatchOk(null)
+      setPatchError('')
+      setScheduleState('PLAY')
+      setLockMode('manual')
+      setStoryLockUntil('')
+      setRelationshipStage('S1')
+      setRomanceMode('ROMANCE_ON')
       setConversationList((prev) => [{ id: id2, created_at: ins.data.created_at }, ...prev].slice(0, 12))
       try {
         localStorage.setItem(convKey, id2)
@@ -544,9 +748,24 @@ export default function ChatPage() {
         // ignore
       }
     }
-    if (data.assistantMessage) setMessages((prev) => [...prev, { role: 'assistant', content: data.assistantMessage }])
+    if (data.assistantMessage) {
+      const assistantText = String(data.assistantMessage)
+      setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }])
+      if (bgAutoEnabled && assetUrls.length > 0) {
+        const cue = inferPresentationCue(assistantText)
+        const picked = pickBestBackgroundPath(assetUrls.map((x) => ({ path: x.path })), cue)
+        if (picked.path && picked.score > 0) {
+          const cueLabel = `${cue.emotion}${cue.sceneTags.length ? `/${cue.sceneTags.join('-')}` : ''}`
+          await setChatBgPath(picked.path, { cueLabel })
+        }
+      }
+    }
     if (typeof data.patchOk === 'boolean') setPatchOk(data.patchOk)
     if (typeof data.patchError === 'string') setPatchError(data.patchError)
+    requestAnimationFrame(() => {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+      setShowScrollDown(false)
+    })
     setSending(false)
   }
 
@@ -560,14 +779,14 @@ export default function ChatPage() {
 
   const pushStory = async () => {
     if (sending) return
-    setMessages((prev) => [...prev, { role: 'user', content: '（推进剧情）' }])
-    await post('（推进剧情）', 'TALK_DBL')
+    setMessages((prev) => [...prev, { role: 'user', content: '(推进剧情)' }])
+    await post('(推进剧情)', 'TALK_DBL')
   }
 
   if (loading) {
     return (
       <div className="uiPage">
-        <AppShell title="Chat" badge="m2-her">
+        <AppShell title="对话" badge="m2-her">
           <div className="uiSkeleton">加载中...</div>
         </AppShell>
       </div>
@@ -577,7 +796,7 @@ export default function ChatPage() {
   return (
     <div className="uiPage">
       <AppShell
-        title={title || 'Chat'}
+        title={title || '对话'}
         badge="m2-her"
         subtitle={outfitHint || '对话会自动保存。旁白请用括号输入。'}
         actions={
@@ -614,7 +833,7 @@ export default function ChatPage() {
               </select>
             )}
             <button className="uiBtn uiBtnSecondary" onClick={createNewConversation} disabled={sending}>
-              New
+              新会话
             </button>
             <button
               className="uiBtn uiBtnGhost"
@@ -633,19 +852,126 @@ export default function ChatPage() {
                   })()
                 }}
               >
-                Details
+                {showDetails ? '收起账本' : '账本详情'}
             </button>
             <button className="uiBtn uiBtnGhost" onClick={() => setShowTimestamps((v) => !v)}>
-              {showTimestamps ? 'Hide time' : 'Show time'}
+              {showTimestamps ? '隐藏时间' : '显示时间'}
             </button>
             <button className="uiBtn uiBtnGhost" onClick={() => setShowUserCard(true)}>
               身份卡
             </button>
+            <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${characterId}`)}>
+              动态中心
+            </button>
           </>
         }
       >
+        <section className="uiHero">
+          <div>
+            <span className="uiBadge">实时对话</span>
+            <h2 className="uiHeroTitle">角色对话与账本联动工作区</h2>
+            <p className="uiHeroSub">支持会话切换、上滑加载历史、身份卡注入、换装写回和聊天背景切换。聊天内容会持续驱动角色记忆与动态。</p>
+          </div>
+          <div className="uiKpiGrid">
+            <div className="uiKpi">
+              <b>{conversationList.length}</b>
+              <span>可选会话</span>
+            </div>
+            <div className="uiKpi">
+              <b>{messageStats.total}</b>
+              <span>当前消息数</span>
+            </div>
+            <div className="uiKpi">
+              <b>{messageStats.user}</b>
+              <span>你发送</span>
+            </div>
+            <div className="uiKpi">
+              <b>{messageStats.assistant}</b>
+              <span>角色回复</span>
+            </div>
+            <div className="uiKpi">
+              <b>
+                {ledgerSummary.ok}/{ledgerSummary.total}
+              </b>
+              <span>账本完整度</span>
+            </div>
+            <div className="uiKpi">
+              <b>{assetUrls.length}</b>
+              <span>背景候选</span>
+            </div>
+          </div>
+        </section>
+
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
-        {patchOk === false && patchError && <div className="uiAlert uiAlertErr">PatchScribe: {patchError}</div>}
+        {patchOk === false && patchError && <div className="uiAlert uiAlertErr">状态补丁错误：{patchError}</div>}
+
+        <div className="uiPanel" style={{ marginTop: 10 }}>
+          <div className="uiPanelHeader">
+            <div>
+              <div className="uiPanelTitle">执行控制台</div>
+              <div className="uiPanelSub">控制日程执行状态、关系阶段和背景自动切换。</div>
+            </div>
+          </div>
+          <div className="uiForm" style={{ paddingTop: 14 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span className="uiBadge">日程：{scheduleState === 'PAUSE' ? '暂停' : '运行中'}</span>
+              <span className="uiBadge">锁模式：{lockMode || 'manual'}</span>
+              <span className="uiBadge">关系阶段：{relationshipStage}</span>
+              <span className="uiBadge">恋爱：{romanceMode === 'ROMANCE_OFF' ? '关闭' : '开启'}</span>
+              <span className="uiBadge">背景：{bgAutoEnabled ? `自动${bgCue ? ` (${bgCue})` : ''}` : '手动'}</span>
+              {!!storyLockUntil && <span className="uiBadge">剧情锁：{storyLockLabel || storyLockUntil}</span>}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingSchedule} onClick={() => updateScheduleControl('PLAY')}>
+                恢复日程
+              </button>
+              <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingSchedule} onClick={() => updateScheduleControl('PAUSE')}>
+                暂停日程
+              </button>
+              <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingSchedule} onClick={() => updateScheduleControl('LOCK', 120)}>
+                锁剧情 2h
+              </button>
+              <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingSchedule} onClick={() => updateScheduleControl('UNLOCK')}>
+                解锁剧情
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                className="uiInput"
+                style={{ width: 140 }}
+                value={relationshipStage}
+                disabled={!conversationId || updatingRelationship}
+                onChange={(e) => {
+                  const next = normalizeStage(e.target.value)
+                  setRelationshipStage(next)
+                  void updateRelationshipControl({ stage: next })
+                }}
+              >
+                {['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].map((s) => (
+                  <option key={s} value={s}>
+                    阶段 {s}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="uiBtn uiBtnGhost"
+                disabled={!conversationId || updatingRelationship}
+                onClick={() => {
+                  const next = romanceMode === 'ROMANCE_OFF' ? 'ROMANCE_ON' : 'ROMANCE_OFF'
+                  setRomanceMode(next)
+                  void updateRelationshipControl({ romance: next })
+                }}
+              >
+                {romanceMode === 'ROMANCE_OFF' ? '开启恋爱模式' : '关闭恋爱模式'}
+              </button>
+              <button className="uiBtn uiBtnGhost" onClick={() => setBgAutoEnabled(true)}>
+                开启背景自动
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div
           ref={listRef}
@@ -691,13 +1017,13 @@ export default function ChatPage() {
             />
           )}
           {loadingHistory && <div className="uiHint">正在加载聊天记录...</div>}
-          {!loadingHistory && hasMore && <div className="uiHint">上滑加载更早的聊天记录</div>}
-          {loadingOlder && <div className="uiHint">加载更早...</div>}
+          {!loadingHistory && hasMore && <div className="uiHint">上滑加载更早消息</div>}
+          {loadingOlder && <div className="uiHint">加载更早消息...</div>}
 
           {messages.length === 0 && (
             <div className="uiEmpty" style={{ marginTop: 0 }}>
               <div className="uiEmptyTitle">开始对话</div>
-              <div className="uiEmptyDesc">先打个招呼，或用括号旁白来导演剧情。</div>
+              <div className="uiEmptyDesc">先打个招呼，或用括号旁白推进剧情。</div>
             </div>
           )}
 
@@ -734,8 +1060,8 @@ export default function ChatPage() {
           <div className="uiPanel" style={{ marginTop: 12 }}>
             <div className="uiPanelHeader">
               <div>
-                <div className="uiPanelTitle">Ledger / Memory</div>
-                <div className="uiPanelSub">npc、物品、服装、高光事件（来自状态账本）</div>
+                <div className="uiPanelTitle">账本 / 记忆</div>
+                <div className="uiPanelSub">NPC、物品、服装、高光事件（来自状态账本）</div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${characterId}/assets`)}>
@@ -753,25 +1079,32 @@ export default function ChatPage() {
                     })()
                   }}
                 >
-                  Refresh
+                  刷新
                 </button>
               </div>
             </div>
             <div className="uiForm">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {ledgerHealth.map((h) => (
+                  <span key={h.key} className="uiBadge" style={{ background: h.ok ? 'rgba(31,141,82,.12)' : 'rgba(179,42,42,.12)', borderColor: h.ok ? 'rgba(31,141,82,.4)' : 'rgba(179,42,42,.35)' }}>
+                    {h.label}: {h.ok ? '完整' : '缺失'}
+                  </span>
+                ))}
+              </div>
               {assetUrls.length > 0 && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div className="uiHint">Chat background:</div>
+                  <div className="uiHint">聊天背景：</div>
                   {assetUrls.map((a) => (
-                    <button key={a.path} className="uiBtn uiBtnGhost" onClick={() => setChatBgPath(a.path)}>
+                    <button key={a.path} className="uiBtn uiBtnGhost" onClick={() => setChatBgPath(a.path, { manual: true })}>
                       {a.kind}
                     </button>
                   ))}
                 </div>
               )}
-              {!details && <div className="uiHint">暂无数据（可能还没跑 PatchScribe，或未创建 conversation_states 表）。</div>}
+              {!details && <div className="uiHint">暂无数据（可能状态补丁尚未写入，或未创建 conversation_states 表）。</div>}
               {details && (
                 <>
-                  <div className="uiHint">Outfit: {details.outfit || '(none)'}</div>
+                  <div className="uiHint">当前穿搭：{details.outfit || '(none)'}</div>
 
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                     {(details.wardrobeItems || []).slice(0, 16).map((x) => (
@@ -779,7 +1112,7 @@ export default function ChatPage() {
                         {x}
                       </button>
                     ))}
-                    {details.wardrobeItems.length === 0 && <div className="uiHint">Wardrobe items empty.</div>}
+                    {details.wardrobeItems.length === 0 && <div className="uiHint">衣柜条目为空。</div>}
                   </div>
 
                   <div style={{ display: 'flex', gap: 10 }}>
@@ -796,10 +1129,10 @@ export default function ChatPage() {
                       {savingOutfit ? '保存中...' : '保存'}
                     </button>
                   </div>
-                  <div className="uiHint">Inventory: {details.inventory.length ? details.inventory.map((x) => `${x.name}${typeof x.count === 'number' ? `x${x.count}` : ''}`).join('、') : '(empty)'}</div>
-                  <div className="uiHint">NPC: {details.npcs.length ? details.npcs.join('、') : '(empty)'}</div>
-                  <div className="uiHint">Highlights: {details.highlights.length ? details.highlights.map((x) => x.item || '').join(' | ') : '(empty)'}</div>
-                  <div className="uiHint">Event log: {details.eventLog.length ? details.eventLog.join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">物品：{details.inventory.length ? details.inventory.map((x) => `${x.name}${typeof x.count === 'number' ? `x${x.count}` : ''}`).join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">NPC：{details.npcs.length ? details.npcs.join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">高光事件：{details.highlights.length ? details.highlights.map((x) => x.item || '').join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">事件日志：{details.eventLog.length ? details.eventLog.join(' | ') : '(empty)'}</div>
                 </>
               )}
             </div>
@@ -810,9 +1143,12 @@ export default function ChatPage() {
           <button
             className="uiBtn uiBtnPrimary"
             style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 30 }}
-            onClick={() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })}
+            onClick={() => {
+              listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+              setShowScrollDown(false)
+            }}
           >
-            ↓
+            回到底部
           </button>
         )}
 
@@ -898,3 +1234,4 @@ export default function ChatPage() {
     </div>
   )
 }
+

@@ -10,6 +10,25 @@ This project uses scheduled API routes to run background work (patching, memory 
 - `/api/cron/memory` every 10 minutes
 - `/api/cron/schedule` hourly
 
+## Schedule Control Integration
+
+`/api/cron/schedule` now reads per-conversation control state from `conversation_states`:
+
+- `schedule_board.manual_control`
+- `schedule_board.schedule_state` (`PLAY` / `PAUSE`)
+- `schedule_board.lock_mode`
+- `schedule_board.story_lock_until`
+
+Behavior:
+
+- If manual control is `PAUSE`, scheduled auto posts are skipped.
+- If `lock_mode = story_lock` and lock is still active, scheduled auto posts are skipped.
+- If story lock is expired, cron best-effort auto-clears lock and restores `PLAY`.
+
+Control writes are handled by:
+
+- `POST /api/state/schedule` (`PLAY`, `PAUSE`, `LOCK`, `UNLOCK`)
+
 All cron routes require `CRON_SECRET` and accept it via:
 
 - Query parameter: `?secret=...`

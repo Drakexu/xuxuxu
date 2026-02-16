@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
-type NavItem = { href: string; label: string }
+type NavItem = { href: string; label: string; desc?: string }
 
 export default function AppShell(props: {
   title: string
@@ -17,12 +17,19 @@ export default function AppShell(props: {
   const pathname = usePathname() || ''
   const [email, setEmail] = useState('')
 
-  const nav: NavItem[] = useMemo(
+  const primaryNav: NavItem[] = useMemo(
     () => [
-      { href: '/home', label: 'Home' },
-      { href: '/square', label: 'Discover' },
-      { href: '/characters', label: 'My Characters' },
-      { href: '/characters/new', label: 'Create' },
+      { href: '/home', label: '首页', desc: '已激活角色与动态' },
+      { href: '/square', label: '广场', desc: '公开角色发现与解锁' },
+      { href: '/characters', label: '创建角色', desc: '你的角色工作台' },
+    ],
+    [],
+  )
+
+  const secondaryNav: NavItem[] = useMemo(
+    () => [
+      { href: '/characters/new', label: '新建角色' },
+      { href: '/characters', label: '管理角色' },
     ],
     [],
   )
@@ -44,15 +51,28 @@ export default function AppShell(props: {
       <aside className="uiSidebar" aria-label="Navigation">
         <div className="uiSidebarTop" onClick={() => router.push('/home')} role="button" tabIndex={0}>
           <div className="uiBrand">XuxuXu</div>
-          <div className="uiBrandSub">AI characters</div>
+          <div className="uiBrandSub">角色宇宙</div>
+          <div className="uiBrandHint">复刻爱巴基核心体验（语音除外）</div>
         </div>
 
         <nav className="uiNav">
-          {nav.map((it) => {
+          <div className="uiNavGroupTitle">主入口</div>
+          {primaryNav.map((it) => {
             const active = pathname === it.href || pathname.startsWith(it.href + '/')
             return (
               <button key={it.href} className={`uiNavItem ${active ? 'uiNavItemActive' : ''}`} onClick={() => router.push(it.href)}>
-                {it.label}
+                <span>{it.label}</span>
+                {it.desc ? <small>{it.desc}</small> : null}
+              </button>
+            )
+          })}
+
+          <div className="uiNavGroupTitle">创作</div>
+          {secondaryNav.map((it, idx) => {
+            const active = pathname === it.href
+            return (
+              <button key={`${it.href}-${idx}`} className={`uiNavItem uiNavItemSub ${active ? 'uiNavItemActive' : ''}`} onClick={() => router.push(it.href)}>
+                <span>{it.label}</span>
               </button>
             )
           })}
@@ -63,7 +83,7 @@ export default function AppShell(props: {
             {email || ' '}
           </div>
           <button className="uiNavItem" onClick={logout}>
-            Logout
+            退出登录
           </button>
         </div>
       </aside>
@@ -82,7 +102,17 @@ export default function AppShell(props: {
 
         <main className="uiMain">{props.children}</main>
       </div>
+
+      <nav className="uiMobileDock" aria-label="Primary Navigation">
+        {primaryNav.map((it) => {
+          const active = pathname === it.href || pathname.startsWith(it.href + '/')
+          return (
+            <button key={it.href} className={`uiMobileDockItem ${active ? 'uiMobileDockItemActive' : ''}`} onClick={() => router.push(it.href)}>
+              {it.label}
+            </button>
+          )
+        })}
+      </nav>
     </div>
   )
 }
-

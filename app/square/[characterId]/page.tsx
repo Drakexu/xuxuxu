@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -49,9 +49,39 @@ export default function SquareDetailPage() {
   const [unlockedCharId, setUnlockedCharId] = useState<string>('') // user's local character id
   const [unlockedActive, setUnlockedActive] = useState<boolean>(false)
   const [imgUrl, setImgUrl] = useState('')
+  const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [busy, setBusy] = useState(false)
 
   const canUnlock = useMemo(() => !!item && !busy && !unlockedCharId, [item, busy, unlockedCharId])
+  const detailMeta = useMemo(() => {
+    if (!item) {
+      return {
+        summary: '',
+        teen: false,
+        romanceLabel: '',
+        authorNote: '',
+      }
+    }
+    const p = asRecord(item.profile)
+    const s = asRecord(item.settings)
+    const age = typeof p.age === 'string' ? p.age.trim() : ''
+    const occupation = typeof p.occupation === 'string' ? p.occupation.trim() : ''
+    const org = typeof p.organization === 'string' ? p.organization.trim() : ''
+    const teen = !!s.teen_mode || s.age_mode === 'teen'
+    const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
+    const romanceLabel = romance === 'ROMANCE_OFF' ? '恋爱关闭' : romance === 'ROMANCE_ON' || !romance ? '恋爱开启' : romance
+    const authorNote = (() => {
+      const cf = asRecord(s.creation_form)
+      const pub = asRecord(cf.publish)
+      return typeof pub.author_note === 'string' ? pub.author_note.trim() : ''
+    })()
+    return {
+      summary: [age ? `${age}岁` : '', occupation, org].filter(Boolean).join(' · '),
+      teen,
+      romanceLabel,
+      authorNote,
+    }
+  }, [item])
 
   useEffect(() => {
     if (!alert) return
@@ -66,6 +96,7 @@ export default function SquareDetailPage() {
       setItem(null)
       setUnlockedCharId('')
       setImgUrl('')
+      setAssetUrls([])
 
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData.user?.id
@@ -81,7 +112,7 @@ export default function SquareDetailPage() {
         .maybeSingle()
 
       if (r.error || !r.data) {
-        setAlert({ type: 'err', text: r.error?.message || '角色不存在' })
+        setAlert({ type: 'err', text: r.error?.message || '角色不存在。' })
         setLoading(false)
         return
       }
@@ -130,11 +161,28 @@ export default function SquareDetailPage() {
           .limit(20)
 
         if (!assets.error && (assets.data ?? []).length) {
-          const path = pickAssetPath((assets.data ?? []) as CharacterAssetRow[])
-          if (path) {
-            const signed = await supabase.storage.from('character-assets').createSignedUrl(path, 60 * 60)
-            if (!signed.error && signed.data?.signedUrl) setImgUrl(signed.data.signedUrl)
-          }
+          const rows = (assets.data ?? []) as CharacterAssetRow[]
+          const uniquePaths = new Set<string>()
+          const picks = rows
+            .filter((r) => !!r.storage_path)
+            .filter((r) => {
+              if (uniquePaths.has(r.storage_path)) return false
+              uniquePaths.add(r.storage_path)
+              return true
+            })
+            .slice(0, 10)
+
+          const signed = await Promise.all(
+            picks.map(async (r) => {
+              const s = await supabase.storage.from('character-assets').createSignedUrl(r.storage_path, 60 * 60)
+              return { kind: r.kind, path: r.storage_path, url: s.data?.signedUrl || '' }
+            }),
+          )
+          const filtered = signed.filter((x) => !!x.url)
+          setAssetUrls(filtered)
+          const coverPath = pickAssetPath(rows)
+          const coverPick = filtered.find((x) => x.path === coverPath) || filtered[0]
+          if (coverPick?.url) setImgUrl(coverPick.url)
         }
       } catch {
         // ignore
@@ -257,9 +305,9 @@ export default function SquareDetailPage() {
   return (
     <div className="uiPage">
       <AppShell
-        title="Character"
+        title="角色详情"
         badge="square"
-        subtitle="查看公开角色，并解锁/激活到你的首页可聊队列。"
+        subtitle="查看公开角色，并解锁/激活到你的首页队列。"
         actions={
           <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
             返回广场
@@ -270,97 +318,155 @@ export default function SquareDetailPage() {
         {loading && <div className="uiSkeleton">加载中...</div>}
 
         {!loading && item && (
-          <div className="uiPanel">
-            <div className="uiPanelHeader">
+          <div style={{ display: 'grid', gap: 14 }}>
+            <section className="uiHero">
               <div>
-                <div className="uiPanelTitle">{item.name}</div>
-                <div className="uiPanelSub">公开角色{item.created_at ? ` · ${new Date(item.created_at).toLocaleDateString()}` : ''}</div>
+                <span className="uiBadge">公开角色详情</span>
+                <h2 className="uiHeroTitle">{item.name}</h2>
+                <p className="uiHeroSub">先浏览设定和视觉资产，再决定是否解锁到你的角色队列。解锁后可继续激活到首页动态流。</p>
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div className="uiKpiGrid">
+                <div className="uiKpi">
+                  <b>{unlockedCharId ? '是' : '否'}</b>
+                  <span>已解锁</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{unlockedCharId ? (unlockedActive ? '是' : '否') : '-'}</b>
+                  <span>已激活到首页</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{assetUrls.length}</b>
+                  <span>可预览资产</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{detailMeta.teen ? '未成年' : '成人'}</b>
+                  <span>年龄模式</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{detailMeta.romanceLabel || '默认开启'}</b>
+                  <span>恋爱模式</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{(item.system_prompt || '').length}</b>
+                  <span>提示词长度</span>
+                </div>
+              </div>
+            </section>
+
+            <div className="uiPanel">
+              <div className="uiPanelHeader">
+                <div>
+                  <div className="uiPanelTitle">{item.name}</div>
+                  <div className="uiPanelSub">公开角色{item.created_at ? ` · ${new Date(item.created_at).toLocaleDateString()}` : ''}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {unlockedCharId ? (
+                    <>
+                      <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${unlockedCharId}`)}>
+                        发起对话
+                      </button>
+                      <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${unlockedCharId}`)}>
+                        动态中心
+                      </button>
+                      <button className="uiBtn uiBtnSecondary" disabled={busy} onClick={() => toggleActivation(!unlockedActive)}>
+                        {unlockedActive ? '取消激活' : '激活到首页'}
+                      </button>
+                    </>
+                  ) : (
+                    <button className="uiBtn uiBtnPrimary" disabled={!canUnlock} onClick={unlock}>
+                      {busy ? '解锁中...' : '解锁'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="uiForm">
+                <div className="uiSplit">
+                  <div className="uiCard" style={{ margin: 0 }}>
+                    <div className="uiCardMedia" style={{ height: 240 }}>
+                      {imgUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={imgUrl} alt="" />
+                      ) : (
+                        <div className="uiCardMediaFallback">暂无图片</div>
+                      )}
+                    </div>
+                    <div className="uiCardTitle">角色主视觉</div>
+                    <div className="uiCardMeta">cover / full_body / head</div>
+                  </div>
+                  <div className="uiThumbGrid">
+                    {assetUrls.slice(0, 8).map((a, idx) => (
+                      <button key={`${a.kind}:${idx}`} className="uiCard" style={{ margin: 0, padding: 10, cursor: 'pointer' }} onClick={() => setImgUrl(a.url)}>
+                        <div className="uiCardMedia" style={{ height: 84 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={a.url} alt="" />
+                        </div>
+                        <div className="uiCardMeta" style={{ marginTop: 8 }}>
+                          {a.kind}
+                        </div>
+                      </button>
+                    ))}
+                    {assetUrls.length === 0 && <div className="uiHint">暂无可预览资产</div>}
+                  </div>
+                </div>
+
+                {detailMeta.summary && <div className="uiHint">{detailMeta.summary}</div>}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+                  <span className="uiBadge">{detailMeta.teen ? '未成年模式' : '成人模式'}</span>
+                  <span className="uiBadge">{detailMeta.romanceLabel || '恋爱开启'}</span>
+                  {unlockedCharId ? <span className="uiBadge">已解锁</span> : null}
+                </div>
+
+                {detailMeta.authorNote && (
+                  <div className="uiPanel" style={{ marginTop: 12 }}>
+                    <div className="uiPanelHeader">
+                      <div>
+                        <div className="uiPanelTitle">创作者备注</div>
+                        <div className="uiPanelSub">角色发布说明</div>
+                      </div>
+                    </div>
+                    <div className="uiForm">
+                      <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{detailMeta.authorNote}</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="uiHint" style={{ marginTop: 12 }}>
+                  角色设定提示词（仅展示前 600 字）
+                </div>
+                <div
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: 1.6,
+                    border: '1px solid rgba(0,0,0,.08)',
+                    borderRadius: 14,
+                    padding: 12,
+                    background: '#fff',
+                  }}
+                >
+                  {(item.system_prompt || '').slice(0, 600)}
+                  {(item.system_prompt || '').length > 600 ? '...' : ''}
+                </div>
+              </div>
+              <div className="uiPanelFooter" style={{ position: 'sticky', bottom: 0, background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(8px)' }}>
                 {unlockedCharId ? (
                   <>
                     <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${unlockedCharId}`)}>
-                      发起对话
+                      聊天
                     </button>
-                    <button className="uiBtn uiBtnSecondary" disabled={busy} onClick={() => toggleActivation(!unlockedActive)}>
-                      {unlockedActive ? '取消激活' : '激活到首页'}
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${unlockedCharId}`)}>
+                      动态中心
+                    </button>
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/characters/${unlockedCharId}/assets`)}>
+                      资产页
                     </button>
                   </>
                 ) : (
-                  <button className="uiBtn uiBtnPrimary" disabled={!canUnlock} onClick={unlock}>
-                    {busy ? '解锁中...' : '解锁'}
+                  <button className="uiBtn uiBtnPrimary" disabled={!canUnlock || busy} onClick={unlock}>
+                    {busy ? '解锁中...' : '解锁到我的角色'}
                   </button>
                 )}
               </div>
-            </div>
-
-            <div className="uiForm">
-              <div className="uiCardMedia" style={{ borderRadius: 18, overflow: 'hidden', border: '1px solid rgba(0,0,0,.08)' }}>
-                {imgUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imgUrl} alt="" />
-                ) : (
-                  <div className="uiCardMediaFallback">No image</div>
-                )}
-              </div>
-
-              {(() => {
-                const p = asRecord(item.profile)
-                const s = asRecord(item.settings)
-                const age = typeof p.age === 'string' ? p.age.trim() : ''
-                const occupation = typeof p.occupation === 'string' ? p.occupation.trim() : ''
-                const org = typeof p.organization === 'string' ? p.organization.trim() : ''
-                const teen = !!s.teen_mode || s.age_mode === 'teen'
-                const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
-                const authorNote = (() => {
-                  const cf = asRecord(s.creation_form)
-                  const pub = asRecord(cf.publish)
-                  return typeof pub.author_note === 'string' ? pub.author_note.trim() : ''
-                })()
-
-                const meta = [age ? `${age}岁` : '', occupation, org].filter(Boolean).join(' · ')
-                return (
-                  <>
-                    {meta && <div className="uiHint">{meta}</div>}
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
-                      <span className="uiBadge">{teen ? 'teen' : 'adult'}</span>
-                      <span className="uiBadge">{romance || 'ROMANCE_ON'}</span>
-                      {unlockedCharId ? <span className="uiBadge">已激活</span> : null}
-                    </div>
-
-                    {authorNote && (
-                      <div className="uiPanel" style={{ marginTop: 12 }}>
-                        <div className="uiPanelHeader">
-                          <div>
-                            <div className="uiPanelTitle">作者说</div>
-                            <div className="uiPanelSub">角色详情说明</div>
-                          </div>
-                        </div>
-                        <div className="uiForm">
-                          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{authorNote}</div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="uiHint" style={{ marginTop: 12 }}>
-                      System Prompt（仅展示前 400 字）：
-                    </div>
-                    <div
-                      style={{
-                        whiteSpace: 'pre-wrap',
-                        lineHeight: 1.6,
-                        border: '1px solid rgba(0,0,0,.08)',
-                        borderRadius: 14,
-                        padding: 12,
-                        background: '#fff',
-                      }}
-                    >
-                      {(item.system_prompt || '').slice(0, 400)}
-                      {(item.system_prompt || '').length > 400 ? '…' : ''}
-                    </div>
-                  </>
-                )
-              })()}
             </div>
           </div>
         )}
@@ -368,3 +474,4 @@ export default function SquareDetailPage() {
     </div>
   )
 }
+

@@ -1,4 +1,5 @@
 export type JsonObject = Record<string, unknown>
+type SanitizePatchOptions = { evidenceText?: string }
 
 const MAX_ARRAY_ITEMS = 160
 const MAX_TEXT_LEN = 1_000
@@ -99,6 +100,30 @@ function sanitizePatchAddArray(raw: unknown, maxItems = MAX_ARRAY_ITEMS): unknow
   return take(asArray(raw).filter(Boolean), maxItems)
 }
 
+function hasEvidenceForRecord(r: JsonObject, evidenceLc: string) {
+  if (!evidenceLc) return true
+  const keys = ['name', 'item', 'id', 'npc', 'content', 'summary', 'title'] as const
+  const candidates: string[] = []
+  for (const k of keys) {
+    const s = asString(r[k])
+    if (!s) continue
+    if (s.length < 2) continue
+    candidates.push(s.toLowerCase())
+  }
+  if (!candidates.length) return false
+  return candidates.some((c) => evidenceLc.includes(c))
+}
+
+function downgradeUnverifiedConfirmedInArray(raw: unknown, evidenceLc: string) {
+  return asArray(raw).map((item) => {
+    const r = asRecord(item)
+    const confirmed = asBool(r['confirmed'])
+    if (confirmed !== true) return item
+    if (hasEvidenceForRecord(r, evidenceLc)) return item
+    return { ...r, confirmed: false }
+  })
+}
+
 function sanitizeWardrobe(raw: unknown): JsonObject {
   const src = asRecord(raw)
   const out: JsonObject = {}
@@ -135,7 +160,8 @@ function sanitizeMemoryEpisode(raw: unknown): JsonObject {
 const ALLOWED_NARRATION_MODES = new Set(['DIALOG', 'NARRATION', 'MULTI_CAST', 'CG', 'SCHEDULE'])
 const ALLOWED_PRESENT_CHAR_LIMIT = 8
 
-export function sanitizePatchOutput(raw: unknown): JsonObject | null {
+export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {}): JsonObject | null {
+  const evidenceLc = String(opts.evidenceText || '').toLowerCase()
   const rawObj = asRecord(raw)
 
   const requiredKeys = [
@@ -197,11 +223,19 @@ export function sanitizePatchOutput(raw: unknown): JsonObject | null {
 
   const ledgerPatch = asRecord(rawObj['ledger_patch'])
   const sanitizedLedger: JsonObject = {}
-  sanitizedLedger['event_log_add'] = sanitizeLedgerEventLogAdd(ledgerPatch['event_log_add'])
-  sanitizedLedger['npc_db_add_or_update'] = sanitizePatchAddArray(ledgerPatch['npc_db_add_or_update'], 120)
+  sanitizedLedger['event_log_add'] = sanitizeLedgerEventLogAdd(downgradeUnverifiedConfirmedInArray(ledgerPatch['event_log_add'], evidenceLc))
+  sanitizedLedger['npc_db_add_or_update'] = sanitizePatchAddArray(downgradeUnverifiedConfirmedInArray(ledgerPatch['npc_db_add_or_update'], evidenceLc), 120)
   sanitizedLedger['inventory_delta'] = sanitizeInventoryDelta(ledgerPatch['inventory_delta'])
-  sanitizedLedger['wardrobe_update'] = sanitizeWardrobe(ledgerPatch['wardrobe_update'])
-  sanitizedLedger['relation_ledger_add'] = sanitizePatchAddArray(ledgerPatch['relation_ledger_add'], 120)
+  sanitizedLedger['wardrobe_update'] = (() => {
+    const w = sanitizeWardrobe(ledgerPatch['wardrobe_update'])
+    const confirmed = asBool(w['confirmed'])
+    const outfit = asString(w['current_outfit'])
+    if (confirmed === true && outfit && evidenceLc && !evidenceLc.includes(outfit.toLowerCase())) {
+      return { ...w, confirmed: false }
+    }
+    return w
+  })()
+  sanitizedLedger['relation_ledger_add'] = sanitizePatchAddArray(downgradeUnverifiedConfirmedInArray(ledgerPatch['relation_ledger_add'], evidenceLc), 120)
 
   const memoryPatch = asRecord(rawObj['memory_patch'])
   const memEpisode = sanitizeMemoryEpisode(memoryPatch['memory_b_episode'])

@@ -65,11 +65,14 @@ export default function HomeFeedPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [manage, setManage] = useState(false)
+  const [viewMode, setViewMode] = useState<'ACTIVE' | 'UNLOCKED'>('ACTIVE')
 
   const [activated, setActivated] = useState<CharacterRow[]>([])
+  const [unlocked, setUnlocked] = useState<CharacterRow[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
   const [activeCharId, setActiveCharId] = useState<string>('') // '' => all
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
+  const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
 
   const canLoad = useMemo(() => !loading, [loading])
@@ -112,19 +115,25 @@ export default function HomeFeedPage() {
       .order('created_at', { ascending: false })
       .limit(400)
     let activatedIds = new Set<string>()
+    let unlockedIdsForFeed = new Set<string>()
     if (rChars.error) {
       setError(rChars.error.message || '加载角色失败')
       setActivated([])
+      setUnlocked([])
     } else {
       const rows = (rChars.data ?? []) as CharacterRow[]
+      const nextUnlocked = rows.filter(isUnlockedFromSquare).sort((a, b) => activationOrder(a) - activationOrder(b))
       const nextActivated = rows.filter(isActivatedCharacter).sort((a, b) => activationOrder(a) - activationOrder(b))
+      setUnlocked(nextUnlocked)
       setActivated(nextActivated)
       activatedIds = new Set(nextActivated.map((c) => c.id))
-      setActiveCharId((prev) => (prev && !activatedIds.has(prev) ? '' : prev))
+      const unlockedIds = new Set(nextUnlocked.map((c) => c.id))
+      unlockedIdsForFeed = unlockedIds
+      setActiveCharId((prev) => (prev && !unlockedIds.has(prev) ? '' : prev))
 
       // Best-effort media for activated characters (cover/full_body/head).
       try {
-        const ids = nextActivated.map((c) => c.id).filter(Boolean)
+        const ids = nextUnlocked.map((c) => c.id).filter(Boolean)
         if (ids.length) {
           const assets = await supabase
             .from('character_assets')
@@ -181,7 +190,8 @@ export default function HomeFeedPage() {
       setItems([])
     } else {
       const raw = (rFeed.data ?? []) as FeedItem[]
-      setItems(raw.filter((it) => activatedIds.has(String(it.conversations?.character_id || ''))))
+      const fallbackIds = unlockedIdsForFeed.size ? unlockedIdsForFeed : activatedIds
+      setItems(raw.filter((it) => fallbackIds.has(String(it.conversations?.character_id || ''))))
     }
 
     setLoading(false)
@@ -193,31 +203,60 @@ export default function HomeFeedPage() {
   }, [router])
 
   const filtered = useMemo(() => {
+    const visibleIds = new Set((viewMode === 'ACTIVE' ? activated : unlocked).map((c) => c.id))
     let next = items
+    next = next.filter((it) => visibleIds.has(String(it.conversations?.character_id || '')))
     if (activeCharId) next = next.filter((it) => String(it.conversations?.character_id || '') === activeCharId)
     if (feedTab === 'MOMENT') next = next.filter((it) => it.input_event === 'MOMENT_POST')
     if (feedTab === 'DIARY') next = next.filter((it) => it.input_event === 'DIARY_DAILY')
     if (feedTab === 'SCHEDULE') next = next.filter((it) => it.input_event === 'SCHEDULE_TICK')
+    const q = feedQuery.trim().toLowerCase()
+    if (q) next = next.filter((it) => (it.content || '').toLowerCase().includes(q))
     return next
-  }, [items, activeCharId, feedTab])
+  }, [items, activeCharId, feedTab, activated, unlocked, viewMode, feedQuery])
 
   const nameById = useMemo(() => {
     const m: Record<string, string> = {}
-    for (const c of activated) m[c.id] = c.name
+    for (const c of unlocked) m[c.id] = c.name
     return m
-  }, [activated])
+  }, [unlocked])
+
+  const visibleCharacters = useMemo(() => (viewMode === 'ACTIVE' ? activated : unlocked), [viewMode, activated, unlocked])
+  const feedStats = useMemo(() => {
+    let moments = 0
+    let diaries = 0
+    let schedules = 0
+    for (const it of items) {
+      if (it.input_event === 'MOMENT_POST') moments += 1
+      else if (it.input_event === 'DIARY_DAILY') diaries += 1
+      else if (it.input_event === 'SCHEDULE_TICK') schedules += 1
+    }
+    return {
+      moments,
+      diaries,
+      schedules,
+      total: items.length,
+    }
+  }, [items])
 
   const eventTitle = (ev: string | null) => {
     if (ev === 'MOMENT_POST') return '朋友圈'
     if (ev === 'DIARY_DAILY') return '日记'
     if (ev === 'SCHEDULE_TICK') return '日程片段'
-    return ev || 'FEED'
+    return ev || '动态'
+  }
+
+  const eventBadgeStyle = (ev: string | null) => {
+    if (ev === 'MOMENT_POST') return { borderColor: 'rgba(255,68,132,.45)', color: 'rgba(200,20,84,.98)', background: 'rgba(255,231,242,.92)' }
+    if (ev === 'DIARY_DAILY') return { borderColor: 'rgba(20,144,132,.45)', color: 'rgba(20,144,132,.98)', background: 'rgba(236,255,251,.92)' }
+    if (ev === 'SCHEDULE_TICK') return { borderColor: 'rgba(84,112,198,.45)', color: 'rgba(72,94,171,.98)', background: 'rgba(233,240,255,.92)' }
+    return {}
   }
 
   return (
     <div className="uiPage">
       <AppShell
-        title="Home"
+        title="首页"
         badge="feed"
         subtitle="已激活角色：朋友圈 / 日记 / 日程片段"
         actions={
@@ -231,12 +270,70 @@ export default function HomeFeedPage() {
           </>
         }
       >
+        <section className="uiHero">
+          <div>
+            <span className="uiBadge">角色生活流</span>
+            <h2 className="uiHeroTitle">首页聚合你已解锁角色的动态</h2>
+            <p className="uiHeroSub">角色会按设定持续生成朋友圈、日记和日程片段。你可以直接切换角色、过滤动态、跳转到单角色动态中心。</p>
+          </div>
+          <div className="uiKpiGrid">
+            <div className="uiKpi">
+              <b>{unlocked.length}</b>
+              <span>已解锁角色</span>
+            </div>
+            <div className="uiKpi">
+              <b>{activated.length}</b>
+              <span>已激活角色</span>
+            </div>
+            <div className="uiKpi">
+              <b>{feedStats.total}</b>
+              <span>动态总数</span>
+            </div>
+            <div className="uiKpi">
+              <b>{feedStats.moments}</b>
+              <span>朋友圈</span>
+            </div>
+            <div className="uiKpi">
+              <b>{feedStats.diaries}</b>
+              <span>日记</span>
+            </div>
+            <div className="uiKpi">
+              <b>{feedStats.schedules}</b>
+              <span>日程片段</span>
+            </div>
+          </div>
+        </section>
+
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
         {loading && <div className="uiSkeleton">加载中...</div>}
 
-        {!loading && activated.length === 0 && (
+        {!loading && (
+          <div className="uiPanel" style={{ marginTop: 0 }}>
+            <div className="uiForm" style={{ paddingTop: 14 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
+                  去广场解锁
+                </button>
+                <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
+                  管理角色
+                </button>
+                <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters/new')}>
+                  创建新角色
+                </button>
+                <button className={`uiPill ${viewMode === 'ACTIVE' ? 'uiPillActive' : ''}`} onClick={() => setViewMode('ACTIVE')}>
+                  仅看已激活
+                </button>
+                <button className={`uiPill ${viewMode === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setViewMode('UNLOCKED')}>
+                  查看全部已解锁
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loading && visibleCharacters.length === 0 && (
           <div className="uiEmpty">
-            <div className="uiEmptyTitle">还没有激活角色</div>
+            <div className="uiEmptyTitle">{viewMode === 'ACTIVE' ? '还没有激活角色' : '还没有已解锁角色'}</div>
             <div className="uiEmptyDesc">去广场解锁一个公开角色，它会出现在这里并开始产生动态。</div>
           </div>
         )}
@@ -341,10 +438,10 @@ export default function HomeFeedPage() {
           </div>
         )}
 
-        {!loading && activated.length > 0 && (
+        {!loading && visibleCharacters.length > 0 && (
           <div style={{ display: 'grid', gap: 12 }}>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
-              {activated.slice(0, 12).map((c) => (
+              {visibleCharacters.slice(0, 12).map((c) => (
                 <div
                   key={c.id}
                   className="uiCard"
@@ -356,15 +453,18 @@ export default function HomeFeedPage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={imgById[c.id]} alt="" />
                     ) : (
-                      <div className="uiCardMediaFallback">No image</div>
+                      <div className="uiCardMediaFallback">暂无图片</div>
                     )}
                   </div>
                   <div className="uiCardTitle">{c.name}</div>
-                  <div className="uiCardMeta">Tap to chat</div>
+                  <div className="uiCardMeta">点击进入对话</div>
                   {manage && (
                     <div className="uiCardActions">
                       <button className="uiBtn uiBtnSecondary" onClick={(e) => { e.stopPropagation(); router.push(`/chat/${c.id}`) }}>
                         聊天
+                      </button>
+                      <button className="uiBtn uiBtnGhost" onClick={(e) => { e.stopPropagation(); router.push(`/home/${c.id}`) }}>
+                        动态中心
                       </button>
                       <button
                         className="uiBtn uiBtnGhost"
@@ -382,6 +482,16 @@ export default function HomeFeedPage() {
                       </button>
                     </div>
                   )}
+                  {!manage && (
+                    <div className="uiCardActions">
+                      <button className="uiBtn uiBtnSecondary" onClick={(e) => { e.stopPropagation(); router.push(`/chat/${c.id}`) }}>
+                        聊天
+                      </button>
+                      <button className="uiBtn uiBtnGhost" onClick={(e) => { e.stopPropagation(); router.push(`/home/${c.id}`) }}>
+                        动态中心
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -390,7 +500,7 @@ export default function HomeFeedPage() {
               <button className={`uiPill ${!activeCharId ? 'uiPillActive' : ''}`} onClick={() => setActiveCharId('')}>
                 全部
               </button>
-              {activated.slice(0, 24).map((c) => (
+              {visibleCharacters.slice(0, 24).map((c) => (
                 <button key={c.id} className={`uiPill ${activeCharId === c.id ? 'uiPillActive' : ''}`} onClick={() => setActiveCharId(c.id)}>
                   {c.name}
                 </button>
@@ -409,6 +519,13 @@ export default function HomeFeedPage() {
         {!loading && filtered.length > 0 && (
           <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                className="uiInput"
+                style={{ maxWidth: 360 }}
+                placeholder="搜索动态内容..."
+                value={feedQuery}
+                onChange={(e) => setFeedQuery(e.target.value)}
+              />
               <button className={`uiPill ${feedTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('ALL')}>
                 全部
               </button>
@@ -427,7 +544,9 @@ export default function HomeFeedPage() {
                 <div className="uiPanelHeader">
                   <div>
                     <div className="uiPanelTitle">
-                      {eventTitle(it.input_event)}
+                      <span className="uiBadge" style={eventBadgeStyle(it.input_event)}>
+                        {eventTitle(it.input_event)}
+                      </span>
                       {(() => {
                         const cid = String(it.conversations?.character_id || '')
                         const nm = cid && nameById[cid] ? nameById[cid] : ''
