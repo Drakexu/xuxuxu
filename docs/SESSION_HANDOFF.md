@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v16 - callback ticket compatibility hardening)
+Last updated: 2026-02-16 (checkpoint: high-target execution v17 - login rate-limit cooldown guard)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -169,6 +169,19 @@ Repo: `d:/projects/xuxuxu`
     - token session failure
     - OTP verify failure
     - missing callback ticket / ticket processed but no session.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Login rate-limit guard v17 checkpoint (latest)
+- File changed:
+  - `app/login/page.tsx`
+- Completed:
+  - Added client-side cooldown for magic-link email send (65s) to avoid repeated rapid submissions.
+  - Persisted last send timestamp in localStorage for refresh-safe cooldown behavior.
+  - Added dedicated user-friendly error mapping for `email rate limit exceeded` / too-many-requests cases.
+  - Updated submit button/hint to reflect cooldown state and remaining seconds.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
