@@ -1,5 +1,5 @@
 export type JsonObject = Record<string, unknown>
-type SanitizePatchOptions = { evidenceText?: string }
+type SanitizePatchOptions = { evidenceText?: string; conversationState?: unknown }
 
 const MAX_ARRAY_ITEMS = 160
 const MAX_TEXT_LEN = 1_000
@@ -96,8 +96,82 @@ function sanitizeInventoryDelta(raw: unknown): Array<Record<string, unknown>> {
   return out
 }
 
+function indexInventoryCountsFromState(state: unknown) {
+  const root = asRecord(state)
+  const ledger = asRecord(root['ledger'])
+  const inv = asArray(ledger['inventory'])
+  const map = new Map<string, number>()
+  for (const item of inv) {
+    const r = asRecord(item)
+    const name = asString(r['name']) || asString(r['item']) || asString(r['id'])
+    if (!name) continue
+    const count = asNumber(r['count']) ?? asNumber(r['qty']) ?? 0
+    map.set(name, Math.max(0, Math.floor(count)))
+  }
+  return map
+}
+
+function reconcileInventoryDeltaWithState(rows: Array<Record<string, unknown>>, state: unknown) {
+  const counts = indexInventoryCountsFromState(state)
+  return rows.map((row) => {
+    const name = asString(row['name']) || ''
+    if (!name) return row
+    const delta = asNumber(row['delta'])
+    if (delta === null) return row
+    const current = counts.get(name)
+    if (typeof current === 'number' && delta < 0 && current + delta < 0) {
+      return { ...row, delta: -current }
+    }
+    return row
+  })
+}
+
 function sanitizePatchAddArray(raw: unknown, maxItems = MAX_ARRAY_ITEMS): unknown[] {
   return take(asArray(raw).filter(Boolean), maxItems)
+}
+
+function normalizeLedgerEntryContent(v: unknown) {
+  if (typeof v === 'string') return v.trim().toLowerCase()
+  const r = asRecord(v)
+  const c = asString(r['content']) || asString(r['item']) || asString(r['name'])
+  return c ? c.toLowerCase() : ''
+}
+
+function dedupeAgainstState(raw: unknown, stateRows: unknown[], maxItems = MAX_ARRAY_ITEMS) {
+  const existing = new Set<string>()
+  for (const row of stateRows) {
+    const key = normalizeLedgerEntryContent(row)
+    if (key) existing.add(key)
+  }
+
+  const out: unknown[] = []
+  const seen = new Set<string>()
+  for (const row of take(asArray(raw), maxItems)) {
+    const key = normalizeLedgerEntryContent(row)
+    if (!key) {
+      out.push(row)
+      continue
+    }
+    if (existing.has(key) || seen.has(key)) continue
+    seen.add(key)
+    out.push(row)
+  }
+  return out
+}
+
+function stageNumber(v: unknown) {
+  const m = String(v || '').trim().toUpperCase().match(/^S([1-7])$/)
+  if (!m) return null
+  return Number(m[1])
+}
+
+function clampStageJump(next: unknown, current: unknown) {
+  const n = stageNumber(next)
+  const c = stageNumber(current)
+  if (n === null || c === null) return next
+  if (Math.abs(n - c) <= 1) return next
+  const target = c + (n > c ? 1 : -1)
+  return `S${target}`
 }
 
 function hasEvidenceForRecord(r: JsonObject, evidenceLc: string) {
@@ -195,6 +269,7 @@ const ALLOWED_PRESENT_CHAR_LIMIT = 8
 
 export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {}): JsonObject | null {
   const evidenceLc = String(opts.evidenceText || '').toLowerCase()
+  const stateBefore = asRecord(opts.conversationState)
   const rawObj = asRecord(raw)
 
   const requiredKeys = [
@@ -234,6 +309,7 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
 
   const relationshipStage = asString(sanitizedRun['relationship_stage'])
   if (relationshipStage) sanitizedRun['relationship_stage'] = relationshipStage.slice(0, 20)
+  sanitizedRun['relationship_stage'] = clampStageJump(sanitizedRun['relationship_stage'], asRecord(stateBefore['run_state'])['relationship_stage'])
 
   const turnSeq = asNumber(sanitizedRun['turn_seq'])
   if (turnSeq !== null) sanitizedRun['turn_seq'] = Math.floor(turnSeq)
@@ -265,13 +341,17 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
   sanitizedPlot['beat_history_append'] = asRecord(plotPatch['beat_history_append'])
 
   const ledgerPatch = asRecord(rawObj['ledger_patch'])
+  const stateLedger = asRecord(stateBefore['ledger'])
   const sanitizedLedger: JsonObject = {}
-  sanitizedLedger['event_log_add'] = sanitizeLedgerEventLogAdd(downgradeUnverifiedConfirmedInArray(ledgerPatch['event_log_add'], evidenceLc))
+  sanitizedLedger['event_log_add'] = dedupeAgainstState(
+    sanitizeLedgerEventLogAdd(downgradeUnverifiedConfirmedInArray(ledgerPatch['event_log_add'], evidenceLc)),
+    asArray(stateLedger['event_log']),
+  )
   sanitizedLedger['npc_db_add_or_update'] = sanitizeNpcAddOrUpdate(downgradeUnverifiedConfirmedInArray(ledgerPatch['npc_db_add_or_update'], evidenceLc), {
     evidenceLc,
     presentCharacters,
   })
-  sanitizedLedger['inventory_delta'] = sanitizeInventoryDelta(ledgerPatch['inventory_delta'])
+  sanitizedLedger['inventory_delta'] = reconcileInventoryDeltaWithState(sanitizeInventoryDelta(ledgerPatch['inventory_delta']), stateBefore)
   sanitizedLedger['wardrobe_update'] = (() => {
     const w = sanitizeWardrobe(ledgerPatch['wardrobe_update'])
     const confirmed = asBool(w['confirmed'])
@@ -281,7 +361,11 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
     }
     return w
   })()
-  sanitizedLedger['relation_ledger_add'] = sanitizePatchAddArray(downgradeUnverifiedConfirmedInArray(ledgerPatch['relation_ledger_add'], evidenceLc), 120)
+  sanitizedLedger['relation_ledger_add'] = dedupeAgainstState(
+    sanitizePatchAddArray(downgradeUnverifiedConfirmedInArray(ledgerPatch['relation_ledger_add'], evidenceLc), 120),
+    asArray(stateLedger['relation_ledger']),
+    120,
+  )
 
   const memoryPatch = asRecord(rawObj['memory_patch'])
   const memEpisode = sanitizeMemoryEpisode(memoryPatch['memory_b_episode'])

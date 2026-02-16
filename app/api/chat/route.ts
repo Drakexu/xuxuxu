@@ -1152,17 +1152,19 @@ export async function POST(req: Request) {
           const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
           const patchRaw = safeExtractJsonObject(patchText)
           if (!patchRaw || typeof patchRaw !== 'object') throw new Error('PatchScribe output is not valid JSON object')
-
-          const patchObj = sanitizePatchOutput(patchRaw, {
-            evidenceText: `${userMessageForModel}\n${assistantMessage}`,
-          })
-          if (!patchObj) throw new Error('Patch schema invalid')
+          const patchEvidenceText = `${userMessageForModel}\n${assistantMessage}`
 
           const applyPatchOnce = async () => {
             const stNow = await sb.from('conversation_states').select('state,version').eq('conversation_id', convIdFinal).maybeSingle()
             if (stNow.error || !stNow.data?.state) throw new Error(`Load conversation_states failed: ${stNow.error?.message || 'no state'}`)
             const conversationStateVerNow = Number(stNow.data.version ?? 0)
             const conversationStateNow = structuredClone(stNow.data.state as unknown as Record<string, unknown>)
+
+            const patchObj = sanitizePatchOutput(patchRaw, {
+              evidenceText: patchEvidenceText,
+              conversationState: conversationStateNow,
+            })
+            if (!patchObj) throw new Error('Patch schema invalid')
 
             const chNow = await sb.from('character_states').select('state,version').eq('character_id', characterId).maybeSingle()
             if (chNow.error || !chNow.data?.state) throw new Error(`Load character_states failed: ${chNow.error?.message || 'no state'}`)

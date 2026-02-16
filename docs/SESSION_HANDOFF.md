@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v9 - prompt policy controls)
+Last updated: 2026-02-16 (checkpoint: high-target execution v10 - patch sanitize on latest state)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -44,6 +44,26 @@ Repo: `d:/projects/xuxuxu`
 - Working tree: local feature edits across chat/home/square/patch validation.
 - Lint: passes (`npm run lint`).
 - Typecheck: passes (`npx tsc --noEmit`).
+
+### Patch consistency v10 checkpoint (latest)
+- Files changed:
+  - `lib/patchValidation.ts`
+  - `app/api/chat/route.ts`
+  - `app/api/cron/patch/route.ts`
+- Completed:
+  - Extended patch sanitization with cross-turn consistency controls:
+    - inventory deltas clamped against current state (no negative post-merge counts)
+    - dedupe for `event_log_add` / `relation_ledger_add` against existing state
+    - relationship stage jump clamp (`Sx`) to avoid unrealistic one-turn leaps
+    - state-aware sanitize option (`conversationState`) wired into sanitizer input
+  - Upgraded async patch application paths to sanitize against latest loaded state on each apply attempt:
+    - chat fire-and-forget patch apply (`/api/chat`)
+    - cron patch replay worker (`/api/cron/patch`)
+  - Cron path now includes turn evidence text (`turn.user_input + turn.assistant_text`) in sanitize quality gating.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
 
 ### Recovery checkpoint details (latest)
 - File fixed: `app/square/[characterId]/page.tsx`

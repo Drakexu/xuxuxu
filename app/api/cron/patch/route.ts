@@ -423,13 +423,8 @@ export async function POST(req: Request) {
           })) as MiniMaxResponse
 
           const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
-        const patchObjRaw = safeExtractJsonObject(patchText)
+          const patchObjRaw = safeExtractJsonObject(patchText)
           if (!patchObjRaw || typeof patchObjRaw !== 'object') throw new Error('PatchScribe output is not valid JSON object')
-
-        const patch = sanitizePatchOutput(patchObjRaw)
-        if (!patch) throw new Error('Patch schema invalid')
-
-          const p = patch
           const applyPatchOnce = async () => {
             const up = await sb.from('patch_jobs').update({ status: 'processing' }).eq('id', jobId).in('status', ['pending', 'failed'])
             if (up.error) throw new Error(`Lock patch job failed: ${up.error.message}`)
@@ -438,6 +433,13 @@ export async function POST(req: Request) {
             if (st.error || !st.data?.state) throw new Error(`Load conversation_states failed: ${st.error?.message || 'no state'}`)
             const conversationStateVerNow = Number(st.data.version ?? 0)
             const conversationState = structuredClone(st.data.state as JsonObject)
+            const turn = asRecord(pi['turn'])
+            const patchEvidenceText = `${String(turn['user_input'] || '')}\n${String(turn['assistant_text'] || '')}`
+            const patch = sanitizePatchOutput(patchObjRaw, {
+              evidenceText: patchEvidenceText,
+              conversationState,
+            })
+            if (!patch) throw new Error('Patch schema invalid')
 
             const ch = await sb.from('character_states').select('state,version').eq('character_id', characterId).maybeSingle()
             if (ch.error || !ch.data?.state) throw new Error(`Load character_states failed: ${ch.error?.message || 'no state'}`)
@@ -458,7 +460,7 @@ export async function POST(req: Request) {
             const { memoryEpisode } = applyPatchToMemoryStates({
               conversationState,
               characterState,
-              patchObj: p,
+              patchObj: patch,
               includeMemoryEpisode: true,
             })
 
