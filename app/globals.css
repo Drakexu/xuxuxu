@@ -821,6 +821,43 @@ body {
   flex: 0 0 auto;
 }
 
+.uiSquareWorkspace {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 2.1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.uiSquareSidebar {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 108px;
+}
+
+.uiSquareMain {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.uiSquareDetailWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.85fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.uiSquareDetailAside {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 108px;
+}
+
 .uiMobileDock {
   display: none;
 }
@@ -832,6 +869,22 @@ body {
 
   .uiHomeCol:last-child {
     grid-column: 1 / -1;
+  }
+
+  .uiSquareWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .uiSquareSidebar {
+    position: static;
+  }
+
+  .uiSquareDetailWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .uiSquareDetailAside {
+    position: static;
   }
 }
 

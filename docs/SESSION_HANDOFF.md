@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v24 - home 3-column workspace revamp)
+Last updated: 2026-02-16 (checkpoint: high-target execution v25 - square workspace + detail action rail)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -313,6 +313,29 @@ Repo: `d:/projects/xuxuxu`
     - desktop 3-column
     - medium screens 2-column with right rail spanning full width
     - mobile 1-column fallback
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Square workspace v25 checkpoint (latest)
+- Files changed:
+  - `app/square/page.tsx`
+  - `app/square/[characterId]/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Refactored square list page to workspace layout:
+    - extracted unified role-card renderer to remove duplicated card/action logic
+    - switched from flat filter bar to left-side control rail + right-side results stream
+    - kept full unlock/activate/chat action loop, but improved visual hierarchy for conversion path
+  - Added new square-specific layout primitives in global CSS:
+    - `uiSquareWorkspace`, `uiSquareSidebar`, `uiSquareMain`
+  - Upgraded square detail page to dual-column product layout:
+    - left: media + setting preview + author note + prompt preview
+    - right: sticky action rail (unlock/activate/chat/home/assets) + state summary
+  - Added detail-layout CSS primitives:
+    - `uiSquareDetailWorkspace`, `uiSquareDetailAside`
+  - Responsive behavior now collapses both list/detail workspaces to single-column on smaller screens.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

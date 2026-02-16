@@ -363,134 +363,139 @@ export default function SquareDetailPage() {
               </div>
             </section>
 
-            <div className="uiPanel">
-              <div className="uiPanelHeader">
-                <div>
-                  <div className="uiPanelTitle">{item.name}</div>
-                  <div className="uiPanelSub">公开角色{item.created_at ? ` · ${new Date(item.created_at).toLocaleDateString()}` : ''}</div>
+            <div className="uiSquareDetailWorkspace">
+              <div className="uiPanel" style={{ marginTop: 0 }}>
+                <div className="uiPanelHeader">
+                  <div>
+                    <div className="uiPanelTitle">{item.name}</div>
+                    <div className="uiPanelSub">公开角色{item.created_at ? ` · ${new Date(item.created_at).toLocaleDateString()}` : ''}</div>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {unlockedCharId ? (
-                    <>
-                      <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${unlockedCharId}`)}>
-                        发起对话
-                      </button>
-                      <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${unlockedCharId}`)}>
-                        动态中心
-                      </button>
-                      <button className="uiBtn uiBtnSecondary" disabled={busy} onClick={() => toggleActivation(!unlockedActive)}>
-                        {unlockedActive ? '取消激活' : '激活到首页'}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button className="uiBtn uiBtnPrimary" disabled={!canUnlock} onClick={unlock}>
-                        {busy ? '解锁中...' : isLoggedIn ? '解锁' : '登录后解锁'}
-                      </button>
-                      {!isLoggedIn ? (
-                        <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
-                          去登录
-                        </button>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              </div>
 
-              <div className="uiForm">
-                <div className="uiSplit">
-                  <div className="uiCard" style={{ margin: 0 }}>
-                    <div className="uiCardMedia" style={{ height: 240 }}>
-                      {imgUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={imgUrl} alt="" />
-                      ) : (
-                        <div className="uiCardMediaFallback">暂无图片</div>
-                      )}
+                <div className="uiForm">
+                  <div className="uiSplit">
+                    <div className="uiCard" style={{ margin: 0 }}>
+                      <div className="uiCardMedia" style={{ height: 260 }}>
+                        {imgUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={imgUrl} alt="" />
+                        ) : (
+                          <div className="uiCardMediaFallback">暂无图片</div>
+                        )}
+                      </div>
+                      <div className="uiCardTitle">角色主视觉</div>
+                      <div className="uiCardMeta">cover / full_body / head</div>
                     </div>
-                    <div className="uiCardTitle">角色主视觉</div>
-                    <div className="uiCardMeta">cover / full_body / head</div>
+                    <div className="uiThumbGrid">
+                      {assetUrls.slice(0, 8).map((a, idx) => (
+                        <button key={`${a.kind}:${idx}`} className="uiCard" style={{ margin: 0, padding: 10, cursor: 'pointer' }} onClick={() => setImgUrl(a.url)}>
+                          <div className="uiCardMedia" style={{ height: 84 }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={a.url} alt="" />
+                          </div>
+                          <div className="uiCardMeta" style={{ marginTop: 8 }}>
+                            {a.kind}
+                          </div>
+                        </button>
+                      ))}
+                      {assetUrls.length === 0 && <div className="uiHint">暂无可预览资产</div>}
+                    </div>
                   </div>
-                  <div className="uiThumbGrid">
-                    {assetUrls.slice(0, 8).map((a, idx) => (
-                      <button key={`${a.kind}:${idx}`} className="uiCard" style={{ margin: 0, padding: 10, cursor: 'pointer' }} onClick={() => setImgUrl(a.url)}>
-                        <div className="uiCardMedia" style={{ height: 84 }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={a.url} alt="" />
-                        </div>
-                        <div className="uiCardMeta" style={{ marginTop: 8 }}>
-                          {a.kind}
-                        </div>
-                      </button>
-                    ))}
-                    {assetUrls.length === 0 && <div className="uiHint">暂无可预览资产</div>}
+
+                  {detailMeta.summary && <div className="uiHint">{detailMeta.summary}</div>}
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+                    <span className="uiBadge">{detailMeta.teen ? '未成年模式' : '成人模式'}</span>
+                    <span className="uiBadge">{detailMeta.romanceLabel || '恋爱开启'}</span>
+                    {unlockedCharId ? <span className="uiBadge">已解锁</span> : null}
+                    {unlockedCharId && unlockedActive ? <span className="uiBadge">已激活</span> : null}
                   </div>
-                </div>
 
-                {detailMeta.summary && <div className="uiHint">{detailMeta.summary}</div>}
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
-                  <span className="uiBadge">{detailMeta.teen ? '未成年模式' : '成人模式'}</span>
-                  <span className="uiBadge">{detailMeta.romanceLabel || '恋爱开启'}</span>
-                  {unlockedCharId ? <span className="uiBadge">已解锁</span> : null}
-                </div>
-
-                {detailMeta.authorNote && (
-                  <div className="uiPanel" style={{ marginTop: 12 }}>
-                    <div className="uiPanelHeader">
-                      <div>
-                        <div className="uiPanelTitle">创作者备注</div>
-                        <div className="uiPanelSub">角色发布说明</div>
+                  {detailMeta.authorNote && (
+                    <div className="uiPanel" style={{ marginTop: 12 }}>
+                      <div className="uiPanelHeader">
+                        <div>
+                          <div className="uiPanelTitle">创作者备注</div>
+                          <div className="uiPanelSub">角色发布说明</div>
+                        </div>
+                      </div>
+                      <div className="uiForm">
+                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{detailMeta.authorNote}</div>
                       </div>
                     </div>
-                    <div className="uiForm">
-                      <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{detailMeta.authorNote}</div>
+                  )}
+
+                  <div className="uiHint" style={{ marginTop: 12 }}>
+                    角色设定提示词（仅展示前 600 字）
+                  </div>
+                  <div
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.6,
+                      border: '1px solid rgba(0,0,0,.08)',
+                      borderRadius: 14,
+                      padding: 12,
+                      background: '#fff',
+                    }}
+                  >
+                    {(item.system_prompt || '').slice(0, 600)}
+                    {(item.system_prompt || '').length > 600 ? '...' : ''}
+                  </div>
+                </div>
+              </div>
+
+              <aside className="uiSquareDetailAside">
+                <div className="uiPanel" style={{ marginTop: 0 }}>
+                  <div className="uiPanelHeader">
+                    <div>
+                      <div className="uiPanelTitle">操作台</div>
+                      <div className="uiPanelSub">解锁、激活、跳转聊天与动态中心</div>
                     </div>
                   </div>
-                )}
+                  <div className="uiForm" style={{ paddingTop: 14 }}>
+                    {unlockedCharId ? (
+                      <>
+                        <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${unlockedCharId}`)}>
+                          发起对话
+                        </button>
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${unlockedCharId}`)}>
+                          动态中心
+                        </button>
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/characters/${unlockedCharId}/assets`)}>
+                          查看资产
+                        </button>
+                        <button className="uiBtn uiBtnSecondary" disabled={busy} onClick={() => toggleActivation(!unlockedActive)}>
+                          {busy ? '处理中...' : unlockedActive ? '取消激活' : '激活到首页'}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="uiBtn uiBtnPrimary" disabled={!canUnlock || busy} onClick={unlock}>
+                          {busy ? '解锁中...' : isLoggedIn ? '解锁到我的角色' : '登录后解锁'}
+                        </button>
+                        {!isLoggedIn ? (
+                          <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
+                            去登录
+                          </button>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                </div>
 
-                <div className="uiHint" style={{ marginTop: 12 }}>
-                  角色设定提示词（仅展示前 600 字）
+                <div className="uiPanel" style={{ marginTop: 0 }}>
+                  <div className="uiPanelHeader">
+                    <div>
+                      <div className="uiPanelTitle">状态</div>
+                      <div className="uiPanelSub">当前账号与角色状态摘要</div>
+                    </div>
+                  </div>
+                  <div className="uiForm" style={{ paddingTop: 14 }}>
+                    <span className="uiBadge">{isLoggedIn ? '已登录' : '游客模式'}</span>
+                    <span className="uiBadge">{unlockedCharId ? '已解锁' : '未解锁'}</span>
+                    <span className="uiBadge">{unlockedCharId ? (unlockedActive ? '已激活' : '未激活') : '-'}</span>
+                  </div>
                 </div>
-                <div
-                  style={{
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: 1.6,
-                    border: '1px solid rgba(0,0,0,.08)',
-                    borderRadius: 14,
-                    padding: 12,
-                    background: '#fff',
-                  }}
-                >
-                  {(item.system_prompt || '').slice(0, 600)}
-                  {(item.system_prompt || '').length > 600 ? '...' : ''}
-                </div>
-              </div>
-              <div className="uiPanelFooter" style={{ position: 'sticky', bottom: 0, background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(8px)' }}>
-                {unlockedCharId ? (
-                  <>
-                    <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${unlockedCharId}`)}>
-                      聊天
-                    </button>
-                    <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${unlockedCharId}`)}>
-                      动态中心
-                    </button>
-                    <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/characters/${unlockedCharId}/assets`)}>
-                      资产页
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button className="uiBtn uiBtnPrimary" disabled={!canUnlock || busy} onClick={unlock}>
-                      {busy ? '解锁中...' : isLoggedIn ? '解锁到我的角色' : '登录后解锁'}
-                    </button>
-                    {!isLoggedIn ? (
-                      <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
-                        去登录
-                      </button>
-                    ) : null}
-                  </>
-                )}
-              </div>
+              </aside>
             </div>
           </div>
         )}

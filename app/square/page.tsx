@@ -400,6 +400,137 @@ export default function SquarePage() {
   const spotlightItems = useMemo(() => filteredItems.slice(0, 3), [filteredItems])
   const gridItems = useMemo(() => filteredItems.slice(3), [filteredItems])
 
+  const renderCard = (c: PubCharacter, featured = false) => {
+    const p = asRecord(c.profile)
+    const s = asRecord(c.settings)
+    const age = getStr(p, 'age').trim()
+    const occupation = getStr(p, 'occupation').trim()
+    const org = getStr(p, 'organization').trim()
+    const meta = [age ? `${age}岁` : '', occupation, org].filter(Boolean).join(' · ')
+    const ageMode = s.age_mode === 'teen' || s.teen_mode === true ? '未成年模式' : '成人模式'
+    const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
+    const romanceLabel = ageMode === '未成年模式' ? '恋爱关闭' : romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
+    const audience = getAudienceTab(c)
+    const info = unlockedInfoBySourceId[c.id]
+
+    return (
+      <div key={c.id} className="uiCard" style={{ cursor: 'pointer', borderColor: featured ? 'rgba(32,84,176,.32)' : undefined }} onClick={() => router.push(`/square/${c.id}`)}>
+        <div className="uiCardMedia">
+          {imgById[c.id] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={imgById[c.id]} alt="" />
+          ) : (
+            <div className="uiCardMediaFallback">暂无图片</div>
+          )}
+        </div>
+        <div className="uiCardTitle">{c.name}</div>
+        <div className="uiCardMeta">
+          {meta || '公开角色'}
+          {info ? ` · 已解锁${info.active ? ' · 已激活' : ''}` : ''}
+        </div>
+        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {featured ? (
+            <span className="uiBadge" style={{ borderColor: 'rgba(32,84,176,.44)', color: 'rgba(32,84,176,.98)', background: 'rgba(231,241,255,.94)' }}>
+              精选
+            </span>
+          ) : null}
+          <span className="uiBadge">公开</span>
+          <span className="uiBadge">{ageMode}</span>
+          <span className="uiBadge">{audienceLabel(audience)}</span>
+          <span className="uiBadge">{romanceLabel}</span>
+          <span className="uiBadge" style={{ borderColor: info ? 'rgba(31,141,82,.45)' : 'rgba(0,0,0,.18)', color: info ? 'rgba(31,141,82,1)' : 'rgba(0,0,0,.62)', background: info ? 'rgba(31,141,82,.10)' : 'rgba(0,0,0,.03)' }}>
+            {info ? '已解锁' : '未解锁'}
+          </span>
+          {info?.active ? (
+            <span className="uiBadge" style={{ borderColor: 'rgba(20,144,132,.48)', color: 'rgba(20,144,132,.98)', background: 'rgba(20,144,132,.10)' }}>
+              已激活
+            </span>
+          ) : null}
+        </div>
+
+        {info && (
+          <div className="uiCardActions">
+            <button
+              className="uiBtn uiBtnPrimary"
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/chat/${info.localId}`)
+              }}
+            >
+              对话
+            </button>
+            <button
+              className="uiBtn uiBtnGhost"
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/home/${info.localId}`)
+              }}
+            >
+              动态中心
+            </button>
+            <button
+              className="uiBtn uiBtnGhost"
+              disabled={togglingId === info.localId}
+              onClick={(e) => {
+                e.stopPropagation()
+                void toggleActivation(c.id, !info.active)
+              }}
+            >
+              {togglingId === info.localId ? '处理中...' : info.active ? '取消激活' : '激活到首页'}
+            </button>
+            <button
+              className="uiBtn uiBtnGhost"
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/square/${c.id}`)
+              }}
+            >
+              详情
+            </button>
+          </div>
+        )}
+        {!info && (
+          <div className="uiCardActions">
+            <button
+              className="uiBtn uiBtnPrimary"
+              disabled={unlockingId === c.id}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!isLoggedIn) {
+                  router.push('/login')
+                  return
+                }
+                void unlockCharacterFromCard(c)
+              }}
+            >
+              {!isLoggedIn ? '登录后解锁' : unlockingId === c.id ? '解锁中...' : '一键解锁'}
+            </button>
+            <button
+              className="uiBtn uiBtnGhost"
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/square/${c.id}`)
+              }}
+            >
+              详情
+            </button>
+            {!isLoggedIn ? (
+              <button
+                className="uiBtn uiBtnGhost"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  router.push('/login')
+                }}
+              >
+                去登录
+              </button>
+            ) : null}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="uiPage">
       <AppShell
@@ -458,342 +589,124 @@ export default function SquarePage() {
         )}
 
         {!loading && (
-          <div className="uiPanel" style={{ marginTop: 0 }}>
-            <div className="uiForm" style={{ paddingTop: 14 }}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <span className="uiBadge">总计: {stats.total}</span>
-                <span className="uiBadge">未解锁: {stats.locked}</span>
-                <span className="uiBadge">已解锁: {stats.unlocked}</span>
-                <span className="uiBadge">已激活: {stats.active}</span>
-                <span className="uiBadge">男频: {stats.male}</span>
-                <span className="uiBadge">女频: {stats.female}</span>
-                <span className="uiBadge">青少年: {stats.teen}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <input
-                  className="uiInput"
-                  style={{ maxWidth: 420 }}
-                  placeholder="搜索角色名/职业/组织..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <button className={`uiPill ${filter === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setFilter('ALL')}>
-                  全部
-                </button>
-                <button className={`uiPill ${filter === 'LOCKED' ? 'uiPillActive' : ''}`} onClick={() => setFilter('LOCKED')}>
-                  未解锁
-                </button>
-                <button className={`uiPill ${filter === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setFilter('UNLOCKED')}>
-                  已解锁
-                </button>
-                <button className={`uiPill ${filter === 'ACTIVE' ? 'uiPillActive' : ''}`} onClick={() => setFilter('ACTIVE')}>
-                  已激活
-                </button>
-                <select className="uiInput" style={{ width: 170, padding: '8px 10px' }} value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
-                  <option value="UNLOCKED_FIRST">排序：已解锁优先</option>
-                  <option value="ACTIVE_FIRST">排序：已激活优先</option>
-                  <option value="NEWEST">排序：最新发布</option>
-                  <option value="NAME">排序：角色名</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span className="uiHint" style={{ marginTop: 0 }}>
-                  频道:
-                </span>
-                <button className={`uiPill ${audienceTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('ALL')}>
-                  全部
-                </button>
-                <button className={`uiPill ${audienceTab === 'MALE' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('MALE')}>
-                  男频
-                </button>
-                <button className={`uiPill ${audienceTab === 'FEMALE' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('FEMALE')}>
-                  女频
-                </button>
-                <button className={`uiPill ${audienceTab === 'TEEN' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('TEEN')}>
-                  青少年
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!loading && filteredItems.length === 0 && (
-          <div className="uiEmpty">
-            <div className="uiEmptyTitle">没有匹配结果</div>
-            <div className="uiEmptyDesc">试试清空搜索词，或切换筛选条件。</div>
-          </div>
-        )}
-
-        {!loading && spotlightItems.length > 0 && (
-          <section>
-            <div className="uiSectionHead">
-              <h3 className="uiSectionTitle">精选角色</h3>
-              <span className="uiHint">基于当前筛选结果展示前 3 个</span>
-            </div>
-            <div className="uiGrid">
-              {spotlightItems.map((c) => {
-                const p = asRecord(c.profile)
-                const s = asRecord(c.settings)
-                const age = getStr(p, 'age').trim()
-                const occupation = getStr(p, 'occupation').trim()
-                const org = getStr(p, 'organization').trim()
-                const meta = [age ? `${age}岁` : '', occupation, org].filter(Boolean).join(' · ')
-                const ageMode = s.age_mode === 'teen' || s.teen_mode === true ? '未成年模式' : '成人模式'
-                const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
-                const romanceLabel = ageMode === '未成年模式' ? '恋爱关闭' : romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
-                const audience = getAudienceTab(c)
-                const info = unlockedInfoBySourceId[c.id]
-
-                return (
-                  <div key={c.id} className="uiCard" style={{ cursor: 'pointer' }} onClick={() => router.push(`/square/${c.id}`)}>
-                    <div className="uiCardMedia">
-                      {imgById[c.id] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={imgById[c.id]} alt="" />
-                      ) : (
-                        <div className="uiCardMediaFallback">暂无图片</div>
-                      )}
-                    </div>
-                    <div className="uiCardTitle">{c.name}</div>
-                    <div className="uiCardMeta">
-                      {meta || '公开角色'}
-                      {info ? ` · 已解锁${info.active ? ' · 已激活' : ''}` : ''}
-                    </div>
-                    <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <span className="uiBadge">公开</span>
-                      <span className="uiBadge">{ageMode}</span>
-                      <span className="uiBadge">{audienceLabel(audience)}</span>
-                      <span className="uiBadge">{romanceLabel}</span>
-                      <span className="uiBadge" style={{ borderColor: info ? 'rgba(31,141,82,.45)' : 'rgba(0,0,0,.18)', color: info ? 'rgba(31,141,82,1)' : 'rgba(0,0,0,.62)', background: info ? 'rgba(31,141,82,.10)' : 'rgba(0,0,0,.03)' }}>
-                        {info ? '已解锁' : '未解锁'}
-                      </span>
-                      {info?.active ? (
-                        <span className="uiBadge" style={{ borderColor: 'rgba(20,144,132,.48)', color: 'rgba(20,144,132,.98)', background: 'rgba(20,144,132,.10)' }}>
-                          已激活
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {info && (
-                      <div className="uiCardActions">
-                        <button
-                          className="uiBtn uiBtnPrimary"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/chat/${info.localId}`)
-                          }}
-                        >
-                          对话
-                        </button>
-                        <button
-                          className="uiBtn uiBtnGhost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/home/${info.localId}`)
-                          }}
-                        >
-                          动态中心
-                        </button>
-                        <button
-                          className="uiBtn uiBtnGhost"
-                          disabled={togglingId === info.localId}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void toggleActivation(c.id, !info.active)
-                          }}
-                        >
-                          {togglingId === info.localId ? '处理中...' : info.active ? '取消激活' : '激活到首页'}
-                        </button>
-                        <button
-                          className="uiBtn uiBtnGhost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/square/${c.id}`)
-                          }}
-                        >
-                          详情
-                        </button>
-                      </div>
-                    )}
-                    {!info && (
-                      <div className="uiCardActions">
-                        <button
-                          className="uiBtn uiBtnPrimary"
-                          disabled={unlockingId === c.id}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            if (!isLoggedIn) {
-                              router.push('/login')
-                              return
-                            }
-                            void unlockCharacterFromCard(c)
-                          }}
-                        >
-                          {!isLoggedIn ? '登录后解锁' : unlockingId === c.id ? '解锁中...' : '一键解锁'}
-                        </button>
-                        <button
-                          className="uiBtn uiBtnGhost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/square/${c.id}`)
-                          }}
-                        >
-                          详情
-                        </button>
-                        {!isLoggedIn ? (
-                          <button
-                            className="uiBtn uiBtnGhost"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              router.push('/login')
-                            }}
-                          >
-                            去登录
-                          </button>
-                        ) : null}
-                      </div>
-                    )}
+          <div className="uiSquareWorkspace">
+            <aside className="uiSquareSidebar">
+              <div className="uiPanel" style={{ marginTop: 0 }}>
+                <div className="uiPanelHeader">
+                  <div>
+                    <div className="uiPanelTitle">筛选器</div>
+                    <div className="uiPanelSub">按状态、频道和关键词筛选公开角色</div>
                   </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {!loading && gridItems.length > 0 && (
-          <section>
-            <div className="uiSectionHead">
-              <h3 className="uiSectionTitle">全部结果</h3>
-              <span className="uiHint">共 {filteredItems.length} 个角色</span>
-            </div>
-            <div className="uiGrid">
-              {gridItems.map((c) => {
-              const p = asRecord(c.profile)
-              const s = asRecord(c.settings)
-              const age = getStr(p, 'age').trim()
-              const occupation = getStr(p, 'occupation').trim()
-              const org = getStr(p, 'organization').trim()
-              const meta = [age ? `${age}岁` : '', occupation, org].filter(Boolean).join(' · ')
-              const ageMode = s.age_mode === 'teen' || s.teen_mode === true ? '未成年模式' : '成人模式'
-              const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
-              const romanceLabel = ageMode === '未成年模式' ? '恋爱关闭' : romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
-              const audience = getAudienceTab(c)
-              const info = unlockedInfoBySourceId[c.id]
-
-              return (
-                <div key={c.id} className="uiCard" style={{ cursor: 'pointer' }} onClick={() => router.push(`/square/${c.id}`)}>
-                  <div className="uiCardMedia">
-                    {imgById[c.id] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imgById[c.id]} alt="" />
-                    ) : (
-                      <div className="uiCardMediaFallback">暂无图片</div>
-                    )}
-                  </div>
-                  <div className="uiCardTitle">{c.name}</div>
-                  <div className="uiCardMeta">
-                    {meta || '公开角色'}
-                    {info ? ` · 已解锁${info.active ? ' · 已激活' : ''}` : ''}
-                  </div>
-                  <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <span className="uiBadge">公开</span>
-                    <span className="uiBadge">{ageMode}</span>
-                    <span className="uiBadge">{audienceLabel(audience)}</span>
-                    <span className="uiBadge">{romanceLabel}</span>
-                    <span className="uiBadge" style={{ borderColor: info ? 'rgba(31,141,82,.45)' : 'rgba(0,0,0,.18)', color: info ? 'rgba(31,141,82,1)' : 'rgba(0,0,0,.62)', background: info ? 'rgba(31,141,82,.10)' : 'rgba(0,0,0,.03)' }}>
-                      {info ? '已解锁' : '未解锁'}
-                    </span>
-                    {info?.active ? (
-                      <span className="uiBadge" style={{ borderColor: 'rgba(20,144,132,.48)', color: 'rgba(20,144,132,.98)', background: 'rgba(20,144,132,.10)' }}>
-                        已激活
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {info && (
-                    <div className="uiCardActions">
-                      <button
-                        className="uiBtn uiBtnPrimary"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/chat/${info.localId}`)
-                        }}
-                      >
-                        对话
-                      </button>
-                      <button
-                        className="uiBtn uiBtnGhost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/home/${info.localId}`)
-                        }}
-                      >
-                        动态中心
-                      </button>
-                      <button
-                        className="uiBtn uiBtnGhost"
-                        disabled={togglingId === info.localId}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void toggleActivation(c.id, !info.active)
-                        }}
-                      >
-                        {togglingId === info.localId ? '处理中...' : info.active ? '取消激活' : '激活到首页'}
-                      </button>
-                      <button
-                        className="uiBtn uiBtnGhost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/square/${c.id}`)
-                        }}
-                      >
-                        详情
-                      </button>
-                    </div>
-                  )}
-                  {!info && (
-                    <div className="uiCardActions">
-                      <button
-                        className="uiBtn uiBtnPrimary"
-                        disabled={unlockingId === c.id}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (!isLoggedIn) {
-                            router.push('/login')
-                            return
-                          }
-                          void unlockCharacterFromCard(c)
-                        }}
-                      >
-                        {!isLoggedIn ? '登录后解锁' : unlockingId === c.id ? '解锁中...' : '一键解锁'}
-                      </button>
-                      <button
-                        className="uiBtn uiBtnGhost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/square/${c.id}`)
-                        }}
-                      >
-                        详情
-                      </button>
-                      {!isLoggedIn ? (
-                        <button
-                          className="uiBtn uiBtnGhost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push('/login')
-                          }}
-                        >
-                          去登录
-                        </button>
-                      ) : null}
-                    </div>
-                  )}
                 </div>
-              )
-              })}
+                <div className="uiForm" style={{ paddingTop: 14 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <span className="uiBadge">总计: {stats.total}</span>
+                    <span className="uiBadge">未解锁: {stats.locked}</span>
+                    <span className="uiBadge">已解锁: {stats.unlocked}</span>
+                    <span className="uiBadge">已激活: {stats.active}</span>
+                  </div>
+                  <input
+                    className="uiInput"
+                    placeholder="搜索角色名/职业/组织..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className={`uiPill ${filter === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setFilter('ALL')}>
+                      全部
+                    </button>
+                    <button className={`uiPill ${filter === 'LOCKED' ? 'uiPillActive' : ''}`} onClick={() => setFilter('LOCKED')}>
+                      未解锁
+                    </button>
+                    <button className={`uiPill ${filter === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setFilter('UNLOCKED')}>
+                      已解锁
+                    </button>
+                    <button className={`uiPill ${filter === 'ACTIVE' ? 'uiPillActive' : ''}`} onClick={() => setFilter('ACTIVE')}>
+                      已激活
+                    </button>
+                  </div>
+                  <select className="uiInput" value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+                    <option value="UNLOCKED_FIRST">排序：已解锁优先</option>
+                    <option value="ACTIVE_FIRST">排序：已激活优先</option>
+                    <option value="NEWEST">排序：最新发布</option>
+                    <option value="NAME">排序：角色名</option>
+                  </select>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className={`uiPill ${audienceTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('ALL')}>
+                      全部频道
+                    </button>
+                    <button className={`uiPill ${audienceTab === 'MALE' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('MALE')}>
+                      男频
+                    </button>
+                    <button className={`uiPill ${audienceTab === 'FEMALE' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('FEMALE')}>
+                      女频
+                    </button>
+                    <button className={`uiPill ${audienceTab === 'TEEN' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('TEEN')}>
+                      青少年
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="uiPanel" style={{ marginTop: 0 }}>
+                <div className="uiPanelHeader">
+                  <div>
+                    <div className="uiPanelTitle">操作入口</div>
+                    <div className="uiPanelSub">解锁后可进入首页与聊天</div>
+                  </div>
+                </div>
+                <div className="uiForm" style={{ paddingTop: 14 }}>
+                  <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/home')}>
+                    打开首页
+                  </button>
+                  <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
+                    管理我的角色
+                  </button>
+                  <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters/new')}>
+                    创建新角色
+                  </button>
+                  {!isLoggedIn ? (
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
+                      登录后可解锁
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </aside>
+
+            <div className="uiSquareMain">
+              {filteredItems.length === 0 && (
+                <div className="uiEmpty">
+                  <div className="uiEmptyTitle">没有匹配结果</div>
+                  <div className="uiEmptyDesc">试试清空搜索词，或切换筛选条件。</div>
+                </div>
+              )}
+
+              {spotlightItems.length > 0 && (
+                <section>
+                  <div className="uiSectionHead">
+                    <h3 className="uiSectionTitle">精选角色</h3>
+                    <span className="uiHint">基于当前筛选结果展示前 3 个</span>
+                  </div>
+                  <div className="uiGrid">
+                    {spotlightItems.map((c) => renderCard(c, true))}
+                  </div>
+                </section>
+              )}
+
+              {gridItems.length > 0 && (
+                <section>
+                  <div className="uiSectionHead">
+                    <h3 className="uiSectionTitle">全部结果</h3>
+                    <span className="uiHint">共 {filteredItems.length} 个角色</span>
+                  </div>
+                  <div className="uiGrid">
+                    {gridItems.map((c) => renderCard(c))}
+                  </div>
+                </section>
+              )}
             </div>
-          </section>
+          </div>
         )}
       </AppShell>
     </div>
