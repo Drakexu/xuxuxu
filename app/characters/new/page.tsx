@@ -78,9 +78,14 @@ function clampText(s: string, max: number) {
   return t.length > max ? t.slice(0, max) : t
 }
 
+function effectiveRomanceMode(f: FormState): 'ROMANCE_ON' | 'ROMANCE_OFF' {
+  if (f.teenMode) return 'ROMANCE_OFF'
+  return f.romanceOn ? 'ROMANCE_ON' : 'ROMANCE_OFF'
+}
+
 function buildSystemPrompt(f: FormState) {
   const ageMode = f.teenMode ? 'teen' : 'adult'
-  const romanceMode = f.romanceOn ? 'ROMANCE_ON' : 'ROMANCE_OFF'
+  const romanceMode = effectiveRomanceMode(f)
   const lines: string[] = []
 
   lines.push('【角色基础】')
@@ -125,7 +130,7 @@ function buildSystemPrompt(f: FormState) {
   } else {
     lines.push('- 成人模式：允许亲密氛围，但禁止强迫、羞辱、违法和未成年人相关内容。')
   }
-  if (!f.romanceOn) {
+  if (romanceMode === 'ROMANCE_OFF') {
     lines.push('- ROMANCE_OFF：禁止表白、官宣、情侣称呼体系。')
   }
 
@@ -142,6 +147,7 @@ export default function NewCharacterPage() {
   const [f, setF] = useState<FormState>(DEFAULT_FORM)
 
   const canCreate = useMemo(() => !loading && !!userId && !creating && f.name.trim().length > 0 && f.systemPrompt.trim().length > 0, [loading, userId, creating, f.name, f.systemPrompt])
+  const romanceMode = effectiveRomanceMode(f)
 
   useEffect(() => {
     if (!alert) return
@@ -175,6 +181,7 @@ export default function NewCharacterPage() {
     if (!canCreate) return
     setCreating(true)
     setAlert(null)
+    const resolvedRomanceMode = effectiveRomanceMode(f)
 
     const payloadV2: {
       user_id: string
@@ -196,7 +203,7 @@ export default function NewCharacterPage() {
         summary: clampText(f.summary, 1800),
       },
       settings: {
-        romance_mode: f.romanceOn ? 'ROMANCE_ON' : 'ROMANCE_OFF',
+        romance_mode: resolvedRomanceMode,
         teen_mode: !!f.teenMode,
         age_mode: f.teenMode ? 'teen' : 'adult',
         plot_granularity: 'BEAT',
@@ -306,7 +313,7 @@ export default function NewCharacterPage() {
               <span>发布范围</span>
             </div>
             <div className="uiKpi">
-              <b>{f.romanceOn ? '开启' : '关闭'}</b>
+              <b>{romanceMode === 'ROMANCE_ON' ? '开启' : '关闭'}</b>
               <span>恋爱模式</span>
             </div>
             <div className="uiKpi">
@@ -449,14 +456,28 @@ export default function NewCharacterPage() {
               <div className="uiSplit">
                 <label className="uiLabel">
                   恋爱模式
-                  <select className="uiInput" value={f.romanceOn ? 'on' : 'off'} onChange={(e) => setF((p) => ({ ...p, romanceOn: e.target.value === 'on' }))}>
+                  <select
+                    className="uiInput"
+                    value={romanceMode === 'ROMANCE_ON' ? 'on' : 'off'}
+                    disabled={f.teenMode}
+                    onChange={(e) => setF((p) => ({ ...p, romanceOn: e.target.value === 'on' }))}
+                  >
                     <option value="on">ROMANCE_ON</option>
                     <option value="off">ROMANCE_OFF</option>
                   </select>
                 </label>
                 <label className="uiLabel">
                   年龄模式
-                  <select className="uiInput" value={f.teenMode ? 'teen' : 'adult'} onChange={(e) => setF((p) => ({ ...p, teenMode: e.target.value === 'teen' }))}>
+                  <select
+                    className="uiInput"
+                    value={f.teenMode ? 'teen' : 'adult'}
+                    onChange={(e) =>
+                      setF((p) => {
+                        const teen = e.target.value === 'teen'
+                        return teen ? { ...p, teenMode: true, romanceOn: false } : { ...p, teenMode: false }
+                      })
+                    }
+                  >
                     <option value="adult">成人</option>
                     <option value="teen">未成年</option>
                   </select>

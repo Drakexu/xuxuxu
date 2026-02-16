@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v19 - identity-card persistence bridge)
+Last updated: 2026-02-16 (checkpoint: high-target execution v20 - teen-mode romance lock)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -212,6 +212,26 @@ Repo: `d:/projects/xuxuxu`
     - new field `身份卡（注入 Prompt，0~300 字）`
     - saved into `characters.settings.user_card`
   - Result: identity card can now be maintained as role-level durable setting (not only browser local storage).
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Teen-mode safety lock v20 checkpoint (latest)
+- Files changed:
+  - `app/api/chat/route.ts`
+  - `app/characters/new/page.tsx`
+  - `app/square/page.tsx`
+  - `app/square/[characterId]/page.tsx`
+- Completed:
+  - Enforced teen-mode romance-off behavior across creation, unlock, and runtime:
+    - character creation now derives effective romance mode as:
+      - teen => `ROMANCE_OFF`
+      - adult => follows creator selection
+    - creation form auto-disables romance selector while teen mode is active.
+    - square unlock flow normalizes teen roles to `romance_mode=ROMANCE_OFF` in copied local role settings.
+    - chat runtime state reflection and prompt policy sync now force `run_state.romance_mode='ROMANCE_OFF'` when `age_mode='teen'`.
+  - Square cards/detail now render romance label as “恋爱关闭” under teen mode.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

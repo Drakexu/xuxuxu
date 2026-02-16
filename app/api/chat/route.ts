@@ -120,6 +120,14 @@ function applyPromptPolicyFromSettings(args: { conversationState: JsonObject; ch
   const run = asRecord(conversationState['run_state'])
   const style = asRecord(conversationState['style_guard'])
 
+  const rm = set['romance_mode']
+  const am = set['age_mode']
+  const teenMode = set['teen_mode']
+  if (rm === 'ROMANCE_ON' || rm === 'ROMANCE_OFF') run['romance_mode'] = rm
+  if (am === 'teen' || am === 'adult') run['age_mode'] = am
+  if (typeof teenMode === 'boolean') run['age_mode'] = teenMode ? 'teen' : run['age_mode']
+  if (run['age_mode'] === 'teen') run['romance_mode'] = 'ROMANCE_OFF'
+
   run['plot_granularity'] = normalizePlotGranularityServer(policy['plot_granularity'] ?? set['plot_granularity'] ?? run['plot_granularity'])
   run['ending_mode'] = normalizeEndingModeServer(policy['ending_mode'] ?? set['ending_mode'] ?? run['ending_mode'])
   style['ending_repeat_window'] = normalizeEndingWindowServer(
@@ -541,6 +549,7 @@ function buildDynamicContext(args: {
     if (am === 'teen' || am === 'adult') run.age_mode = am
     const teenMode = set['teen_mode']
     if (typeof teenMode === 'boolean') run.age_mode = teenMode ? 'teen' : run.age_mode
+    if (run.age_mode === 'teen') run.romance_mode = 'ROMANCE_OFF'
     run.plot_granularity = normalizePlotGranularityServer(set['plot_granularity'] ?? run.plot_granularity)
     run.ending_mode = normalizeEndingModeServer(set['ending_mode'] ?? run.ending_mode)
   }

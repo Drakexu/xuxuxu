@@ -482,9 +482,9 @@ export default function SquarePage() {
                 const occupation = getStr(p, 'occupation').trim()
                 const org = getStr(p, 'organization').trim()
                 const meta = [age ? `${age}岁` : '', occupation, org].filter(Boolean).join(' · ')
-                const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
-                const romanceLabel = romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
                 const ageMode = s.age_mode === 'teen' || s.teen_mode === true ? '未成年模式' : '成人模式'
+                const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
+                const romanceLabel = ageMode === '未成年模式' ? '恋爱关闭' : romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
                 const audience = getAudienceTab(c)
                 const info = unlockedInfoBySourceId[c.id]
 
@@ -604,9 +604,9 @@ export default function SquarePage() {
               const occupation = getStr(p, 'occupation').trim()
               const org = getStr(p, 'organization').trim()
               const meta = [age ? `${age}岁` : '', occupation, org].filter(Boolean).join(' · ')
-              const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
-              const romanceLabel = romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
               const ageMode = s.age_mode === 'teen' || s.teen_mode === true ? '未成年模式' : '成人模式'
+              const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
+              const romanceLabel = ageMode === '未成年模式' ? '恋爱关闭' : romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
               const audience = getAudienceTab(c)
               const info = unlockedInfoBySourceId[c.id]
 

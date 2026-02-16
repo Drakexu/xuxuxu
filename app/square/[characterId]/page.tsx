@@ -70,7 +70,7 @@ export default function SquareDetailPage() {
     const org = typeof p.organization === 'string' ? p.organization.trim() : ''
     const teen = !!s.teen_mode || s.age_mode === 'teen'
     const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
-    const romanceLabel = romance === 'ROMANCE_OFF' ? '恋爱关闭' : romance === 'ROMANCE_ON' || !romance ? '恋爱开启' : romance
+    const romanceLabel = teen ? '恋爱关闭' : romance === 'ROMANCE_OFF' ? '恋爱关闭' : romance === 'ROMANCE_ON' || !romance ? '恋爱开启' : romance
     const authorNote = (() => {
       const cf = asRecord(s.creation_form)
       const pub = asRecord(cf.publish)
@@ -215,13 +215,21 @@ export default function SquareDetailPage() {
       profile: Record<string, unknown>
       settings: Record<string, unknown>
     } = {
+      // Teen-mode roles must keep romance disabled after unlock.
+      // We still keep the source role payload, but enforce safe overrides.
       user_id: userId,
       name: item.name,
       system_prompt: item.system_prompt,
       visibility: 'private',
       profile: item.profile ?? {},
       settings: {
-        ...(item.settings ?? {}),
+        ...(() => {
+          const src = asRecord(item.settings)
+          const teen = src.teen_mode === true || src.age_mode === 'teen'
+          return teen
+            ? { ...src, teen_mode: true, age_mode: 'teen', romance_mode: 'ROMANCE_OFF' }
+            : src
+        })(),
         source_character_id: item.id,
         unlocked_from_square: true,
         activated: true,
