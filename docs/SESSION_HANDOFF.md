@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v6 - prompt policy runtimeization)
+Last updated: 2026-02-16 (checkpoint: high-target execution v7 - visual layering assets page)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -538,6 +538,26 @@ Repo: `d:/projects/xuxuxu`
   - `/api/chat` switched from static `PROMPT_OS` string use to per-turn prompt policy injection.
   - Added explicit prompt traceability map doc:
     - `docs/aibaji/prompt_alignment_map.md`
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+
+### High-target execution v7 checkpoint (latest)
+- File changed:
+  - `app/characters/[characterId]/assets/page.tsx` (rewritten)
+- Completed:
+  - Rebuilt assets page as clean UTF-8 implementation (removed mojibake-heavy copy/layout risk).
+  - Preserved existing capabilities:
+    - conversation snapshot switching
+    - wardrobe/current_outfit writeback via `/api/state/wardrobe`
+    - ledger snapshot (inventory/NPC/highlights/event log)
+    - full asset gallery preview
+  - Added visual-layer upgrade (static composition):
+    - new `视觉组合预览` panel with layered render
+    - background layer selection + role layer selection
+    - role transform controls (scale + vertical offset + reset)
+    - supports cover/full_body/head assets as composition sources
 - Validation:
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass

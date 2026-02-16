@@ -31,7 +31,7 @@ function stableName(it: WardrobeItem) {
   return typeof it?.outfit === 'string' ? it.outfit.trim() : ''
 }
 
-function pickAssetPath(rows: CharacterAssetRow[]) {
+function pickPreviewPath(rows: CharacterAssetRow[]) {
   const byKind: Record<string, CharacterAssetRow[]> = {}
   for (const r of rows) {
     if (!r.kind || !r.storage_path) continue
@@ -64,9 +64,15 @@ export default function CharacterAssetsPage() {
   const [manualOutfit, setManualOutfit] = useState('')
 
   const [assets, setAssets] = useState<Array<{ kind: string; url: string; path: string }>>([])
-  const [coverUrl, setCoverUrl] = useState('')
+  const [previewUrl, setPreviewUrl] = useState('')
+
+  const [composerBgPath, setComposerBgPath] = useState('')
+  const [composerRolePath, setComposerRolePath] = useState('')
+  const [roleScale, setRoleScale] = useState(100)
+  const [roleYOffset, setRoleYOffset] = useState(0)
 
   const canSaveOutfit = useMemo(() => !!conversationId && !savingOutfit, [conversationId, savingOutfit])
+
   const detailHealth = useMemo(() => {
     if (!details) {
       return [
@@ -83,6 +89,15 @@ export default function CharacterAssetsPage() {
       { key: 'highlights', label: '高光事件', ok: details.highlights.length > 0 },
     ]
   }, [details])
+
+  const backgrounds = useMemo(
+    () => assets.filter((a) => a.kind === 'cover' || a.path.toLowerCase().includes('bg') || a.path.toLowerCase().includes('background')),
+    [assets],
+  )
+  const roleLayers = useMemo(() => assets.filter((a) => a.kind === 'full_body' || a.kind === 'head'), [assets])
+
+  const composerBgUrl = useMemo(() => backgrounds.find((a) => a.path === composerBgPath)?.url || '', [backgrounds, composerBgPath])
+  const composerRoleUrl = useMemo(() => roleLayers.find((a) => a.path === composerRolePath)?.url || '', [roleLayers, composerRolePath])
 
   const loadDetails = async (uid: string, convId: string) => {
     try {
@@ -111,7 +126,9 @@ export default function CharacterAssetsPage() {
         .map((x) => ({ day_start: typeof x.day_start === 'string' ? x.day_start : undefined, item: typeof x.item === 'string' ? x.item : undefined }))
         .filter((x) => !!x.item)
 
-      const eventLog = (asArray(ledger.event_log) as unknown[]).map((x) => String(x)).filter(Boolean)
+      const eventLog = asArray(ledger.event_log)
+        .map((x) => String(x || '').trim())
+        .filter(Boolean)
 
       setDetails({ currentOutfit, wardrobeItems, inventory, npcs, highlights, eventLog })
     } catch {
@@ -138,7 +155,7 @@ export default function CharacterAssetsPage() {
       })
       if (!resp.ok) {
         const t = await resp.text()
-        throw new Error(t || `请求失败: ${resp.status}`)
+        throw new Error(t || `请求失败：${resp.status}`)
       }
 
       await loadDetails(userId, conversationId)
@@ -188,13 +205,19 @@ export default function CharacterAssetsPage() {
         .select('kind,storage_path,created_at')
         .eq('character_id', characterId)
         .order('created_at', { ascending: false })
-        .limit(80)
+        .limit(120)
 
       if (!ar.error) {
         const rows = (ar.data ?? []) as CharacterAssetRow[]
+        const unique = new Set<string>()
         const signed = await Promise.all(
           rows
             .filter((x) => !!x.storage_path)
+            .filter((x) => {
+              if (unique.has(x.storage_path)) return false
+              unique.add(x.storage_path)
+              return true
+            })
             .map(async (x) => {
               const s = await supabase.storage.from('character-assets').createSignedUrl(x.storage_path, 60 * 60)
               return { kind: x.kind, path: x.storage_path, url: s.data?.signedUrl || '' }
@@ -202,9 +225,15 @@ export default function CharacterAssetsPage() {
         )
         const list = signed.filter((x) => !!x.url)
         setAssets(list)
-        const coverPath = pickAssetPath(rows)
-        const cover = list.find((x) => x.path === coverPath) || list[0]
-        if (cover?.url) setCoverUrl(cover.url)
+
+        const previewPath = pickPreviewPath(rows)
+        const preview = list.find((x) => x.path === previewPath) || list[0]
+        if (preview?.url) setPreviewUrl(preview.url)
+
+        const bg = list.find((x) => x.kind === 'cover') || list.find((x) => x.path.toLowerCase().includes('bg'))
+        const role = list.find((x) => x.kind === 'full_body') || list.find((x) => x.kind === 'head')
+        if (bg?.path) setComposerBgPath(bg.path)
+        if (role?.path) setComposerRolePath(role.path)
       }
 
       setLoading(false)
@@ -246,7 +275,7 @@ export default function CharacterAssetsPage() {
           <div>
             <span className="uiBadge">资产控制台</span>
             <h2 className="uiHeroTitle">角色外观与记忆账本维护</h2>
-            <p className="uiHeroSub">你可以在这里切换会话快照、管理当前穿搭、检查账本完整性，并浏览角色视觉资产。</p>
+            <p className="uiHeroSub">在这里管理会话快照、穿搭写回、账本完整性，并进行背景与角色静态分层预览。</p>
           </div>
           <div className="uiKpiGrid">
             <div className="uiKpi">
@@ -255,19 +284,19 @@ export default function CharacterAssetsPage() {
             </div>
             <div className="uiKpi">
               <b>{assets.length}</b>
-              <span>已签名资产</span>
+              <span>可用资产</span>
+            </div>
+            <div className="uiKpi">
+              <b>{backgrounds.length}</b>
+              <span>背景层</span>
+            </div>
+            <div className="uiKpi">
+              <b>{roleLayers.length}</b>
+              <span>角色层</span>
             </div>
             <div className="uiKpi">
               <b>{details?.wardrobeItems.length || 0}</b>
               <span>衣柜条目</span>
-            </div>
-            <div className="uiKpi">
-              <b>{details?.inventory.length || 0}</b>
-              <span>物品条目</span>
-            </div>
-            <div className="uiKpi">
-              <b>{details?.npcs.length || 0}</b>
-              <span>NPC 条目</span>
             </div>
             <div className="uiKpi">
               <b>{details?.eventLog.length || 0}</b>
@@ -321,7 +350,7 @@ export default function CharacterAssetsPage() {
                 {details && (
                   <>
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {(details.wardrobeItems || []).slice(0, 40).map((it, idx) => {
+                      {(details.wardrobeItems || []).slice(0, 48).map((it, idx) => {
                         const name = stableName(it)
                         const active = !!name && name === details.currentOutfit
                         return (
@@ -332,7 +361,7 @@ export default function CharacterAssetsPage() {
                       })}
                     </div>
 
-                    {details.wardrobeItems.length === 0 && <div className="uiHint">衣柜条目为空，等状态补丁写入后会显示在这里。</div>}
+                    {details.wardrobeItems.length === 0 && <div className="uiHint">衣柜条目为空，等待状态补丁持续写入。</div>}
 
                     <div style={{ display: 'flex', gap: 10 }}>
                       <input
@@ -365,6 +394,120 @@ export default function CharacterAssetsPage() {
             <div className="uiPanel">
               <div className="uiPanelHeader">
                 <div>
+                  <div className="uiPanelTitle">视觉组合预览</div>
+                  <div className="uiPanelSub">背景层 + 角色层（静态分层）</div>
+                </div>
+              </div>
+              <div className="uiForm" style={{ display: 'grid', gap: 14 }}>
+                <div
+                  style={{
+                    position: 'relative',
+                    height: 380,
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    border: '1px solid rgba(0,0,0,.1)',
+                    background: 'linear-gradient(180deg, rgba(230,240,255,.9), rgba(255,255,255,.95))',
+                  }}
+                >
+                  {composerBgUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={composerBgUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : null}
+
+                  {composerRoleUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={composerRoleUrl}
+                      alt=""
+                      style={{
+                        position: 'absolute',
+                        left: '50%',
+                        bottom: 0,
+                        height: '92%',
+                        width: 'auto',
+                        transform: `translate(-50%, ${roleYOffset}px) scale(${roleScale / 100})`,
+                        transformOrigin: 'center bottom',
+                        filter: 'drop-shadow(0 10px 16px rgba(0,0,0,.2))',
+                      }}
+                    />
+                  ) : null}
+
+                  {!composerBgUrl && !composerRoleUrl && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+                      <div className="uiHint">暂无可组合资产</div>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <label className="uiLabel" style={{ margin: 0 }}>
+                    角色缩放 ({roleScale}%)
+                    <input type="range" min={80} max={130} value={roleScale} onChange={(e) => setRoleScale(Number(e.target.value))} />
+                  </label>
+                  <label className="uiLabel" style={{ margin: 0 }}>
+                    角色上下偏移 ({roleYOffset}px)
+                    <input type="range" min={-40} max={40} value={roleYOffset} onChange={(e) => setRoleYOffset(Number(e.target.value))} />
+                  </label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      className="uiBtn uiBtnGhost"
+                      onClick={() => {
+                        setRoleScale(100)
+                        setRoleYOffset(0)
+                      }}
+                    >
+                      重置构图
+                    </button>
+                  </div>
+                </div>
+
+                <div className="uiSplit">
+                  <div>
+                    <div className="uiHint" style={{ marginBottom: 8 }}>
+                      背景层
+                    </div>
+                    <div className="uiThumbGrid">
+                      {backgrounds.slice(0, 18).map((a, idx) => (
+                        <button key={`bg:${a.path}:${idx}`} className="uiCard" style={{ margin: 0, padding: 8 }} onClick={() => setComposerBgPath(a.path)}>
+                          <div className="uiCardMedia" style={{ height: 78 }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={a.url} alt="" />
+                          </div>
+                          <div className="uiCardMeta" style={{ marginTop: 6 }}>
+                            {a.kind}
+                          </div>
+                        </button>
+                      ))}
+                      {backgrounds.length === 0 && <div className="uiHint">没有背景类资产</div>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="uiHint" style={{ marginBottom: 8 }}>
+                      角色层
+                    </div>
+                    <div className="uiThumbGrid">
+                      {roleLayers.slice(0, 18).map((a, idx) => (
+                        <button key={`role:${a.path}:${idx}`} className="uiCard" style={{ margin: 0, padding: 8 }} onClick={() => setComposerRolePath(a.path)}>
+                          <div className="uiCardMedia" style={{ height: 78 }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={a.url} alt="" />
+                          </div>
+                          <div className="uiCardMeta" style={{ marginTop: 6 }}>
+                            {a.kind}
+                          </div>
+                        </button>
+                      ))}
+                      {roleLayers.length === 0 && <div className="uiHint">没有角色层资产</div>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="uiPanel">
+              <div className="uiPanelHeader">
+                <div>
                   <div className="uiPanelTitle">账本快照</div>
                   <div className="uiPanelSub">NPC / 物品 / 高光事件 / 事件日志</div>
                 </div>
@@ -380,17 +523,17 @@ export default function CharacterAssetsPage() {
             <div className="uiPanel">
               <div className="uiPanelHeader">
                 <div>
-                  <div className="uiPanelTitle">视觉资产</div>
-                  <div className="uiPanelSub">cover / full_body / head 等类型预览</div>
+                  <div className="uiPanelTitle">全部资产浏览</div>
+                  <div className="uiPanelSub">点击缩略图可切换主预览</div>
                 </div>
               </div>
               <div className="uiForm">
                 <div className="uiSplit">
                   <div className="uiCard" style={{ margin: 0 }}>
                     <div className="uiCardMedia" style={{ height: 220 }}>
-                      {coverUrl ? (
+                      {previewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={coverUrl} alt="" />
+                        <img src={previewUrl} alt="" />
                       ) : (
                         <div className="uiCardMediaFallback">暂无预览图</div>
                       )}
@@ -400,8 +543,8 @@ export default function CharacterAssetsPage() {
                   </div>
 
                   <div className="uiThumbGrid">
-                    {assets.slice(0, 8).map((a, idx) => (
-                      <button key={`${a.kind}:${idx}`} className="uiCard" style={{ padding: 10, cursor: 'pointer' }} onClick={() => setCoverUrl(a.url)} title={a.kind}>
+                    {assets.slice(0, 24).map((a, idx) => (
+                      <button key={`${a.kind}:${idx}`} className="uiCard" style={{ padding: 10, cursor: 'pointer' }} onClick={() => setPreviewUrl(a.url)} title={a.path}>
                         <div className="uiCardMedia" style={{ height: 86 }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={a.url} alt="" />
@@ -414,7 +557,7 @@ export default function CharacterAssetsPage() {
                   </div>
                 </div>
 
-                {assets.length === 0 && <div className="uiHint">暂无资产，先在角色编辑流程上传图片。</div>}
+                {assets.length === 0 && <div className="uiHint">暂无资产，请先在角色编辑流程上传图片。</div>}
               </div>
             </div>
           </div>
