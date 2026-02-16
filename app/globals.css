@@ -858,6 +858,26 @@ body {
   top: 108px;
 }
 
+.uiStudioWorkspace {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(250px, 0.95fr) minmax(0, 2.05fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.uiStudioSidebar {
+  min-width: 0;
+  position: sticky;
+  top: 108px;
+}
+
+.uiStudioMain {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
 .uiMobileDock {
   display: none;
 }
@@ -884,6 +904,14 @@ body {
   }
 
   .uiSquareDetailAside {
+    position: static;
+  }
+
+  .uiStudioWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .uiStudioSidebar {
     position: static;
   }
 }

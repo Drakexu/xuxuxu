@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v26 - creator publish loop in studio)
+Last updated: 2026-02-16 (checkpoint: high-target execution v27 - creator studio workspace layout)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -353,6 +353,23 @@ Repo: `d:/projects/xuxuxu`
     - self-created roles: edit/assets/publish flow
     - unlocked roles: activate/hide/deactivate queue flow
   - Studio counters now include explicit `已激活` aggregate from role queue state.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Creator studio workspace v27 checkpoint (latest)
+- Files changed:
+  - `app/characters/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Reworked creator page into workspace layout consistent with home/square:
+    - left: studio filter/control rail
+    - right: character card stream
+  - Added dedicated studio layout primitives in global CSS:
+    - `uiStudioWorkspace`, `uiStudioSidebar`, `uiStudioMain`
+  - Kept publish-loop actions from v26 and integrated them into both normal and manage modes.
+  - Responsive behavior collapses studio workspace to single-column on smaller screens.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

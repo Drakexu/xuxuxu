@@ -295,215 +295,223 @@ export default function CharactersPage() {
           </>
         }
       >
-        <div className="uiPanel" style={{ marginTop: 0 }}>
-          <div className="uiForm" style={{ paddingTop: 14 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <span className="uiBadge">角色总数: {characters.length}</span>
-              <span className="uiBadge">我的创作: {counts.created}</span>
-              <span className="uiBadge">已解锁: {counts.unlocked}</span>
-              <span className="uiBadge">已激活: {counts.active}</span>
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button className={`uiPill ${studioTab === 'CREATED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('CREATED')}>
-                我的创作
-              </button>
-              <button className={`uiPill ${studioTab === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('UNLOCKED')}>
-                已解锁角色
-              </button>
-              <button className={`uiPill ${studioTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('ALL')}>
-                全部
-              </button>
-              <input
-                className="uiInput"
-                style={{ maxWidth: 260 }}
-                placeholder="搜索角色名..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
-                去广场解锁角色
-              </button>
-              <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
-                去首页看动态
-              </button>
-            </div>
-          </div>
-        </div>
-
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
 
         {loading && <div className="uiSkeleton">加载中...</div>}
 
-        {!loading && filteredCharacters.length === 0 && (
-          <div className="uiEmpty">
-            <div className="uiEmptyTitle">
-              {studioTab === 'CREATED' ? '还没有创建角色' : studioTab === 'UNLOCKED' ? '还没有已解锁角色' : '还没有角色'}
-            </div>
-            <div className="uiEmptyDesc">
-              {query.trim() ? '没有匹配结果，试试清空搜索词。' : '去创建一个角色，或在广场解锁别人公开的角色。'}
-            </div>
-          </div>
-        )}
-
-        {!loading && filteredCharacters.length > 0 && (
-          <div className="uiGrid">
-            {filteredCharacters.map((c) => {
-              const unlocked = isUnlockedFromSquare(c)
-              const active = isActivatedForHome(c)
-              const hidden = unlocked && asRecord(c.settings).home_hidden === true
-              const isCreated = !unlocked
-              const isPublic = c.visibility === 'public'
-
-              return (
-                <div
-                  key={c.id}
-                  className="uiCard"
-                  style={{ cursor: manageMode ? 'default' : 'pointer', userSelect: 'none' }}
-                  onClick={() => {
-                    if (!manageMode) router.push(`/chat/${c.id}`)
-                  }}
-                >
-                  <div className="uiCardMedia">
-                    {imgById[c.id] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imgById[c.id]} alt="" />
-                    ) : (
-                      <div className="uiCardMediaFallback">暂无图片</div>
-                    )}
+        {!loading && (
+          <div className="uiStudioWorkspace">
+            <aside className="uiStudioSidebar">
+              <div className="uiPanel" style={{ marginTop: 0 }}>
+                <div className="uiPanelHeader">
+                  <div>
+                    <div className="uiPanelTitle">工作台筛选</div>
+                    <div className="uiPanelSub">查看你的创作、解锁角色和发布状态</div>
                   </div>
-
-                  <div className="uiCardTitle">{c.name}</div>
-                  <div className="uiCardMeta">
-                    {isPublic ? '公开' : '私密'}
-                    {unlocked ? ` · 已解锁${active ? ' · 已激活' : ''}` : ' · 我的创作'}
-                    {hidden ? ' · 已隐藏' : ''}
-                  </div>
-
-                  {!manageMode && (
-                    <div className="uiCardActions">
-                      <button
-                        className="uiBtn uiBtnPrimary"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/chat/${c.id}`)
-                        }}
-                      >
-                        聊天
-                      </button>
-                      <button
-                        className="uiBtn uiBtnSecondary"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/characters/${c.id}/assets`)
-                        }}
-                      >
-                        资产
-                      </button>
-                      <button
-                        className="uiBtn uiBtnGhost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/characters/${c.id}/edit`)
-                        }}
-                      >
-                        编辑
-                      </button>
-                      {unlocked && (
-                        <button
-                          className="uiBtn uiBtnGhost"
-                          disabled={busyId === c.id}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const s = asRecord(c.settings)
-                            updateSettings(c.id, {
-                              activated: !active,
-                              home_hidden: active ? s.home_hidden : false,
-                              activated_order: !active ? Date.now() : s.activated_order,
-                              activated_at: !active ? new Date().toISOString() : s.activated_at,
-                            })
-                          }}
-                          title="激活到首页可聊队列"
-                        >
-                          {active ? '取消激活' : '激活到首页'}
-                        </button>
-                      )}
-                      {isCreated && (
-                        <button
-                          className="uiBtn uiBtnGhost"
-                          disabled={busyId === c.id}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void toggleVisibility(c.id, isPublic ? 'private' : 'public')
-                          }}
-                        >
-                          {isPublic ? '取消公开' : '发布到广场'}
-                        </button>
-                      )}
-                      {isCreated && isPublic && (
-                        <button
-                          className="uiBtn uiBtnGhost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/square/${c.id}`)
-                          }}
-                        >
-                          查看广场页
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {manageMode && (
-                    <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      <button
-                        className="uiBtn uiBtnSecondary"
-                        onClick={() => router.push(`/characters/${c.id}/assets`)}
-                        title="衣柜 / 资产 / 账本"
-                      >
-                        资产
-                      </button>
-                      <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${c.id}/edit`)}>
-                        编辑
-                      </button>
-                      {isCreated && (
-                        <button className="uiBtn uiBtnGhost" disabled={busyId === c.id} onClick={() => void toggleVisibility(c.id, isPublic ? 'private' : 'public')}>
-                          {isPublic ? '取消公开' : '发布到广场'}
-                        </button>
-                      )}
-                      {isCreated && isPublic && (
-                        <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/square/${c.id}`)}>
-                          查看广场页
-                        </button>
-                      )}
-                      {unlocked && (
-                        <>
-                          <button
-                            className="uiBtn uiBtnSecondary"
-                            disabled={busyId === c.id}
-                            onClick={() => {
-                              const s = asRecord(c.settings)
-                              if (s.home_hidden === true) updateSettings(c.id, { home_hidden: false, activated: true, activated_order: Date.now() })
-                              else updateSettings(c.id, { home_hidden: true })
-                            }}
-                            title="在首页显示/隐藏"
-                          >
-                            {hidden ? '取消隐藏' : '从首页隐藏'}
-                          </button>
-                          <button className="uiBtn uiBtnGhost" disabled={busyId === c.id} onClick={() => updateSettings(c.id, { activated: false })}>
-                            取消激活
-                          </button>
-                        </>
-                      )}
-                      <button className="uiBtn uiBtnGhost" disabled={deletingId === c.id} onClick={() => deleteCharacter(c.id)}>
-                        {deletingId === c.id ? '删除中...' : '删除'}
-                      </button>
-                    </div>
-                  )}
                 </div>
-              )
-            })}
+                <div className="uiForm" style={{ paddingTop: 14 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <span className="uiBadge">总数: {characters.length}</span>
+                    <span className="uiBadge">我的创作: {counts.created}</span>
+                    <span className="uiBadge">已解锁: {counts.unlocked}</span>
+                    <span className="uiBadge">已激活: {counts.active}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className={`uiPill ${studioTab === 'CREATED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('CREATED')}>
+                      我的创作
+                    </button>
+                    <button className={`uiPill ${studioTab === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('UNLOCKED')}>
+                      已解锁角色
+                    </button>
+                    <button className={`uiPill ${studioTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('ALL')}>
+                      全部
+                    </button>
+                  </div>
+                  <input className="uiInput" placeholder="搜索角色名..." value={query} onChange={(e) => setQuery(e.target.value)} />
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
+                      去广场解锁角色
+                    </button>
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
+                      去首页看动态
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            <div className="uiStudioMain">
+              {filteredCharacters.length === 0 && (
+                <div className="uiEmpty">
+                  <div className="uiEmptyTitle">
+                    {studioTab === 'CREATED' ? '还没有创建角色' : studioTab === 'UNLOCKED' ? '还没有已解锁角色' : '还没有角色'}
+                  </div>
+                  <div className="uiEmptyDesc">
+                    {query.trim() ? '没有匹配结果，试试清空搜索词。' : '去创建一个角色，或在广场解锁别人公开的角色。'}
+                  </div>
+                </div>
+              )}
+
+              {filteredCharacters.length > 0 && (
+                <div className="uiGrid">
+                  {filteredCharacters.map((c) => {
+                    const unlocked = isUnlockedFromSquare(c)
+                    const active = isActivatedForHome(c)
+                    const hidden = unlocked && asRecord(c.settings).home_hidden === true
+                    const isCreated = !unlocked
+                    const isPublic = c.visibility === 'public'
+
+                    return (
+                      <div
+                        key={c.id}
+                        className="uiCard"
+                        style={{ cursor: manageMode ? 'default' : 'pointer', userSelect: 'none' }}
+                        onClick={() => {
+                          if (!manageMode) router.push(`/chat/${c.id}`)
+                        }}
+                      >
+                        <div className="uiCardMedia">
+                          {imgById[c.id] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={imgById[c.id]} alt="" />
+                          ) : (
+                            <div className="uiCardMediaFallback">暂无图片</div>
+                          )}
+                        </div>
+
+                        <div className="uiCardTitle">{c.name}</div>
+                        <div className="uiCardMeta">
+                          {isPublic ? '公开' : '私密'}
+                          {unlocked ? ` · 已解锁${active ? ' · 已激活' : ''}` : ' · 我的创作'}
+                          {hidden ? ' · 已隐藏' : ''}
+                        </div>
+
+                        {!manageMode && (
+                          <div className="uiCardActions">
+                            <button
+                              className="uiBtn uiBtnPrimary"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push(`/chat/${c.id}`)
+                              }}
+                            >
+                              聊天
+                            </button>
+                            <button
+                              className="uiBtn uiBtnSecondary"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push(`/characters/${c.id}/assets`)
+                              }}
+                            >
+                              资产
+                            </button>
+                            <button
+                              className="uiBtn uiBtnGhost"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push(`/characters/${c.id}/edit`)
+                              }}
+                            >
+                              编辑
+                            </button>
+                            {unlocked && (
+                              <button
+                                className="uiBtn uiBtnGhost"
+                                disabled={busyId === c.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const s = asRecord(c.settings)
+                                  updateSettings(c.id, {
+                                    activated: !active,
+                                    home_hidden: active ? s.home_hidden : false,
+                                    activated_order: !active ? Date.now() : s.activated_order,
+                                    activated_at: !active ? new Date().toISOString() : s.activated_at,
+                                  })
+                                }}
+                                title="激活到首页可聊队列"
+                              >
+                                {active ? '取消激活' : '激活到首页'}
+                              </button>
+                            )}
+                            {isCreated && (
+                              <button
+                                className="uiBtn uiBtnGhost"
+                                disabled={busyId === c.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void toggleVisibility(c.id, isPublic ? 'private' : 'public')
+                                }}
+                              >
+                                {isPublic ? '取消公开' : '发布到广场'}
+                              </button>
+                            )}
+                            {isCreated && isPublic && (
+                              <button
+                                className="uiBtn uiBtnGhost"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  router.push(`/square/${c.id}`)
+                                }}
+                              >
+                                查看广场页
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {manageMode && (
+                          <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <button
+                              className="uiBtn uiBtnSecondary"
+                              onClick={() => router.push(`/characters/${c.id}/assets`)}
+                              title="衣柜 / 资产 / 账本"
+                            >
+                              资产
+                            </button>
+                            <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${c.id}/edit`)}>
+                              编辑
+                            </button>
+                            {isCreated && (
+                              <button className="uiBtn uiBtnGhost" disabled={busyId === c.id} onClick={() => void toggleVisibility(c.id, isPublic ? 'private' : 'public')}>
+                                {isPublic ? '取消公开' : '发布到广场'}
+                              </button>
+                            )}
+                            {isCreated && isPublic && (
+                              <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/square/${c.id}`)}>
+                                查看广场页
+                              </button>
+                            )}
+                            {unlocked && (
+                              <>
+                                <button
+                                  className="uiBtn uiBtnSecondary"
+                                  disabled={busyId === c.id}
+                                  onClick={() => {
+                                    const s = asRecord(c.settings)
+                                    if (s.home_hidden === true) updateSettings(c.id, { home_hidden: false, activated: true, activated_order: Date.now() })
+                                    else updateSettings(c.id, { home_hidden: true })
+                                  }}
+                                  title="在首页显示/隐藏"
+                                >
+                                  {hidden ? '取消隐藏' : '从首页隐藏'}
+                                </button>
+                                <button className="uiBtn uiBtnGhost" disabled={busyId === c.id} onClick={() => updateSettings(c.id, { activated: false })}>
+                                  取消激活
+                                </button>
+                              </>
+                            )}
+                            <button className="uiBtn uiBtnGhost" disabled={deletingId === c.id} onClick={() => deleteCharacter(c.id)}>
+                              {deletingId === c.id ? '删除中...' : '删除'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </AppShell>
