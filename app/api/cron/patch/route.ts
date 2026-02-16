@@ -5,6 +5,12 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 type JsonObject = Record<string, unknown>
+type PatchMemoryEpisode = {
+  bucket_start: string
+  summary: string
+  open_loops: unknown
+  tags: unknown
+}
 
 type PatchJobRow = {
   id: string
@@ -23,6 +29,9 @@ type MiniMaxResponse = {
   output_text?: string
   base_resp?: { status_code?: number; status_msg?: string }
 }
+
+const PATCH_APPLY_MAX_ATTEMPTS = 5
+const PATCH_APPLY_RETRY_BASE_MS = 80
 
 function joinUrl(base: string, path: string) {
   const b = base.replace(/\/+$/, '')
@@ -86,6 +95,17 @@ function safeExtractJsonObject(text: string) {
       return null
     }
   }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function formatErr(err: unknown) {
+  return err instanceof Error ? err.message : String(err || '')
+}
+
+function isVersionConflict(err: unknown) {
+  const msg = formatErr(err).toLowerCase()
+  return msg.includes('version conflict') || msg.includes('no rows') || msg.includes('did not find any rows matching')
 }
 
 function stableKey(x: unknown) {
@@ -195,6 +215,69 @@ function applyMemoryPatch(conversationState: JsonObject, memoryPatch: JsonObject
   conversationState['memory'] = next
 }
 
+function applyPatchToMemoryStates(args: {
+  conversationState: JsonObject
+  characterState: JsonObject
+  patchObj: JsonObject
+  includeMemoryEpisode?: boolean
+}) {
+  const { conversationState, characterState, patchObj, includeMemoryEpisode = false } = args
+  const p = asRecord(patchObj)
+
+  conversationState['run_state'] = { ...asRecord(conversationState['run_state']), ...asRecord(p['run_state_patch']) }
+  conversationState['focus_panel'] = p['focus_panel_next'] || conversationState['focus_panel']
+
+  const axes = asRecord(asRecord(conversationState['plot_board'])['experience_axes'])
+  const d = asRecord(asRecord(p['plot_board_patch'])['experience_axes_delta'])
+  const nextAxes = {
+    intimacy: clamp(Number(axes.intimacy ?? 0) + Number(d.intimacy ?? 0), 0, 1),
+    risk: clamp(Number(axes.risk ?? 0) + Number(d.risk ?? 0), 0, 1),
+    information: clamp(Number(axes.information ?? 0) + Number(d.information ?? 0), 0, 1),
+    action: clamp(Number(axes.action ?? 0) + Number(d.action ?? 0), 0, 1),
+    relationship: clamp(Number(axes.relationship ?? 0) + Number(d.relationship ?? 0), 0, 1),
+    growth: clamp(Number(axes.growth ?? 0) + Number(d.growth ?? 0), 0, 1),
+  }
+  conversationState['plot_board'] = { ...asRecord(conversationState['plot_board']), ...asRecord(p['plot_board_patch']), experience_axes: nextAxes }
+  applyPlotBoardPatch(conversationState, asRecord(p['plot_board_patch']))
+
+  conversationState['schedule_board'] = { ...asRecord(conversationState['schedule_board']), ...asRecord(p['schedule_board_patch']) }
+  applyLedgerPatch(conversationState, asRecord(p['ledger_patch']))
+  applyMemoryPatch(conversationState, asRecord(p['memory_patch']))
+
+  conversationState['style_guard'] = { ...asRecord(conversationState['style_guard']), ...asRecord(p['style_guard_patch']) }
+  if (Array.isArray(p['fact_patch_add']) && (p['fact_patch_add'] as unknown[]).length) {
+    const prev = Array.isArray(conversationState['fact_patch']) ? (conversationState['fact_patch'] as unknown[]) : []
+    conversationState['fact_patch'] = [...prev, ...(p['fact_patch_add'] as unknown[])].slice(-60)
+  }
+  conversationState['moderation_flags'] = { ...asRecord(conversationState['moderation_flags']), ...asRecord(p['moderation_flags']) }
+
+  characterState['persona_system'] = { ...asRecord(characterState['persona_system']), ...asRecord(p['persona_system_patch']) }
+  characterState['ip_pack'] = { ...asRecord(characterState['ip_pack']), ...asRecord(p['ip_pack_patch']) }
+
+  let memoryEpisode: PatchMemoryEpisode | null = null
+  if (includeMemoryEpisode) {
+    const mp = asRecord(p['memory_patch'])
+    const ep = asRecord(mp['memory_b_episode'])
+    const summary = String(ep.summary ?? '').trim()
+    if (summary) {
+      let bucket = String(ep['bucket_start'] ?? '')
+      if (!bucket) {
+        const dt = new Date()
+        const ten = 10 * 60 * 1000
+        bucket = new Date(Math.floor(dt.getTime() / ten) * ten).toISOString()
+      }
+      memoryEpisode = {
+        bucket_start: bucket,
+        summary,
+        open_loops: ep['open_loops'] ?? [],
+        tags: ep['tags'] ?? [],
+      }
+    }
+  }
+
+  return { memoryEpisode }
+}
+
 function patchSystemPrompt() {
   return `你是“PatchScribe”。你将收到 PATCH_INPUT（JSON）。你必须只输出一个 JSON 对象，不要输出任何其它文字。
 
@@ -264,6 +347,23 @@ async function optimisticUpdateCharacterState(args: {
   return nextVersion
 }
 
+async function incrementPatchJobAttempts(args: {
+  sb: ReturnType<typeof createAdminClient>
+  jobId: string
+  status: 'pending' | 'processing' | 'failed' | 'done'
+  lastError?: string
+}) {
+  const { sb, jobId, status, lastError } = args
+  const cur = (await sb.from('patch_jobs').select('attempts').eq('id', jobId).maybeSingle()) as {
+    data: { attempts: number | null } | null
+    error: { message: string } | null
+  }
+  if (cur.error) throw new Error(cur.error.message)
+  const attempts = Number(cur.data?.attempts ?? 0) + 1
+  await sb.from('patch_jobs').update({ status, attempts, last_error: lastError ?? '' }).eq('id', jobId)
+  return attempts
+}
+
 export async function POST(req: Request) {
   try {
     requireCronSecret(req)
@@ -292,59 +392,38 @@ export async function POST(req: Request) {
 
     const rows = (pending.data ?? []) as PatchJobRow[]
 
-    for (const row of rows) {
-      const jobId = String(row.id || '')
-      if (!jobId) continue
+      for (const row of rows) {
+        const jobId = String(row.id || '')
+        if (!jobId) continue
 
-      // Lock the job (best-effort).
-      {
-        const up = await sb.from('patch_jobs').update({ status: 'processing' }).eq('id', jobId).in('status', ['pending', 'failed'])
-        if (up.error) continue
-      }
-
-      processed++
-      try {
-        const pi = asRecord(row.patch_input)
-        if (!Object.keys(pi).length) throw new Error('Missing patch_input')
-
-        const conversationId = String(row.conversation_id || '')
-        const characterId = String(row.character_id || '')
-
-        const st = await sb.from('conversation_states').select('state,version').eq('conversation_id', conversationId).maybeSingle()
-        if (st.error || !st.data?.state) throw new Error(`Load conversation_states failed: ${st.error?.message || 'no state'}`)
-        const conversationState = st.data.state as JsonObject
-        const conversationStateVersion = Number(st.data.version ?? 0)
-
-        const ch = await sb.from('character_states').select('state,version').eq('character_id', characterId).maybeSingle()
-        if (ch.error || !ch.data?.state) throw new Error(`Load character_states failed: ${ch.error?.message || 'no state'}`)
-        const characterState = ch.data.state as JsonObject
-        const characterStateVersion = Number(ch.data.version ?? 0)
-
-        // Idempotency: if this job was already applied, mark done and skip.
+        processed++
         {
-          const rs = asRecord(conversationState['run_state'])
-          const applied = asArray(rs['applied_patch_job_ids']).map(String)
-          if (applied.includes(jobId)) {
-            await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
-            ok++
+          const up = await sb.from('patch_jobs').update({ status: 'processing' }).eq('id', jobId).in('status', ['pending', 'failed'])
+          if (up.error) {
+            failed++
             continue
           }
         }
+        try {
+          const pi = asRecord(row.patch_input)
+          if (!Object.keys(pi).length) throw new Error('Missing patch_input')
 
-        const pJson = (await callMiniMax(mmBase, mmKey, {
-          model: patchModel,
-          messages: [
-            { role: 'system', name: 'System', content: patchSystemPrompt() },
-            { role: 'user', name: 'User', content: `PATCH_INPUT:\n${JSON.stringify(pi)}` },
-          ],
-          temperature: 0.2,
-          top_p: 0.7,
-          max_completion_tokens: 2048,
-        })) as MiniMaxResponse
+          const conversationId = String(row.conversation_id || '')
+          const characterId = String(row.character_id || '')
+          const pJson = (await callMiniMax(mmBase, mmKey, {
+            model: patchModel,
+            messages: [
+              { role: 'system', name: 'System', content: patchSystemPrompt() },
+              { role: 'user', name: 'User', content: `PATCH_INPUT:\n${JSON.stringify(pi)}` },
+            ],
+            temperature: 0.2,
+            top_p: 0.7,
+            max_completion_tokens: 2048,
+          })) as MiniMaxResponse
 
-        const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
-        const patchObj = safeExtractJsonObject(patchText)
-        if (!patchObj || typeof patchObj !== 'object') throw new Error('PatchScribe output is not valid JSON object')
+          const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
+          const patchObj = safeExtractJsonObject(patchText)
+          if (!patchObj || typeof patchObj !== 'object') throw new Error('PatchScribe output is not valid JSON object')
 
         // Minimal schema presence check.
         const requiredKeys = [
@@ -360,77 +439,103 @@ export async function POST(req: Request) {
           'fact_patch_add',
           'moderation_flags',
         ]
-        for (const k of requiredKeys) {
-          if (!(k in patchObj)) throw new Error(`Patch missing key: ${k}`)
-        }
-
-        const p = asRecord(patchObj)
-
-        // Apply patch: run_state / focus
-        conversationState['run_state'] = { ...asRecord(conversationState['run_state']), ...asRecord(p['run_state_patch']) }
-        conversationState['focus_panel'] = p['focus_panel_next'] || conversationState['focus_panel']
-
-        // Plot: axes delta
-        {
-          const pb = asRecord(conversationState['plot_board'])
-          const axes = asRecord(pb['experience_axes'])
-          const plotPatch = asRecord(p['plot_board_patch'])
-          const d = asRecord(asRecord(plotPatch['experience_axes_delta']))
-          const nextAxes = {
-            intimacy: clamp(Number(axes.intimacy ?? 0) + Number(d.intimacy ?? 0), 0, 1),
-            risk: clamp(Number(axes.risk ?? 0) + Number(d.risk ?? 0), 0, 1),
-            information: clamp(Number(axes.information ?? 0) + Number(d.information ?? 0), 0, 1),
-            action: clamp(Number(axes.action ?? 0) + Number(d.action ?? 0), 0, 1),
-            relationship: clamp(Number(axes.relationship ?? 0) + Number(d.relationship ?? 0), 0, 1),
-            growth: clamp(Number(axes.growth ?? 0) + Number(d.growth ?? 0), 0, 1),
+          for (const k of requiredKeys) {
+            if (!(k in patchObj)) throw new Error(`Patch missing key: ${k}`)
           }
-          conversationState['plot_board'] = { ...pb, ...plotPatch, experience_axes: nextAxes }
-          applyPlotBoardPatch(conversationState, plotPatch)
+
+          const p = asRecord(patchObj)
+          const applyPatchOnce = async () => {
+            const up = await sb.from('patch_jobs').update({ status: 'processing' }).eq('id', jobId).in('status', ['pending', 'failed'])
+            if (up.error) throw new Error(`Lock patch job failed: ${up.error.message}`)
+
+            const st = await sb.from('conversation_states').select('state,version').eq('conversation_id', conversationId).maybeSingle()
+            if (st.error || !st.data?.state) throw new Error(`Load conversation_states failed: ${st.error?.message || 'no state'}`)
+            const conversationStateVerNow = Number(st.data.version ?? 0)
+            const conversationState = structuredClone(st.data.state as JsonObject)
+
+            const ch = await sb.from('character_states').select('state,version').eq('character_id', characterId).maybeSingle()
+            if (ch.error || !ch.data?.state) throw new Error(`Load character_states failed: ${ch.error?.message || 'no state'}`)
+            const characterStateVerNow = Number(ch.data.version ?? 0)
+            const characterState = structuredClone(ch.data.state as JsonObject)
+
+            // Idempotency: if this job was already applied, mark done and skip.
+            {
+              const rs = asRecord(conversationState['run_state'])
+              const applied = asArray(rs['applied_patch_job_ids']).map(String)
+              if (applied.includes(jobId)) {
+                await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
+                ok++
+                return
+              }
+            }
+
+            const { memoryEpisode } = applyPatchToMemoryStates({
+              conversationState,
+              characterState,
+              patchObj: p,
+              includeMemoryEpisode: true,
+            })
+
+            const rs = asRecord(conversationState['run_state'])
+            const applied = asArray(rs['applied_patch_job_ids']).map(String).filter(Boolean)
+            rs['applied_patch_job_ids'] = [...applied, jobId].slice(-240)
+
+            await optimisticUpdateConversationState({
+              sb,
+              convId: conversationId,
+              state: conversationState,
+              expectedVersion: conversationStateVerNow,
+            })
+            await optimisticUpdateCharacterState({
+              sb,
+              characterId,
+              state: characterState,
+              expectedVersion: characterStateVerNow,
+            })
+
+            if (memoryEpisode) {
+              await sb.from('memory_b_episodes').upsert(
+                {
+                  conversation_id: conversationId,
+                  user_id: row.user_id,
+                  bucket_start: memoryEpisode.bucket_start,
+                  summary: String(memoryEpisode.summary || '').slice(0, 500),
+                  open_loops: memoryEpisode.open_loops || [],
+                  tags: memoryEpisode.tags || [],
+                },
+                { onConflict: 'conversation_id,bucket_start' },
+              )
+            }
+
+            await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
+            ok++
+          }
+
+          for (let attempt = 1; attempt <= PATCH_APPLY_MAX_ATTEMPTS; attempt++) {
+            try {
+              await applyPatchOnce()
+              break
+            } catch (err: unknown) {
+              const msg = formatErr(err)
+              if (isVersionConflict(err) && attempt < PATCH_APPLY_MAX_ATTEMPTS) {
+                await incrementPatchJobAttempts({ sb, jobId, status: 'processing', lastError: msg })
+                await sleep(PATCH_APPLY_RETRY_BASE_MS * attempt)
+                continue
+              }
+              const attempts = await incrementPatchJobAttempts({ sb, jobId, status: 'pending', lastError: msg })
+              if (attempts >= PATCH_APPLY_MAX_ATTEMPTS) {
+                await incrementPatchJobAttempts({ sb, jobId, status: 'failed', lastError: msg })
+              }
+              failed++
+              break
+            }
+          }
+        } catch (e: unknown) {
+          const msg = formatErr(e)
+          await incrementPatchJobAttempts({ sb, jobId, status: 'pending', lastError: msg })
+          failed++
         }
-
-        // Schedule
-        conversationState['schedule_board'] = { ...asRecord(conversationState['schedule_board']), ...asRecord(p['schedule_board_patch']) }
-
-        // Ledger
-        applyLedgerPatch(conversationState, asRecord(p['ledger_patch']))
-
-        // Memory
-        applyMemoryPatch(conversationState, asRecord(p['memory_patch']))
-
-        // Style guard / facts / moderation
-        conversationState['style_guard'] = { ...asRecord(conversationState['style_guard']), ...asRecord(p['style_guard_patch']) }
-        if (Array.isArray(p['fact_patch_add']) && (p['fact_patch_add'] as unknown[]).length) {
-          const prev = Array.isArray(conversationState['fact_patch']) ? (conversationState['fact_patch'] as unknown[]) : []
-          conversationState['fact_patch'] = [...prev, ...(p['fact_patch_add'] as unknown[])].slice(-60)
-        }
-        conversationState['moderation_flags'] = {
-          ...asRecord(conversationState['moderation_flags']),
-          ...asRecord(p['moderation_flags']),
-        }
-
-        // Character-level
-        characterState['persona_system'] = { ...asRecord(characterState['persona_system']), ...asRecord(p['persona_system_patch']) }
-        characterState['ip_pack'] = { ...asRecord(characterState['ip_pack']), ...asRecord(p['ip_pack_patch']) }
-
-        // Persist snapshots with optimistic locking: if conflict, let the job retry later.
-        {
-          const rs = asRecord(conversationState['run_state'])
-          const applied = asArray(rs['applied_patch_job_ids']).map(String).filter(Boolean)
-          rs['applied_patch_job_ids'] = [...applied, jobId].slice(-240)
-        }
-        await optimisticUpdateConversationState({ sb, convId: conversationId, state: conversationState, expectedVersion: conversationStateVersion })
-        await optimisticUpdateCharacterState({ sb, characterId, state: characterState, expectedVersion: characterStateVersion })
-
-        await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
-        ok++
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        const attempts = Number(row.attempts ?? 0) + 1
-        const nextStatus = attempts >= 5 ? 'failed' : 'pending'
-        await sb.from('patch_jobs').update({ status: nextStatus, attempts, last_error: msg }).eq('id', jobId)
-        failed++
       }
-    }
 
     return NextResponse.json({ ok: true, processed, ok_count: ok, failed_count: failed })
   } catch (e: unknown) {
