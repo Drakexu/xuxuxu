@@ -57,6 +57,13 @@ Source references:
 - Prompt OS split:
   - moved `PROMPT_OS` out of `app/api/chat/route.ts` into `lib/prompt/promptOs.ts`
   - now structured in sections (identity/protocol/constraints/reconcile/stage/style/self-check)
+- Prompt policy runtimeization:
+  - `buildPromptOs` now supports runtime policy injection
+  - `derivePromptOsPolicy` reads conversation state and generates policy per turn
+  - added dedicated slices for:
+    - `PLOT_GRANULARITY_POLICY`
+    - `ENDING_ANTI_REPEAT_POLICY`
+  - `/api/chat` now builds Prompt OS per turn instead of static constant-only injection
 - Patch quality gate is now evidence-aware:
   - `lib/patchValidation.ts` downgrades `confirmed=true` when turn text evidence is missing
   - applies to event/npc/relation add operations and wardrobe confirmation
@@ -106,3 +113,6 @@ Source references:
 2. Add machine-readable template alignment checklist (JSON/MD table).
 3. Add turn-level consistency checks for multi-cast/NPC patch operations.
 4. Expand visual layer: expression/outfit/background composed render states.
+
+## Traceability Artifact
+- New mapping doc: `docs/aibaji/prompt_alignment_map.md`

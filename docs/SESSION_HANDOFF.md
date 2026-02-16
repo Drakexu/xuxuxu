@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v5 - control loop + cue engine)
+Last updated: 2026-02-16 (checkpoint: high-target execution v6 - prompt policy runtimeization)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -517,6 +517,27 @@ Repo: `d:/projects/xuxuxu`
   - Build stability fix:
     - repaired invalid non-UTF8 encoding in `app/_components/AppShell.tsx`.
     - production build now succeeds with Turbopack.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+
+### High-target execution v6 checkpoint (latest)
+- Files changed:
+  - `lib/prompt/promptOs.ts`
+  - `app/api/chat/route.ts`
+  - `docs/aibaji/prompt_alignment_map.md` (new)
+  - `docs/aibaji/template_diff.md`
+- Completed:
+  - Prompt OS is now runtime policy-driven:
+    - added `derivePromptOsPolicy(conversationState, inputEvent)`
+    - added `buildPromptOs(policy)` for per-turn assembly
+  - Added dedicated template slices:
+    - `PLOT_GRANULARITY_POLICY` (LINE / BEAT / SCENE)
+    - `ENDING_ANTI_REPEAT_POLICY` (ending mode + anti-repeat window + ending mix)
+  - `/api/chat` switched from static `PROMPT_OS` string use to per-turn prompt policy injection.
+  - Added explicit prompt traceability map doc:
+    - `docs/aibaji/prompt_alignment_map.md`
 - Validation:
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass

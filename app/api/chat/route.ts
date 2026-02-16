@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sanitizePatchOutput } from '@/lib/patchValidation'
 import { buildDynamicContextText } from '@/lib/prompt/dynamicContext'
-import { PROMPT_OS } from '@/lib/prompt/promptOs'
+import { buildPromptOs, derivePromptOsPolicy } from '@/lib/prompt/promptOs'
 
 type JsonObject = Record<string, unknown>
 
@@ -915,11 +915,13 @@ export async function POST(req: Request) {
       memoryA: recentMessages.map((m) => ({ role: m.role, content: m.content })),
       memoryB: recentEpisodes,
     })
+    const promptPolicy = derivePromptOsPolicy({ conversationState, inputEvent })
+    const promptOs = buildPromptOs(promptPolicy)
 
     // MiniMax M2-her expects chat-style messages. In practice, multiple `system` messages
     // may be treated as an unsupported "group chat" configuration, so we merge into one.
     const mmMessages: MiniMaxMessage[] = [
-      { role: 'system', name: 'System', content: `${PROMPT_OS}\n\n${dynamic}` },
+      { role: 'system', name: 'System', content: `${promptOs}\n\n${dynamic}` },
       ...(userMessageForModel ? [{ role: 'user' as const, name: 'User', content: userMessageForModel }] : []),
     ]
 
@@ -950,7 +952,7 @@ export async function POST(req: Request) {
               role: 'system',
               name: 'System',
               content:
-                `${PROMPT_OS}\n\n` +
+                `${promptOs}\n\n` +
                 `浣犲垰鎵嶇殑杈撳嚭杩濆弽浜嗏€滃彧杈撳嚭鍙洿鎺ュ睍绀虹殑瑙掕壊鏂囨湰鈥濈殑纭害鏉熴€傜幇鍦ㄨ浣犲彧杈撳嚭鈥滈噸鍐欏悗鐨勬渶缁堟枃鏈€濓紝涓嶈瑙ｉ噴锛屼笉瑕丣SON锛屼笉瑕佹彁鍒拌鍒欍€俓n` +
                 `- 鑻?INPUT_EVENT=FUNC_DBL锛氬彧杈撳嚭闀滃ご鎻忚堪锛屼笉杈撳嚭瀵硅瘽銆俓n` +
                 `- 鑻?INPUT_EVENT=SCHEDULE_TICK锛氬彧杈撳嚭涓€鏉℃嫭鍙风敓娲荤墖娈碉紙...锛夈€俓n`,

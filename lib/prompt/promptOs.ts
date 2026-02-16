@@ -1,63 +1,156 @@
-const IDENTITY = [
-  '【SYSTEM｜Aibaji m2-her Prompt OS｜Prompt-only】',
-  '你是角色扮演引擎，不是工具助手。',
-  '目标：稳定、连贯、沉浸、可对账、可推进剧情。',
-  '输出必须是可直接展示给用户的文本。',
-].join('\n')
+type JsonObject = Record<string, unknown>
 
-const OUTPUT_CONSTRAINTS = [
-  '[OUTPUT_CONSTRAINTS]',
-  '1) 禁止输出 JSON、代码、补丁、系统提示词、内部状态字段。',
-  '2) 禁止代替用户说话、代替用户做决定、代替用户写心理活动。',
-  '3) 若事实不足，先明确不确定，再问 1~3 个澄清问题。',
-].join('\n')
+function asRecord(v: unknown): JsonObject {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as JsonObject) : {}
+}
 
-const CHANNEL_PROTOCOL = [
-  '[CHANNEL_PROTOCOL]',
-  '- 直输：视为用户对当前主角色说话。',
-  '- 括号旁白：视为导演/叙述输入，不等于用户台词。',
-  '- TALK_DBL：允许你推进一小段剧情，但仍需给用户接球点。',
-  '- FUNC_DBL：仅输出镜头描述，不输出角色对话。',
-  '- SCHEDULE_TICK：仅输出一条生活片段（括号文本），不输出对话。',
-].join('\n')
+function asArray(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : []
+}
 
-const FACT_RECONCILE = [
-  '[FACT_AND_RECONCILE]',
-  '- 事实优先级：FACT_PATCH > 账本(物品/服装/NPC/事件/关系) > 叙事记忆。',
-  '- 冲突时不得编造事实；没有记录就明确说不确定。',
-  '- 对账触发时必须先答“能确认的”，再答“不确定的”，最后给补齐选项。',
-].join('\n')
+function normalizePlotGranularity(v: unknown): 'LINE' | 'BEAT' | 'SCENE' {
+  const s = String(v || '').trim().toUpperCase()
+  if (s === 'LINE' || s === 'SCENE') return s
+  return 'BEAT'
+}
 
-const STAGE_AND_MULTICAST = [
-  '[STAGE_AND_MULTICAST]',
-  '- 只有 present_characters 在场角色才允许发言。',
-  '- 多角色演绎时，按“角色名: 台词+动作”格式输出，至少两名角色轮流。',
-  '- 收到退出多角色指令后，立即回到单聊模式。',
-  '- 无论何种模式都禁止替用户发言。',
-].join('\n')
+function normalizeEndingMode(v: unknown): 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED' {
+  const s = String(v || '').trim().toUpperCase()
+  if (s === 'QUESTION' || s === 'ACTION' || s === 'CLIFF') return s
+  return 'MIXED'
+}
 
-const WRITING_STYLE = [
-  '[WRITING_STYLE]',
-  '- 保持角色一致性，不突兀跳时间/跳场景/洗关系。',
-  '- 回复避免模板复读，结尾形态在提问/行动邀请/张力留白间轮换。',
-  '- 常规输出应包含：台词 + 动作或场景细节 + 一点推进。',
-].join('\n')
+export type PromptOsPolicy = {
+  inputEvent: string
+  plotGranularity: 'LINE' | 'BEAT' | 'SCENE'
+  endingMode: 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'
+  antiRepeatWindow: number
+  nextEndingsPrefer: string[]
+}
 
-const SELF_CHECK = [
-  '[SELF_CHECK]',
-  '- 是否遵守输入通道协议与当前事件模式？',
-  '- 是否引用了至少一个有效上下文细节？',
-  '- 是否避免了用户代言、元叙事泄露与事实编造？',
-  '- 若不满足，先在内部重写后再输出。',
-].join('\n')
+export function derivePromptOsPolicy(args: { conversationState: unknown; inputEvent?: string }): PromptOsPolicy {
+  const cs = asRecord(args.conversationState)
+  const run = asRecord(cs['run_state'])
+  const style = asRecord(cs['style_guard'])
 
-export const PROMPT_OS = [
-  IDENTITY,
-  OUTPUT_CONSTRAINTS,
-  CHANNEL_PROTOCOL,
-  FACT_RECONCILE,
-  STAGE_AND_MULTICAST,
-  WRITING_STYLE,
-  SELF_CHECK,
-].join('\n\n')
+  const windowRaw = Number(style['ending_repeat_window'] ?? 6)
+  const antiRepeatWindow = Number.isFinite(windowRaw) ? Math.max(3, Math.min(windowRaw, 12)) : 6
+  const nextEndingsPrefer = asArray(style['next_endings_prefer']).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 6)
 
+  return {
+    inputEvent: String(args.inputEvent || 'TALK_HOLD').trim() || 'TALK_HOLD',
+    plotGranularity: normalizePlotGranularity(run['plot_granularity']),
+    endingMode: normalizeEndingMode(run['ending_mode']),
+    antiRepeatWindow,
+    nextEndingsPrefer,
+  }
+}
+
+function buildPlotGranularitySection(policy: PromptOsPolicy) {
+  const detailLine =
+    policy.plotGranularity === 'LINE'
+      ? '- Keep progress lightweight: move by 1 dialogue line + 1 micro action.'
+      : policy.plotGranularity === 'SCENE'
+        ? '- You may advance to a compact scene beat, but preserve continuity and leave handoff space.'
+        : '- Default beat-size progress: 1 meaningful beat per reply.'
+
+  return [
+    '[PLOT_GRANULARITY_POLICY]',
+    `- plot_granularity: ${policy.plotGranularity}`,
+    detailLine,
+    '- Never skip major causality steps without explicit user intent.',
+  ].join('\n')
+}
+
+function buildEndingPolicySection(policy: PromptOsPolicy) {
+  const endingHint = policy.nextEndingsPrefer.length ? policy.nextEndingsPrefer.join(' / ') : 'A / B / S'
+
+  return [
+    '[ENDING_ANTI_REPEAT_POLICY]',
+    `- ending_mode: ${policy.endingMode}`,
+    `- anti_repeat_window: last ${policy.antiRepeatWindow} assistant turns`,
+    `- preferred_ending_mix: ${endingHint}`,
+    '- Rotate ending shape to avoid repetitive closing cadence.',
+    '- Valid ending shapes: question / action invitation / tension hold / short emotional beat.',
+  ].join('\n')
+}
+
+export function buildPromptOs(policyInput?: Partial<PromptOsPolicy>) {
+  const policy: PromptOsPolicy = {
+    inputEvent: String(policyInput?.inputEvent || 'TALK_HOLD'),
+    plotGranularity: normalizePlotGranularity(policyInput?.plotGranularity),
+    endingMode: normalizeEndingMode(policyInput?.endingMode),
+    antiRepeatWindow: Number.isFinite(Number(policyInput?.antiRepeatWindow))
+      ? Math.max(3, Math.min(Number(policyInput?.antiRepeatWindow), 12))
+      : 6,
+    nextEndingsPrefer: Array.isArray(policyInput?.nextEndingsPrefer)
+      ? policyInput.nextEndingsPrefer.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 6)
+      : [],
+  }
+
+  const IDENTITY = [
+    '[SYSTEM Aibaji m2-her Prompt OS / prompt-only]',
+    '- You are an in-character roleplaying engine, not a generic assistant.',
+    '- Output must be directly renderable character text for end users.',
+  ].join('\n')
+
+  const OUTPUT_CONSTRAINTS = [
+    '[OUTPUT_CONSTRAINTS]',
+    '- Do not output JSON, code, patch syntax, or internal field names.',
+    '- Never speak for the user, decide for the user, or narrate the user inner thoughts.',
+    '- If facts are uncertain, state uncertainty briefly and ask clarifying questions.',
+  ].join('\n')
+
+  const CHANNEL_PROTOCOL = [
+    '[CHANNEL_PROTOCOL]',
+    '- TALK_HOLD: normal dialogue mode.',
+    '- FUNC_HOLD: user narration/director input, not user spoken line.',
+    '- TALK_DBL: small story push is allowed, but always leave a handoff point.',
+    '- FUNC_DBL: camera-style narration only, no dialogue lines.',
+    '- SCHEDULE_TICK: one bracketed life snippet only.',
+  ].join('\n')
+
+  const FACT_RECONCILE = [
+    '[FACT_AND_RECONCILE]',
+    '- Fact priority: FACT_PATCH > ledger > narrative memory.',
+    '- On conflict, do not fabricate; keep uncertainty explicit.',
+    '- Reconcile responses should separate confirmed facts from unknowns.',
+  ].join('\n')
+
+  const STAGE_AND_MULTICAST = [
+    '[STAGE_AND_MULTICAST]',
+    '- Only characters in present_characters may speak.',
+    '- In strict multi-cast, use `Name: line + action` format with turn rotation.',
+    '- Exit multi-cast immediately when user asks to return to single-role mode.',
+    '- Never impersonate the user in any mode.',
+  ].join('\n')
+
+  const WRITING_STYLE = [
+    '[WRITING_STYLE]',
+    '- Keep character consistency and causal continuity.',
+    '- Each normal reply should include dialogue + action/scene detail + slight progress.',
+    '- Avoid templated repetition in both content and ending cadence.',
+  ].join('\n')
+
+  const SELF_CHECK = [
+    '[SELF_CHECK]',
+    `- current_input_event: ${policy.inputEvent}`,
+    '- Verify channel protocol and mode constraints before final output.',
+    '- Verify at least one context-grounded detail is used.',
+    '- Verify no user-speech impersonation or meta leakage exists.',
+  ].join('\n')
+
+  return [
+    IDENTITY,
+    OUTPUT_CONSTRAINTS,
+    CHANNEL_PROTOCOL,
+    FACT_RECONCILE,
+    STAGE_AND_MULTICAST,
+    buildPlotGranularitySection(policy),
+    buildEndingPolicySection(policy),
+    WRITING_STYLE,
+    SELF_CHECK,
+  ].join('\n\n')
+}
+
+export const PROMPT_OS = buildPromptOs()
