@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v15 - login callback flow fix)
+Last updated: 2026-02-16 (checkpoint: high-target execution v16 - callback ticket compatibility hardening)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -149,6 +149,26 @@ Repo: `d:/projects/xuxuxu`
     - supports hash-based `access_token/refresh_token` session set
     - supports `token_hash + type` verify flow
   - Added robust error surfacing on callback page.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Auth callback hardening v16 checkpoint (latest)
+- File changed:
+  - `app/auth/callback/page.tsx`
+- Completed:
+  - Expanded callback parser to accept both query and hash tickets:
+    - `code`
+    - `access_token + refresh_token`
+    - `token_hash + type`
+  - Added OTP type validation for verify path.
+  - Added session establishment retry loop to absorb client-side timing races.
+  - Improved error specificity:
+    - code exchange failure
+    - token session failure
+    - OTP verify failure
+    - missing callback ticket / ticket processed but no session.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
