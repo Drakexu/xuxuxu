@@ -64,6 +64,10 @@ Source references:
     - `PLOT_GRANULARITY_POLICY`
     - `ENDING_ANTI_REPEAT_POLICY`
   - `/api/chat` now builds Prompt OS per turn instead of static constant-only injection
+  - creator/runtime control path added:
+    - `/api/state/prompt-policy` writes `plot_granularity` / `ending_mode` / repeat window into conversation state
+    - chat execution console can adjust and persist these defaults to `characters.settings.prompt_policy`
+    - character edit page can set role-level defaults for the same policy fields
 - Patch quality gate is now evidence-aware:
   - `lib/patchValidation.ts` downgrades `confirmed=true` when turn text evidence is missing
   - applies to event/npc/relation add operations and wardrobe confirmation
@@ -94,7 +98,7 @@ Source references:
   - dynamic context moduleized
   - prompt OS moduleized
 - Remaining:
-  - expose granularity/ending controls in creator-facing UI and persist per character
+  - optional: surface per-role ending mix presets (`next_endings_prefer`) in creator UI
 
 2. Prompt-to-template traceability
 - Added `docs/aibaji/prompt_alignment_map.md`.

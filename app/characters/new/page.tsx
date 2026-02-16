@@ -199,6 +199,16 @@ export default function NewCharacterPage() {
         romance_mode: f.romanceOn ? 'ROMANCE_ON' : 'ROMANCE_OFF',
         teen_mode: !!f.teenMode,
         age_mode: f.teenMode ? 'teen' : 'adult',
+        plot_granularity: 'BEAT',
+        ending_mode: 'MIXED',
+        ending_repeat_window: 6,
+        next_endings_prefer: ['A', 'B', 'S'],
+        prompt_policy: {
+          plot_granularity: 'BEAT',
+          ending_mode: 'MIXED',
+          ending_repeat_window: 6,
+          next_endings_prefer: ['A', 'B', 'S'],
+        },
         creation_form: {
           likes: clampText(f.likes, 900),
           dislikes: clampText(f.dislikes, 900),

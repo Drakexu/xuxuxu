@@ -20,6 +20,8 @@ type DbMessageRow = { id: string; role: string; content: string; created_at: str
 type CharacterAssetRow = { kind: string; storage_path: string; created_at?: string }
 type RelationshipStage = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7'
 type RomanceMode = 'ROMANCE_ON' | 'ROMANCE_OFF'
+type PlotGranularity = 'LINE' | 'BEAT' | 'SCENE'
+type EndingMode = 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -37,6 +39,16 @@ function normalizeRomance(v: unknown): RomanceMode {
 
 function normalizeSchedule(v: unknown): 'PLAY' | 'PAUSE' {
   return String(v || '').trim().toUpperCase() === 'PAUSE' ? 'PAUSE' : 'PLAY'
+}
+
+function normalizePlotGranularity(v: unknown): PlotGranularity {
+  const s = String(v || '').trim().toUpperCase()
+  return (s === 'LINE' || s === 'SCENE' || s === 'BEAT' ? s : 'BEAT') as PlotGranularity
+}
+
+function normalizeEndingMode(v: unknown): EndingMode {
+  const s = String(v || '').trim().toUpperCase()
+  return (s === 'QUESTION' || s === 'ACTION' || s === 'CLIFF' || s === 'MIXED' ? s : 'MIXED') as EndingMode
 }
 
 export default function ChatPage() {
@@ -79,8 +91,12 @@ export default function ChatPage() {
   const [storyLockUntil, setStoryLockUntil] = useState('')
   const [relationshipStage, setRelationshipStage] = useState<RelationshipStage>('S1')
   const [romanceMode, setRomanceMode] = useState<RomanceMode>('ROMANCE_ON')
+  const [plotGranularity, setPlotGranularity] = useState<PlotGranularity>('BEAT')
+  const [endingMode, setEndingMode] = useState<EndingMode>('MIXED')
+  const [endingRepeatWindow, setEndingRepeatWindow] = useState(6)
   const [updatingSchedule, setUpdatingSchedule] = useState(false)
   const [updatingRelationship, setUpdatingRelationship] = useState(false)
+  const [updatingPromptPolicy, setUpdatingPromptPolicy] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [savingOutfit, setSavingOutfit] = useState(false)
   const [manualOutfit, setManualOutfit] = useState('')
@@ -154,12 +170,18 @@ export default function ChatPage() {
     const root = asRecord(state)
     const run = asRecord(root.run_state)
     const board = asRecord(root.schedule_board)
+    const style = asRecord(root.style_guard)
 
     setScheduleState(normalizeSchedule(board.schedule_state || run.schedule_state))
     setLockMode(String(board.lock_mode || 'manual'))
     setStoryLockUntil(typeof board.story_lock_until === 'string' ? board.story_lock_until : '')
     setRelationshipStage(normalizeStage(run.relationship_stage))
     setRomanceMode(normalizeRomance(run.romance_mode))
+    setPlotGranularity(normalizePlotGranularity(run.plot_granularity))
+    setEndingMode(normalizeEndingMode(run.ending_mode))
+    const winRaw = Number(style.ending_repeat_window ?? 6)
+    const win = Number.isFinite(winRaw) ? Math.max(3, Math.min(Math.floor(winRaw), 12)) : 6
+    setEndingRepeatWindow(win)
   }
 
   const loadRecentMessages = async (convId: string, userId: string) => {
@@ -410,6 +432,9 @@ export default function ChatPage() {
         setStoryLockUntil('')
         setRelationshipStage('S1')
         setRomanceMode('ROMANCE_ON')
+        setPlotGranularity('BEAT')
+        setEndingMode('MIXED')
+        setEndingRepeatWindow(6)
         return
       }
       const st = asRecord(r.data.state)
@@ -658,6 +683,53 @@ export default function ChatPage() {
     }
   }
 
+  const updatePromptPolicyControl = async () => {
+    if (!conversationId || updatingPromptPolicy) return
+
+    setUpdatingPromptPolicy(true)
+    setError('')
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (!token) throw new Error('登录态失效，请重新登录。')
+
+      const nextEndingsPrefer =
+        endingMode === 'QUESTION'
+          ? ['Q', 'A', 'B']
+          : endingMode === 'ACTION'
+            ? ['A', 'B', 'S']
+            : endingMode === 'CLIFF'
+              ? ['S', 'A', 'B']
+              : ['A', 'B', 'S']
+
+      const payload = {
+        conversationId,
+        plotGranularity,
+        endingMode,
+        endingRepeatWindow,
+        nextEndingsPrefer,
+        persistToCharacter: true,
+      }
+
+      const resp = await fetch('/api/state/prompt-policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+
+      setPlotGranularity(normalizePlotGranularity(data.plotGranularity))
+      setEndingMode(normalizeEndingMode(data.endingMode))
+      const winRaw = Number(data.endingRepeatWindow ?? 6)
+      setEndingRepeatWindow(Number.isFinite(winRaw) ? Math.max(3, Math.min(Math.floor(winRaw), 12)) : 6)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setUpdatingPromptPolicy(false)
+    }
+  }
+
   useEffect(() => {
     if (!showUserCard) return
     // Open modal with a draft copy; closing without save discards changes.
@@ -695,6 +767,9 @@ export default function ChatPage() {
       setStoryLockUntil('')
       setRelationshipStage('S1')
       setRomanceMode('ROMANCE_ON')
+      setPlotGranularity('BEAT')
+      setEndingMode('MIXED')
+      setEndingRepeatWindow(6)
       setConversationList((prev) => [{ id: id2, created_at: ins.data.created_at }, ...prev].slice(0, 12))
       try {
         localStorage.setItem(convKey, id2)
@@ -919,7 +994,8 @@ export default function ChatPage() {
               <span className="uiBadge">关系阶段：{relationshipStage}</span>
               <span className="uiBadge">恋爱：{romanceMode === 'ROMANCE_OFF' ? '关闭' : '开启'}</span>
               <span className="uiBadge">背景：{bgAutoEnabled ? `自动${bgCue ? ` (${bgCue})` : ''}` : '手动'}</span>
-              {!!storyLockUntil && <span className="uiBadge">剧情锁：{storyLockLabel || storyLockUntil}</span>}
+              <span className="uiBadge">剧情颗粒度：{plotGranularity}</span>
+              <span className="uiBadge">结尾策略：{endingMode}/{endingRepeatWindow}</span>              {!!storyLockUntil && <span className="uiBadge">剧情锁：{storyLockLabel || storyLockUntil}</span>}
             </div>
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -968,6 +1044,37 @@ export default function ChatPage() {
               </button>
               <button className="uiBtn uiBtnGhost" onClick={() => setBgAutoEnabled(true)}>
                 开启背景自动
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select className="uiInput" style={{ width: 150 }} value={plotGranularity} onChange={(e) => setPlotGranularity(normalizePlotGranularity(e.target.value))}>
+                <option value="LINE">剧情颗粒度 LINE</option>
+                <option value="BEAT">剧情颗粒度 BEAT</option>
+                <option value="SCENE">剧情颗粒度 SCENE</option>
+              </select>
+              <select className="uiInput" style={{ width: 170 }} value={endingMode} onChange={(e) => setEndingMode(normalizeEndingMode(e.target.value))}>
+                <option value="MIXED">结尾策略 MIXED</option>
+                <option value="QUESTION">结尾策略 QUESTION</option>
+                <option value="ACTION">结尾策略 ACTION</option>
+                <option value="CLIFF">结尾策略 CLIFF</option>
+              </select>
+              <select
+                className="uiInput"
+                style={{ width: 170 }}
+                value={String(endingRepeatWindow)}
+                onChange={(e) => {
+                  const n = Number(e.target.value)
+                  setEndingRepeatWindow(Number.isFinite(n) ? Math.max(3, Math.min(Math.floor(n), 12)) : 6)
+                }}
+              >
+                <option value="4">防复读窗口 4</option>
+                <option value="6">防复读窗口 6</option>
+                <option value="8">防复读窗口 8</option>
+                <option value="10">防复读窗口 10</option>
+                <option value="12">防复读窗口 12</option>
+              </select>
+              <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingPromptPolicy} onClick={updatePromptPolicyControl}>
+                {updatingPromptPolicy ? '保存中...' : '保存叙事策略'}
               </button>
             </div>
           </div>

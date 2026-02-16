@@ -82,6 +82,56 @@ function asArray(v: unknown): unknown[] {
   return Array.isArray(v) ? v : []
 }
 
+function normalizePlotGranularityServer(v: unknown): 'LINE' | 'BEAT' | 'SCENE' {
+  const s = String(v || '').trim().toUpperCase()
+  if (s === 'LINE' || s === 'SCENE') return s
+  return 'BEAT'
+}
+
+function normalizeEndingModeServer(v: unknown): 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED' {
+  const s = String(v || '').trim().toUpperCase()
+  if (s === 'QUESTION' || s === 'ACTION' || s === 'CLIFF') return s
+  return 'MIXED'
+}
+
+function normalizeEndingWindowServer(v: unknown): number {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return 6
+  return Math.max(3, Math.min(Math.floor(n), 12))
+}
+
+function normalizeEndingHintsServer(v: unknown): string[] {
+  const src = asArray(v)
+  const out: string[] = []
+  for (const x of src) {
+    const s = String(x || '').trim()
+    if (!s) continue
+    out.push(s)
+    if (out.length >= 6) break
+  }
+  return out
+}
+
+function applyPromptPolicyFromSettings(args: { conversationState: JsonObject; characterSettings: unknown }) {
+  const { conversationState, characterSettings } = args
+  const set = asRecord(characterSettings)
+  const policy = asRecord(set['prompt_policy'])
+
+  const run = asRecord(conversationState['run_state'])
+  const style = asRecord(conversationState['style_guard'])
+
+  run['plot_granularity'] = normalizePlotGranularityServer(policy['plot_granularity'] ?? set['plot_granularity'] ?? run['plot_granularity'])
+  run['ending_mode'] = normalizeEndingModeServer(policy['ending_mode'] ?? set['ending_mode'] ?? run['ending_mode'])
+  style['ending_repeat_window'] = normalizeEndingWindowServer(
+    policy['ending_repeat_window'] ?? set['ending_repeat_window'] ?? style['ending_repeat_window'],
+  )
+  const hints = normalizeEndingHintsServer(policy['next_endings_prefer'] ?? set['next_endings_prefer'] ?? style['next_endings_prefer'])
+  style['next_endings_prefer'] = hints.length ? hints : ['A', 'B', 'S']
+
+  conversationState['run_state'] = run
+  conversationState['style_guard'] = style
+}
+
 function safeExtractJsonObject(text: string) {
   const s = String(text || '').trim()
   if (!s) return null
@@ -376,6 +426,8 @@ function defaultConversationState() {
       present_characters: ['{user}', '{role}'],
       goal: '',
       schedule_state: 'PLAY',
+      plot_granularity: 'BEAT',
+      ending_mode: 'MIXED',
     },
     focus_panel: {
       version: '1.0',
@@ -422,6 +474,7 @@ function defaultConversationState() {
     style_guard: {
       ending_history: [],
       fingerprint_blacklist: [],
+      ending_repeat_window: 6,
       next_endings_prefer: ['A', 'B', 'S'],
     },
     fact_patch: [],
@@ -488,7 +541,10 @@ function buildDynamicContext(args: {
     if (am === 'teen' || am === 'adult') run.age_mode = am
     const teenMode = set['teen_mode']
     if (typeof teenMode === 'boolean') run.age_mode = teenMode ? 'teen' : run.age_mode
+    run.plot_granularity = normalizePlotGranularityServer(set['plot_granularity'] ?? run.plot_granularity)
+    run.ending_mode = normalizeEndingModeServer(set['ending_mode'] ?? run.ending_mode)
   }
+  applyPromptPolicyFromSettings({ conversationState: cs, characterSettings })
   // Output mode hint
   {
     const ev = inputEvent || 'TALK_HOLD'
@@ -822,6 +878,7 @@ export async function POST(req: Request) {
     let conversationState = convStateRow?.state ?? null
     if (!conversationState) {
       conversationState = defaultConversationState()
+      applyPromptPolicyFromSettings({ conversationState: asRecord(conversationState), characterSettings: character.settings })
       // Best-effort init (will fail if table doesn't exist).
       const init = await sb.from('conversation_states').upsert({
         conversation_id: convIdFinal,

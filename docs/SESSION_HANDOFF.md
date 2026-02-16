@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v8 - patch consistency gates)
+Last updated: 2026-02-16 (checkpoint: high-target execution v9 - prompt policy controls)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -574,6 +574,36 @@ Repo: `d:/projects/xuxuxu`
     - prevent writing currently present speaking roles into `npc_database`
     - require evidence for unconfirmed NPC add/update entries
   - Updated template diff doc to reflect this gate and shifted remaining gap to cross-turn contradiction checks.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+
+### High-target execution v9 checkpoint (latest)
+- Files changed:
+  - `app/api/state/prompt-policy/route.ts` (new)
+  - `app/api/chat/route.ts`
+  - `app/chat/[characterId]/page.tsx`
+  - `app/characters/[characterId]/edit/page.tsx`
+  - `app/characters/new/page.tsx`
+  - `docs/aibaji/template_diff.md`
+- Completed:
+  - Added prompt policy state API:
+    - `POST /api/state/prompt-policy`
+    - supports `plotGranularity`, `endingMode`, `endingRepeatWindow`, `nextEndingsPrefer`
+    - optimistic-lock write to `conversation_states`
+    - optional persistence to `characters.settings.prompt_policy`
+  - Chat route now carries prompt policy defaults more robustly:
+    - initializes new conversation state with policy defaults from character settings
+    - mirrors character prompt policy into per-turn run/style context before Prompt OS build
+  - Chat execution console now includes prompt policy controls:
+    - plot granularity selector (`LINE/BEAT/SCENE`)
+    - ending strategy selector (`MIXED/QUESTION/ACTION/CLIFF`)
+    - anti-repeat window selector
+    - save action persists to conversation + character defaults
+  - Creator-side defaults:
+    - character edit page now supports policy fields and saves into `settings/prompt_policy`
+    - new-character flow writes default policy fields into settings at creation
 - Validation:
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
