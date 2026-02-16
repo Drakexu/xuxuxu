@@ -73,7 +73,7 @@ export default function ChatPage() {
     return (t ? t.slice(0, 1) : 'A').toUpperCase()
   }, [title])
 
-  const loadRecentMessages = async (convId: string) => {
+  const loadRecentMessages = async (convId: string, userId: string) => {
     setLoadingHistory(true)
     setHasMore(true)
     setOldestTs('')
@@ -82,6 +82,7 @@ export default function ChatPage() {
         .from('messages')
         .select('id,role,content,created_at,input_event')
         .eq('conversation_id', convId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(60)
       if (r.error) throw new Error(r.error.message)
@@ -112,7 +113,7 @@ export default function ChatPage() {
     }
   }
 
-  const loadOlderMessages = async () => {
+  const loadOlderMessages = async (userId: string) => {
     if (!conversationId) return
     if (loadingOlder || loadingHistory || !hasMore) return
     if (!oldestTs) return
@@ -127,6 +128,7 @@ export default function ChatPage() {
         .from('messages')
         .select('id,role,content,created_at,input_event')
         .eq('conversation_id', conversationId)
+        .eq('user_id', userId)
         .lt('created_at', oldestTs)
         .order('created_at', { ascending: false })
         .limit(20)
@@ -173,12 +175,13 @@ export default function ChatPage() {
       setError('')
 
       const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) {
+      const userId = userData.user?.id
+      if (!userId) {
         router.replace('/login')
         return
       }
 
-      const { data: c, error: ce } = await supabase.from('characters').select('name').eq('id', characterId).single()
+      const { data: c, error: ce } = await supabase.from('characters').select('name').eq('id', characterId).eq('user_id', userId).single()
       if (ce || !c) {
         setError('角色不存在或无权限。')
         setLoading(false)
@@ -206,7 +209,13 @@ export default function ChatPage() {
 
         // Load recent conversations for this character.
         try {
-          const rr = await supabase.from('conversations').select('id,created_at').eq('character_id', characterId).order('created_at', { ascending: false }).limit(10)
+          const rr = await supabase
+            .from('conversations')
+            .select('id,created_at')
+            .eq('character_id', characterId)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(10)
           if (!rr.error) setConversationList((rr.data ?? []) as Array<{ id: string; created_at?: string }>)
         } catch {
           // ignore
@@ -217,6 +226,7 @@ export default function ChatPage() {
             .from('conversations')
             .select('id,created_at')
             .eq('character_id', characterId)
+            .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle()
@@ -225,7 +235,7 @@ export default function ChatPage() {
 
         if (convId) {
           setConversationId(convId)
-          await loadRecentMessages(convId)
+          await loadRecentMessages(convId, userId)
         }
       } catch {
         // ignore
@@ -293,9 +303,9 @@ export default function ChatPage() {
     init()
   }, [characterId, convKey, bgKey, router])
 
-  const loadOutfitHint = async (convId: string) => {
+  const loadOutfitHint = async (convId: string, userId: string) => {
     try {
-      const r = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).maybeSingle()
+      const r = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).eq('user_id', userId).maybeSingle()
       if (r.error || !r.data?.state || typeof r.data.state !== 'object') return
       const st = r.data.state as Record<string, unknown>
       const ledger = (st.ledger && typeof st.ledger === 'object' ? (st.ledger as Record<string, unknown>) : {}) as Record<string, unknown>
@@ -307,9 +317,9 @@ export default function ChatPage() {
     }
   }
 
-  const loadDetails = async (convId: string) => {
+  const loadDetails = async (convId: string, userId: string) => {
     try {
-      const r = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).maybeSingle()
+      const r = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).eq('user_id', userId).maybeSingle()
       if (r.error || !r.data?.state || typeof r.data.state !== 'object') return
       const st = r.data.state as Record<string, unknown>
       const ledger = (st.ledger && typeof st.ledger === 'object' ? (st.ledger as Record<string, unknown>) : {}) as Record<string, unknown>
@@ -405,8 +415,14 @@ export default function ChatPage() {
       }
 
       setManualOutfit(v)
-      await loadOutfitHint(conversationId)
-      await loadDetails(conversationId)
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        setError('登录已失效，请重新登录')
+        return
+      }
+      await loadOutfitHint(conversationId, userId)
+      await loadDetails(conversationId, userId)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
@@ -417,8 +433,14 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!conversationId) return
-    loadOutfitHint(conversationId)
-    if (showDetails) loadDetails(conversationId)
+    const loadHint = async () => {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) return
+      await loadOutfitHint(conversationId, userId)
+      if (showDetails) await loadDetails(conversationId, userId)
+    }
+    loadHint()
   }, [conversationId, showDetails])
 
   useEffect(() => {
@@ -568,13 +590,20 @@ export default function ChatPage() {
                 onChange={async (e) => {
                   const id2 = e.target.value
                   if (!id2) return
+                  const { data: userData } = await supabase.auth.getUser()
+                  const userId = userData.user?.id
+                  if (!userId) {
+                    router.replace('/login')
+                    return
+                  }
+
                   setConversationId(id2)
                   try {
                     localStorage.setItem(convKey, id2)
                   } catch {
                     // ignore
                   }
-                  await loadRecentMessages(id2)
+                  await loadRecentMessages(id2, userId)
                 }}
               >
                 {conversationList.map((c) => (
@@ -589,13 +618,22 @@ export default function ChatPage() {
             </button>
             <button
               className="uiBtn uiBtnGhost"
-              onClick={() => {
-                const next = !showDetails
-                setShowDetails(next)
-                if (next && conversationId) loadDetails(conversationId)
-              }}
-            >
-              Details
+                onClick={() => {
+                  const next = !showDetails
+                  setShowDetails(next)
+                  if (!next || !conversationId) return
+                  ;(async () => {
+                    const { data: userData } = await supabase.auth.getUser()
+                    const userId = userData.user?.id
+                    if (!userId) {
+                      router.replace('/login')
+                      return
+                    }
+                    await loadDetails(conversationId, userId)
+                  })()
+                }}
+              >
+                Details
             </button>
             <button className="uiBtn uiBtnGhost" onClick={() => setShowTimestamps((v) => !v)}>
               {showTimestamps ? 'Hide time' : 'Show time'}
@@ -614,7 +652,13 @@ export default function ChatPage() {
           onScroll={() => {
             const el = listRef.current
             if (!el) return
-            if (el.scrollTop < 80) loadOlderMessages()
+            if (el.scrollTop < 80) {
+              ;(async () => {
+                const { data: userData } = await supabase.auth.getUser()
+                const userId = userData.user?.id
+                if (userId) await loadOlderMessages(userId)
+              })()
+            }
             const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 180
             setShowScrollDown(!nearBottom)
           }}
@@ -697,7 +741,18 @@ export default function ChatPage() {
                 <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${characterId}/assets`)}>
                   资产
                 </button>
-                <button className="uiBtn uiBtnGhost" onClick={() => conversationId && loadDetails(conversationId)}>
+                <button
+                  className="uiBtn uiBtnGhost"
+                  onClick={() => {
+                    if (!conversationId) return
+                    ;(async () => {
+                      const { data: userData } = await supabase.auth.getUser()
+                      const userId = userData.user?.id
+                      if (!userId) return
+                      await loadDetails(conversationId, userId)
+                    })()
+                  }}
+                >
                   Refresh
                 </button>
               </div>
