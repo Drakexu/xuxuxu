@@ -16,6 +16,10 @@ type FeedItem = {
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 type ConversationRow = { id: string; created_at?: string | null; state?: unknown }
+type RelationshipStage = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7'
+type RomanceMode = 'ROMANCE_ON' | 'ROMANCE_OFF'
+type PlotGranularity = 'LINE' | 'BEAT' | 'SCENE'
+type EndingMode = 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'
 
 type LedgerSnapshot = {
   outfit: string
@@ -62,6 +66,30 @@ function eventBadgeStyle(ev: string | null) {
   return {}
 }
 
+function normalizeStage(v: unknown): RelationshipStage {
+  const s = String(v || '').trim().toUpperCase()
+  return (['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].includes(s) ? s : 'S1') as RelationshipStage
+}
+
+function normalizeRomance(v: unknown): RomanceMode {
+  const s = String(v || '').trim().toUpperCase()
+  return (s === 'ROMANCE_OFF' ? 'ROMANCE_OFF' : 'ROMANCE_ON') as RomanceMode
+}
+
+function normalizeSchedule(v: unknown): 'PLAY' | 'PAUSE' {
+  return String(v || '').trim().toUpperCase() === 'PAUSE' ? 'PAUSE' : 'PLAY'
+}
+
+function normalizePlotGranularity(v: unknown): PlotGranularity {
+  const s = String(v || '').trim().toUpperCase()
+  return (s === 'LINE' || s === 'SCENE' || s === 'BEAT' ? s : 'BEAT') as PlotGranularity
+}
+
+function normalizeEndingMode(v: unknown): EndingMode {
+  const s = String(v || '').trim().toUpperCase()
+  return (s === 'QUESTION' || s === 'ACTION' || s === 'CLIFF' || s === 'MIXED' ? s : 'MIXED') as EndingMode
+}
+
 export default function CharacterHomePage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -78,6 +106,148 @@ export default function CharacterHomePage() {
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [snapshot, setSnapshot] = useState<LedgerSnapshot | null>(null)
   const [latestConversationId, setLatestConversationId] = useState('')
+  const [teenMode, setTeenMode] = useState(false)
+  const [scheduleState, setScheduleState] = useState<'PLAY' | 'PAUSE'>('PLAY')
+  const [lockMode, setLockMode] = useState('manual')
+  const [storyLockUntil, setStoryLockUntil] = useState('')
+  const [relationshipStage, setRelationshipStage] = useState<RelationshipStage>('S1')
+  const [romanceMode, setRomanceMode] = useState<RomanceMode>('ROMANCE_ON')
+  const [plotGranularity, setPlotGranularity] = useState<PlotGranularity>('BEAT')
+  const [endingMode, setEndingMode] = useState<EndingMode>('MIXED')
+  const [endingRepeatWindow, setEndingRepeatWindow] = useState(6)
+  const [updatingSchedule, setUpdatingSchedule] = useState(false)
+  const [updatingRelationship, setUpdatingRelationship] = useState(false)
+  const [updatingPromptPolicy, setUpdatingPromptPolicy] = useState(false)
+
+  const applyControlState = (state: unknown, forceTeen = false) => {
+    const root = asRecord(state)
+    const run = asRecord(root.run_state)
+    const board = asRecord(root.schedule_board)
+    const style = asRecord(root.style_guard)
+    const ageMode = String(run.age_mode || '').trim().toLowerCase()
+    const nextTeenMode = forceTeen || ageMode === 'teen'
+
+    setTeenMode(nextTeenMode)
+    setScheduleState(normalizeSchedule(board.schedule_state || run.schedule_state))
+    setLockMode(String(board.lock_mode || 'manual'))
+    setStoryLockUntil(typeof board.story_lock_until === 'string' ? board.story_lock_until : '')
+    setRelationshipStage(normalizeStage(run.relationship_stage))
+    setRomanceMode(nextTeenMode ? 'ROMANCE_OFF' : normalizeRomance(run.romance_mode))
+    setPlotGranularity(normalizePlotGranularity(run.plot_granularity))
+    setEndingMode(normalizeEndingMode(run.ending_mode))
+    const winRaw = Number(style.ending_repeat_window ?? 6)
+    const win = Number.isFinite(winRaw) ? Math.max(3, Math.min(Math.floor(winRaw), 12)) : 6
+    setEndingRepeatWindow(win)
+  }
+
+  const getAccessToken = async () => {
+    const { data: sess } = await supabase.auth.getSession()
+    const token = sess.session?.access_token
+    if (!token) throw new Error('登录态失效，请重新登录。')
+    return token
+  }
+
+  const updateScheduleControl = async (action: 'PLAY' | 'PAUSE' | 'LOCK' | 'UNLOCK', lockMinutes?: number) => {
+    if (!latestConversationId || updatingSchedule) return
+    setUpdatingSchedule(true)
+    setError('')
+    try {
+      const token = await getAccessToken()
+      const payload: Record<string, unknown> = { conversationId: latestConversationId, action }
+      if (action === 'LOCK') {
+        payload.lockMinutes = Number(lockMinutes ?? 120)
+        payload.reason = 'story_lock'
+      }
+
+      const resp = await fetch('/api/state/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+
+      setScheduleState(normalizeSchedule(data.scheduleState))
+      setLockMode(String(data.lockMode || 'manual'))
+      setStoryLockUntil(String(data.storyLockUntil || ''))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setUpdatingSchedule(false)
+    }
+  }
+
+  const updateRelationshipControl = async (args: { stage?: RelationshipStage; romance?: RomanceMode }) => {
+    if (!latestConversationId || updatingRelationship) return
+    if (!args.stage && !args.romance) return
+    setUpdatingRelationship(true)
+    setError('')
+    try {
+      const token = await getAccessToken()
+      const payload: Record<string, unknown> = {
+        conversationId: latestConversationId,
+        persistToCharacter: true,
+      }
+      if (args.stage) payload.relationshipStage = args.stage
+      if (args.romance) payload.romanceMode = args.romance
+
+      const resp = await fetch('/api/state/relationship', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+
+      if (data.relationshipStage) setRelationshipStage(normalizeStage(data.relationshipStage))
+      if (data.romanceMode) setRomanceMode(teenMode ? 'ROMANCE_OFF' : normalizeRomance(data.romanceMode))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setUpdatingRelationship(false)
+    }
+  }
+
+  const updatePromptPolicyControl = async () => {
+    if (!latestConversationId || updatingPromptPolicy) return
+    setUpdatingPromptPolicy(true)
+    setError('')
+    try {
+      const token = await getAccessToken()
+      const nextEndingsPrefer =
+        endingMode === 'QUESTION'
+          ? ['Q', 'A', 'B']
+          : endingMode === 'ACTION'
+            ? ['A', 'B', 'S']
+            : endingMode === 'CLIFF'
+              ? ['S', 'A', 'B']
+              : ['A', 'B', 'S']
+
+      const resp = await fetch('/api/state/prompt-policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          conversationId: latestConversationId,
+          plotGranularity,
+          endingMode,
+          endingRepeatWindow,
+          nextEndingsPrefer,
+          persistToCharacter: true,
+        }),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+
+      setPlotGranularity(normalizePlotGranularity(data.plotGranularity))
+      setEndingMode(normalizeEndingMode(data.endingMode))
+      const winRaw = Number(data.endingRepeatWindow ?? 6)
+      setEndingRepeatWindow(Number.isFinite(winRaw) ? Math.max(3, Math.min(Math.floor(winRaw), 12)) : 6)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setUpdatingPromptPolicy(false)
+    }
+  }
 
   const load = async () => {
     setLoading(true)
@@ -86,6 +256,16 @@ export default function CharacterHomePage() {
     setCoverUrl('')
     setSnapshot(null)
     setItems([])
+    setLatestConversationId('')
+    setScheduleState('PLAY')
+    setLockMode('manual')
+    setStoryLockUntil('')
+    setRelationshipStage('S1')
+    setPlotGranularity('BEAT')
+    setEndingMode('MIXED')
+    setEndingRepeatWindow(6)
+    setTeenMode(false)
+    setRomanceMode('ROMANCE_ON')
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
@@ -94,13 +274,19 @@ export default function CharacterHomePage() {
       return
     }
 
-    const c = await supabase.from('characters').select('id,name').eq('id', characterId).eq('user_id', userId).maybeSingle()
+    const c = await supabase.from('characters').select('id,name,settings').eq('id', characterId).eq('user_id', userId).maybeSingle()
     if (c.error || !c.data) {
       setError('角色不存在或无权限')
       setLoading(false)
       return
     }
-    setTitle((c.data as { name?: string }).name || '角色')
+    const characterData = c.data as { name?: string; settings?: unknown }
+    const settings = asRecord(characterData.settings)
+    const settingsAgeMode = String(settings.age_mode || '').trim().toLowerCase()
+    const settingsTeenMode = settings.teen_mode === true || settingsAgeMode === 'teen'
+    setTeenMode(settingsTeenMode)
+    setRomanceMode(settingsTeenMode ? 'ROMANCE_OFF' : 'ROMANCE_ON')
+    setTitle(characterData.name || '角色')
 
     const rFeed = await supabase
       .from('messages')
@@ -131,6 +317,7 @@ export default function CharacterHomePage() {
       const st = await supabase.from('conversation_states').select('state').eq('conversation_id', convId).eq('user_id', userId).maybeSingle()
       if (!st.error && st.data?.state) {
         const root = asRecord(st.data.state)
+        applyControlState(st.data.state, settingsTeenMode)
         const ledger = asRecord(root.ledger)
         const wardrobe = asRecord(ledger.wardrobe)
         const memory = asRecord(root.memory)
@@ -266,6 +453,18 @@ export default function CharacterHomePage() {
     return { ok, total: ledgerHealth.length }
   }, [ledgerHealth])
 
+  const storyLockLabel = useMemo(() => {
+    if (!storyLockUntil) return ''
+    const t = Date.parse(storyLockUntil)
+    if (!Number.isFinite(t)) return ''
+    const mins = Math.ceil((t - Date.now()) / 60000)
+    if (mins <= 0) return '已到期'
+    if (mins < 60) return `${mins} 分钟后解锁`
+    const h = Math.floor(mins / 60)
+    const m = mins % 60
+    return `${h}小时${m ? `${m}分钟` : ''}后解锁`
+  }, [storyLockUntil])
+
   return (
     <div className="uiPage">
       <AppShell
@@ -326,6 +525,115 @@ export default function CharacterHomePage() {
                 </div>
               </div>
             </section>
+
+            <div className="uiPanel" style={{ marginTop: 0 }}>
+              <div className="uiPanelHeader">
+                <div>
+                  <div className="uiPanelTitle">运行态控制台</div>
+                  <div className="uiPanelSub">在主页直接调整日程、关系阶段、恋爱模式与叙事策略</div>
+                </div>
+              </div>
+              <div className="uiForm">
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <span className="uiBadge">会话：{latestConversationId ? `${latestConversationId.slice(0, 8)}...` : '未创建'}</span>
+                  <span className="uiBadge">日程：{scheduleState === 'PAUSE' ? '暂停' : '运行中'}</span>
+                  <span className="uiBadge">锁模式：{lockMode || 'manual'}</span>
+                  <span className="uiBadge">关系阶段：{relationshipStage}</span>
+                  <span className="uiBadge">恋爱：{romanceMode === 'ROMANCE_OFF' ? '关闭' : '开启'}</span>
+                  <span className="uiBadge">剧情颗粒度：{plotGranularity}</span>
+                  <span className="uiBadge">结尾策略：{endingMode}/{endingRepeatWindow}</span>
+                  {!!storyLockUntil && <span className="uiBadge">剧情锁：{storyLockLabel || storyLockUntil}</span>}
+                </div>
+
+                {!latestConversationId && (
+                  <div className="uiHint">
+                    还没有会话，先进入聊天页创建一条会话后即可在这里控制运行态。
+                  </div>
+                )}
+
+                {latestConversationId && (
+                  <>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button className="uiBtn uiBtnGhost" disabled={updatingSchedule} onClick={() => updateScheduleControl('PLAY')}>
+                        恢复日程
+                      </button>
+                      <button className="uiBtn uiBtnGhost" disabled={updatingSchedule} onClick={() => updateScheduleControl('PAUSE')}>
+                        暂停日程
+                      </button>
+                      <button className="uiBtn uiBtnGhost" disabled={updatingSchedule} onClick={() => updateScheduleControl('LOCK', 120)}>
+                        锁剧情 2h
+                      </button>
+                      <button className="uiBtn uiBtnGhost" disabled={updatingSchedule} onClick={() => updateScheduleControl('UNLOCK')}>
+                        解锁剧情
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <select
+                        className="uiInput"
+                        style={{ width: 150 }}
+                        value={relationshipStage}
+                        disabled={updatingRelationship}
+                        onChange={(e) => {
+                          const next = normalizeStage(e.target.value)
+                          setRelationshipStage(next)
+                          void updateRelationshipControl({ stage: next })
+                        }}
+                      >
+                        {['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].map((s) => (
+                          <option key={s} value={s}>
+                            阶段 {s}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="uiBtn uiBtnGhost"
+                        disabled={updatingRelationship || teenMode}
+                        onClick={() => {
+                          const next = romanceMode === 'ROMANCE_OFF' ? 'ROMANCE_ON' : 'ROMANCE_OFF'
+                          setRomanceMode(next)
+                          void updateRelationshipControl({ romance: next })
+                        }}
+                      >
+                        {teenMode ? '青少年模式：恋爱固定关闭' : romanceMode === 'ROMANCE_OFF' ? '开启恋爱模式' : '关闭恋爱模式'}
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <select className="uiInput" style={{ width: 170 }} value={plotGranularity} onChange={(e) => setPlotGranularity(normalizePlotGranularity(e.target.value))}>
+                        <option value="LINE">剧情颗粒度 LINE</option>
+                        <option value="BEAT">剧情颗粒度 BEAT</option>
+                        <option value="SCENE">剧情颗粒度 SCENE</option>
+                      </select>
+                      <select className="uiInput" style={{ width: 180 }} value={endingMode} onChange={(e) => setEndingMode(normalizeEndingMode(e.target.value))}>
+                        <option value="MIXED">结尾策略 MIXED</option>
+                        <option value="QUESTION">结尾策略 QUESTION</option>
+                        <option value="ACTION">结尾策略 ACTION</option>
+                        <option value="CLIFF">结尾策略 CLIFF</option>
+                      </select>
+                      <select
+                        className="uiInput"
+                        style={{ width: 170 }}
+                        value={String(endingRepeatWindow)}
+                        onChange={(e) => {
+                          const n = Number(e.target.value)
+                          setEndingRepeatWindow(Number.isFinite(n) ? Math.max(3, Math.min(Math.floor(n), 12)) : 6)
+                        }}
+                      >
+                        <option value="4">防复读窗口 4</option>
+                        <option value="6">防复读窗口 6</option>
+                        <option value="8">防复读窗口 8</option>
+                        <option value="10">防复读窗口 10</option>
+                        <option value="12">防复读窗口 12</option>
+                      </select>
+                      <button className="uiBtn uiBtnGhost" disabled={updatingPromptPolicy} onClick={updatePromptPolicyControl}>
+                        {updatingPromptPolicy ? '保存中...' : '保存叙事策略'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
 
             <div className="uiPanel" style={{ marginTop: 0 }}>
               <div className="uiPanelHeader">

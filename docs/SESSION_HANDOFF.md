@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v22 - creator pages rewrite clean-cn)
+Last updated: 2026-02-16 (checkpoint: high-target execution v23 - character home runtime control panel)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -266,6 +266,29 @@ Repo: `d:/projects/xuxuxu`
       - `age_mode/teen_mode/romance_mode`
       - prompt policy (`plot_granularity/ending_mode/ending_repeat_window`)
   - Unified page shell and action affordances with app-wide AppShell style.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Character Home runtime controls v23 checkpoint (latest)
+- File changed:
+  - `app/home/[characterId]/page.tsx`
+- Completed:
+  - Added a runtime control panel to single-character home page (`/home/:characterId`) to reduce context switching to chat page.
+  - Home page now reads latest conversation run-state and reflects:
+    - schedule state (`PLAY/PAUSE`)
+    - lock mode + story lock ETA
+    - relationship stage (`S1..S7`)
+    - romance mode (`ROMANCE_ON/OFF`)
+    - prompt policy (`plot_granularity`, `ending_mode`, `ending_repeat_window`)
+  - Connected home controls to existing state APIs:
+    - `POST /api/state/schedule`
+    - `POST /api/state/relationship`
+    - `POST /api/state/prompt-policy`
+  - Added teen-mode guard on home runtime controls:
+    - if character is teen-mode, romance remains hard-locked to off in UI interactions.
+  - Character query on home page now reads `settings` for age-mode/teen-mode inference.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
