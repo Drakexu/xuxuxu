@@ -522,10 +522,12 @@ export async function POST(req: Request) {
                 await sleep(PATCH_APPLY_RETRY_BASE_MS * attempt)
                 continue
               }
-              const attempts = await incrementPatchJobAttempts({ sb, jobId, status: 'pending', lastError: msg })
-              if (attempts >= PATCH_APPLY_MAX_ATTEMPTS) {
-                await incrementPatchJobAttempts({ sb, jobId, status: 'failed', lastError: msg })
-              }
+              await incrementPatchJobAttempts({
+                sb,
+                jobId,
+                status: attempt >= PATCH_APPLY_MAX_ATTEMPTS ? 'failed' : 'pending',
+                lastError: msg,
+              })
               failed++
               break
             }
