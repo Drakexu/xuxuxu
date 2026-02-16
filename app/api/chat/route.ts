@@ -810,7 +810,7 @@ export async function POST(req: Request) {
     const userMessageRaw = typeof body.message === 'string' ? body.message : ''
     const userMessageTrim = userMessageRaw.trim()
     const inputEvent = normInputEvent(body.inputEvent)
-    const userCard = typeof body.userCard === 'string' ? body.userCard : ''
+    const userCardInput = typeof body.userCard === 'string' ? body.userCard : ''
 
     if (!characterId) return NextResponse.json({ error: 'characterId is required' }, { status: 400 })
     // Allow empty message for event-driven turns like CG / schedule ticks.
@@ -849,6 +849,12 @@ export async function POST(req: Request) {
       .single()
 
     if (charErr || !character) return NextResponse.json({ error: 'Character not found or no access' }, { status: 404 })
+    const persistedUserCard = (() => {
+      const s = asRecord(character.settings)
+      const v = s['user_card']
+      return typeof v === 'string' ? v.trim() : ''
+    })()
+    const effectiveUserCard = (userCardInput.trim() || persistedUserCard).slice(0, 300)
 
     // Create / reuse conversation
     let convId = conversationId
@@ -961,7 +967,7 @@ export async function POST(req: Request) {
 
     const dynamic = buildDynamicContext({
       inputEvent,
-      userCard,
+      userCard: effectiveUserCard,
       userMessageForModel,
       characterName: character.name,
       systemPrompt: character.system_prompt,
@@ -1061,7 +1067,7 @@ export async function POST(req: Request) {
         input_event: inputEvent || 'TALK_HOLD',
         user_input: userMessageRaw,
         assistant_text: assistantMessage,
-        user_card: userCard ? userCard.slice(0, 520) : '',
+        user_card: effectiveUserCard ? effectiveUserCard.slice(0, 520) : '',
       },
       dynamic_context_used: dynamic.slice(0, 8000),
       recent_messages: (msgRows || []).slice(-12),

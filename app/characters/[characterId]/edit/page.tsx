@@ -28,6 +28,7 @@ export default function EditCharacterPage() {
   const [prompt, setPrompt] = useState('')
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
   const [settingsRaw, setSettingsRaw] = useState<Record<string, unknown>>({})
+  const [userCard, setUserCard] = useState('')
   const [plotGranularity, setPlotGranularity] = useState<'LINE' | 'BEAT' | 'SCENE'>('BEAT')
   const [endingMode, setEndingMode] = useState<'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'>('MIXED')
   const [endingRepeatWindow, setEndingRepeatWindow] = useState(6)
@@ -66,6 +67,7 @@ export default function EditCharacterPage() {
       setVisibility(row.visibility === 'public' ? 'public' : 'private')
       const settings = row.settings && typeof row.settings === 'object' ? (row.settings as Record<string, unknown>) : {}
       setSettingsRaw(settings)
+      setUserCard(typeof settings.user_card === 'string' ? settings.user_card.slice(0, 300) : '')
       const policy = settings.prompt_policy && typeof settings.prompt_policy === 'object' ? (settings.prompt_policy as Record<string, unknown>) : {}
       const plotRaw = String(policy.plot_granularity ?? settings.plot_granularity ?? 'BEAT').toUpperCase()
       const endingRaw = String(policy.ending_mode ?? settings.ending_mode ?? 'MIXED').toUpperCase()
@@ -92,6 +94,7 @@ export default function EditCharacterPage() {
 
     const nextSettings = {
       ...settingsRaw,
+      user_card: userCard.slice(0, 300),
       plot_granularity: plotGranularity,
       ending_mode: endingMode,
       ending_repeat_window: endingRepeatWindow,
@@ -196,6 +199,20 @@ export default function EditCharacterPage() {
               <label className="uiLabel">
                 System Prompt
                 <textarea className="uiTextarea" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+              </label>
+
+              <label className="uiLabel">
+                身份卡（注入 Prompt，0~300 字）
+                <textarea
+                  className="uiTextarea"
+                  value={userCard}
+                  maxLength={300}
+                  onChange={(e) => setUserCard(e.target.value.slice(0, 300))}
+                  placeholder="例如：你希望角色重点知道的背景、关系定位、禁区、偏好。"
+                />
+                <div className="uiHint" style={{ marginTop: 6 }}>
+                  {userCard.length}/300
+                </div>
               </label>
 
               <label className="uiLabel">

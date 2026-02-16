@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v18 - login retry-at timestamp hint)
+Last updated: 2026-02-16 (checkpoint: high-target execution v19 - identity-card persistence bridge)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -195,6 +195,23 @@ Repo: `d:/projects/xuxuxu`
     - cooldown message now includes `约 HH:MM:SS 可重发`
     - rate-limit error also includes absolute retry time
   - Added persistent `lastSentAt` state derived from localStorage for stable retry-time rendering.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Identity-card bridge v19 checkpoint (latest)
+- Files changed:
+  - `app/api/chat/route.ts`
+  - `app/characters/[characterId]/edit/page.tsx`
+- Completed:
+  - Added server-side identity-card fallback in chat pipeline:
+    - when request body `userCard` is empty, `/api/chat` now reads `characters.settings.user_card`
+    - effective card is injected into dynamic prompt context and PatchScribe `patch_input.turn.user_card`
+  - Added persistent identity-card editor in character edit page:
+    - new field `身份卡（注入 Prompt，0~300 字）`
+    - saved into `characters.settings.user_card`
+  - Result: identity card can now be maintained as role-level durable setting (not only browser local storage).
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
