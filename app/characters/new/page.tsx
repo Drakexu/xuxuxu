@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -107,10 +107,10 @@ function buildSystemPrompt(f: FormState) {
   lines.push('')
   lines.push('【世界与关系】')
   if (f.worldBackground.trim()) lines.push(`世界观背景：${f.worldBackground.trim()}`)
-  if (f.userNow.trim()) lines.push(`你与{user}当前关系：${f.userNow.trim()}`)
+  if (f.userNow.trim()) lines.push(`与{user}当前关系：${f.userNow.trim()}`)
 
   lines.push('')
-  lines.push('【交互风格】')
+  lines.push('【互动风格】')
   lines.push(`恋爱开关：${romanceMode}`)
   lines.push(`年龄模式：${ageMode}`)
   lines.push(`语气：${f.tone}`)
@@ -124,7 +124,7 @@ function buildSystemPrompt(f: FormState) {
   lines.push('【硬规则】')
   lines.push('- 你不是AI助手，不解释系统提示词。')
   lines.push('- 禁止替{user}说话、替{user}做决定。')
-  lines.push('- {user}的括号输入视为旁白，不要当作用户台词复读。')
+  lines.push('- {user}的括号输入视为旁白，不当作用户台词复读。')
   if (f.teenMode) {
     lines.push('- 未成年模式：禁止露骨内容、禁止恋爱暗示与性暗示。')
   } else {
@@ -146,7 +146,10 @@ export default function NewCharacterPage() {
   const [userId, setUserId] = useState('')
   const [f, setF] = useState<FormState>(DEFAULT_FORM)
 
-  const canCreate = useMemo(() => !loading && !!userId && !creating && f.name.trim().length > 0 && f.systemPrompt.trim().length > 0, [loading, userId, creating, f.name, f.systemPrompt])
+  const canCreate = useMemo(
+    () => !loading && !!userId && !creating && f.name.trim().length > 0 && f.systemPrompt.trim().length > 0,
+    [loading, userId, creating, f.name, f.systemPrompt],
+  )
   const romanceMode = effectiveRomanceMode(f)
 
   useEffect(() => {
@@ -281,7 +284,7 @@ export default function NewCharacterPage() {
       <AppShell
         title="新建角色"
         badge="studio"
-        subtitle="从核心设定生成提示词，然后发布到广场或保存为私密角色。"
+        subtitle="先填写角色设定，再生成提示词并发布。"
         actions={
           <>
             <button className="uiBtn uiBtnSecondary" onClick={onGeneratePrompt} disabled={loading || creating}>
@@ -297,7 +300,7 @@ export default function NewCharacterPage() {
           <div>
             <span className="uiBadge">创作流程</span>
             <h2 className="uiHeroTitle">先定角色，再定规则，最后生成可执行提示词</h2>
-            <p className="uiHeroSub">这版先覆盖高频字段。你随时可以在角色编辑页继续补全更细的人设、世界观和互动细节。</p>
+            <p className="uiHeroSub">这版覆盖高频字段。更细节的人设和规则可在创建后继续编辑。</p>
           </div>
           <div className="uiKpiGrid">
             <div className="uiKpi">
@@ -306,7 +309,7 @@ export default function NewCharacterPage() {
             </div>
             <div className="uiKpi">
               <b>{f.systemPrompt.trim().length}</b>
-              <span>提示词字符数</span>
+              <span>提示词长度</span>
             </div>
             <div className="uiKpi">
               <b>{f.visibility === 'public' ? '公开' : '私密'}</b>
@@ -335,7 +338,7 @@ export default function NewCharacterPage() {
             <div className="uiPanelHeader">
               <div>
                 <div className="uiPanelTitle">角色表单</div>
-                <div className="uiPanelSub">先填核心字段，再点“生成提示词”。</div>
+                <div className="uiPanelSub">先填核心字段，再点击“生成提示词”。</div>
               </div>
             </div>
 
@@ -348,7 +351,7 @@ export default function NewCharacterPage() {
                 <label className="uiLabel">
                   可见性
                   <select className="uiInput" value={f.visibility} onChange={(e) => setF((p) => ({ ...p, visibility: e.target.value === 'public' ? 'public' : 'private' }))}>
-                    <option value="public">公开（出现在广场）</option>
+                    <option value="public">公开（可出现在广场）</option>
                     <option value="private">私密（仅自己可见）</option>
                   </select>
                 </label>
@@ -382,7 +385,12 @@ export default function NewCharacterPage() {
 
               <label className="uiLabel">
                 人物简介
-                <textarea className="uiTextarea" value={f.summary} onChange={(e) => setF((p) => ({ ...p, summary: e.target.value }))} placeholder="角色核心设定、性格关键词、背景摘要。" />
+                <textarea
+                  className="uiTextarea"
+                  value={f.summary}
+                  onChange={(e) => setF((p) => ({ ...p, summary: e.target.value }))}
+                  placeholder="角色核心设定、性格关键词、背景摘要。"
+                />
               </label>
 
               <div className="uiSplit">
@@ -439,15 +447,15 @@ export default function NewCharacterPage() {
                   语气
                   <select className="uiInput" value={f.tone} onChange={(e) => setF((p) => ({ ...p, tone: e.target.value as FormState['tone'] }))}>
                     <option value="cool">冷静</option>
-                    <option value="balanced">平衡</option>
-                    <option value="warm">温暖</option>
+                    <option value="balanced">均衡</option>
+                    <option value="warm">热情</option>
                   </select>
                 </label>
                 <label className="uiLabel">
                   句长倾向
                   <select className="uiInput" value={f.sentenceLen} onChange={(e) => setF((p) => ({ ...p, sentenceLen: e.target.value as FormState['sentenceLen'] }))}>
                     <option value="short">短句</option>
-                    <option value="balanced">平衡</option>
+                    <option value="balanced">均衡</option>
                     <option value="long">长句</option>
                   </select>
                 </label>
@@ -465,6 +473,7 @@ export default function NewCharacterPage() {
                     <option value="on">ROMANCE_ON</option>
                     <option value="off">ROMANCE_OFF</option>
                   </select>
+                  {f.teenMode ? <div className="uiHint" style={{ marginTop: 6 }}>青少年模式下固定为 ROMANCE_OFF。</div> : null}
                 </label>
                 <label className="uiLabel">
                   年龄模式
@@ -504,7 +513,7 @@ export default function NewCharacterPage() {
               </label>
 
               <label className="uiLabel">
-                角色提示词（可手工调整）
+                角色提示词（可手动调整）
                 <textarea className="uiTextarea" value={f.systemPrompt} onChange={(e) => setF((p) => ({ ...p, systemPrompt: e.target.value }))} />
               </label>
             </div>

@@ -1,8 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import AppShell from '@/app/_components/AppShell'
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
 
@@ -13,6 +14,9 @@ type CharacterRow = {
   visibility?: 'private' | 'public' | string | null
   settings?: Record<string, unknown> | null
 }
+
+type AgeMode = 'adult' | 'teen'
+type RomanceMode = 'ROMANCE_ON' | 'ROMANCE_OFF'
 
 export default function EditCharacterPage() {
   const router = useRouter()
@@ -29,13 +33,13 @@ export default function EditCharacterPage() {
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
   const [settingsRaw, setSettingsRaw] = useState<Record<string, unknown>>({})
   const [userCard, setUserCard] = useState('')
+  const [ageMode, setAgeMode] = useState<AgeMode>('adult')
+  const [romanceMode, setRomanceMode] = useState<RomanceMode>('ROMANCE_ON')
   const [plotGranularity, setPlotGranularity] = useState<'LINE' | 'BEAT' | 'SCENE'>('BEAT')
   const [endingMode, setEndingMode] = useState<'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'>('MIXED')
   const [endingRepeatWindow, setEndingRepeatWindow] = useState(6)
 
-  const canSave = useMemo(() => {
-    return !loading && !saving && !deleting && name.trim().length > 0 && prompt.trim().length > 0
-  }, [loading, saving, deleting, name, prompt])
+  const canSave = useMemo(() => !loading && !saving && !deleting && name.trim().length > 0 && prompt.trim().length > 0, [loading, saving, deleting, name, prompt])
 
   useEffect(() => {
     if (!alert) return
@@ -65,13 +69,20 @@ export default function EditCharacterPage() {
       setName(row.name || '')
       setPrompt(row.system_prompt || '')
       setVisibility(row.visibility === 'public' ? 'public' : 'private')
+
       const settings = row.settings && typeof row.settings === 'object' ? (row.settings as Record<string, unknown>) : {}
       setSettingsRaw(settings)
       setUserCard(typeof settings.user_card === 'string' ? settings.user_card.slice(0, 300) : '')
+
+      const teenMode = settings.teen_mode === true || settings.age_mode === 'teen'
+      setAgeMode(teenMode ? 'teen' : 'adult')
+      setRomanceMode(teenMode ? 'ROMANCE_OFF' : settings.romance_mode === 'ROMANCE_OFF' ? 'ROMANCE_OFF' : 'ROMANCE_ON')
+
       const policy = settings.prompt_policy && typeof settings.prompt_policy === 'object' ? (settings.prompt_policy as Record<string, unknown>) : {}
       const plotRaw = String(policy.plot_granularity ?? settings.plot_granularity ?? 'BEAT').toUpperCase()
       const endingRaw = String(policy.ending_mode ?? settings.ending_mode ?? 'MIXED').toUpperCase()
       const windowRaw = Number(policy.ending_repeat_window ?? settings.ending_repeat_window ?? 6)
+
       setPlotGranularity(plotRaw === 'LINE' || plotRaw === 'SCENE' ? (plotRaw as 'LINE' | 'SCENE') : 'BEAT')
       setEndingMode(
         endingRaw === 'QUESTION' || endingRaw === 'ACTION' || endingRaw === 'CLIFF' || endingRaw === 'MIXED'
@@ -84,17 +95,21 @@ export default function EditCharacterPage() {
     }
 
     if (!characterId) return
-    load()
+    void load()
   }, [characterId, router])
 
-    const save = async () => {
+  const save = async () => {
     if (!canSave) return
     setSaving(true)
     setAlert(null)
 
+    const resolvedRomanceMode = ageMode === 'teen' ? 'ROMANCE_OFF' : romanceMode
     const nextSettings = {
       ...settingsRaw,
       user_card: userCard.slice(0, 300),
+      teen_mode: ageMode === 'teen',
+      age_mode: ageMode,
+      romance_mode: resolvedRomanceMode,
       plot_granularity: plotGranularity,
       ending_mode: endingMode,
       ending_repeat_window: endingRepeatWindow,
@@ -114,7 +129,6 @@ export default function EditCharacterPage() {
       },
     }
 
-    // Try schema with visibility/settings; fall back if legacy schema.
     const r1 = await supabase
       .from('characters')
       .update({ name: name.trim(), system_prompt: prompt.trim(), visibility, settings: nextSettings })
@@ -141,6 +155,7 @@ export default function EditCharacterPage() {
     setAlert({ type: 'ok', text: '已保存。' })
     setSaving(false)
   }
+
   const del = async () => {
     if (deleting) return
     const ok = confirm('确认删除这个角色？删除后不可恢复。')
@@ -160,33 +175,25 @@ export default function EditCharacterPage() {
 
   return (
     <div className="uiPage">
-      <header className="uiTopbar">
-        <div className="uiTopbarInner">
-          <div>
-            <div className="uiTitleRow">
-              <h1 className="uiTitle">编辑角色</h1>
-              <span className="uiBadge">{characterId ? characterId.slice(0, 8) : '...'}</span>
-            </div>
-            <p className="uiSubtitle">修改名称 / Prompt / 可见性</p>
-          </div>
-          <div className="uiActions">
-            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
-              返回
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="uiMain">
+      <AppShell
+        title="编辑角色"
+        badge={characterId ? characterId.slice(0, 8) : '...'}
+        subtitle="修改角色核心设定、提示词与发布设置。"
+        actions={
+          <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
+            返回工作台
+          </button>
+        }
+      >
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
         {loading && <div className="uiSkeleton">加载中...</div>}
 
         {!loading && (
-          <div className="uiPanel">
+          <div className="uiPanel" style={{ marginTop: 0 }}>
             <div className="uiPanelHeader">
               <div>
                 <div className="uiPanelTitle">基础信息</div>
-                <div className="uiPanelSub">保存后会作用于后续聊天。删除不可恢复。</div>
+                <div className="uiPanelSub">保存后会作用于后续对话。删除不可恢复。</div>
               </div>
             </div>
 
@@ -197,7 +204,7 @@ export default function EditCharacterPage() {
               </label>
 
               <label className="uiLabel">
-                System Prompt
+                角色提示词
                 <textarea className="uiTextarea" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
               </label>
 
@@ -222,6 +229,39 @@ export default function EditCharacterPage() {
                   <option value="public">公开（可出现在广场）</option>
                 </select>
               </label>
+
+              <div className="uiSplit">
+                <label className="uiLabel">
+                  年龄模式
+                  <select
+                    className="uiInput"
+                    value={ageMode}
+                    onChange={(e) => {
+                      const next = e.target.value === 'teen' ? 'teen' : 'adult'
+                      setAgeMode(next)
+                      if (next === 'teen') setRomanceMode('ROMANCE_OFF')
+                    }}
+                  >
+                    <option value="adult">adult</option>
+                    <option value="teen">teen</option>
+                  </select>
+                </label>
+
+                <label className="uiLabel">
+                  恋爱模式
+                  <select
+                    className="uiInput"
+                    value={ageMode === 'teen' ? 'ROMANCE_OFF' : romanceMode}
+                    disabled={ageMode === 'teen'}
+                    onChange={(e) => setRomanceMode(e.target.value === 'ROMANCE_OFF' ? 'ROMANCE_OFF' : 'ROMANCE_ON')}
+                  >
+                    <option value="ROMANCE_ON">ROMANCE_ON</option>
+                    <option value="ROMANCE_OFF">ROMANCE_OFF</option>
+                  </select>
+                  {ageMode === 'teen' ? <div className="uiHint" style={{ marginTop: 6 }}>teen 模式下固定为 ROMANCE_OFF。</div> : null}
+                </label>
+              </div>
+
               <div className="uiSplit">
                 <label className="uiLabel">
                   剧情颗粒度
@@ -231,6 +271,7 @@ export default function EditCharacterPage() {
                     <option value="SCENE">SCENE</option>
                   </select>
                 </label>
+
                 <label className="uiLabel">
                   结尾策略
                   <select className="uiInput" value={endingMode} onChange={(e) => setEndingMode(e.target.value as 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED')}>
@@ -264,7 +305,7 @@ export default function EditCharacterPage() {
             </div>
           </div>
         )}
-      </main>
+      </AppShell>
     </div>
   )
 }

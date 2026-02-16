@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v21 - square one-click unlock flow)
+Last updated: 2026-02-16 (checkpoint: high-target execution v22 - creator pages rewrite clean-cn)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -247,6 +247,25 @@ Repo: `d:/projects/xuxuxu`
   - Added per-card unlock loading state (`unlockingId`) and success/failure alerts.
   - Preserved detail entry for users who want to inspect first.
   - Unlock path now reuses teen safety normalization (`teen => romance off`) in card-level conversion too.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Creator UX v22 checkpoint (latest)
+- Files changed:
+  - `app/characters/new/page.tsx`
+  - `app/characters/[characterId]/edit/page.tsx`
+- Completed:
+  - Rewrote both pages to remove mojibake/corrupted copy and restore clean CN-first creator UX.
+  - Preserved and clarified functional logic:
+    - creation form -> prompt generation -> publish/save flow
+    - teen mode romance lock (`teen => ROMANCE_OFF`, disabled romance selector)
+    - edit page persists:
+      - `settings.user_card`
+      - `age_mode/teen_mode/romance_mode`
+      - prompt policy (`plot_granularity/ending_mode/ending_repeat_window`)
+  - Unified page shell and action affordances with app-wide AppShell style.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
