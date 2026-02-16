@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v11 - square channel IA + shell copy cleanup)
+Last updated: 2026-02-16 (checkpoint: high-target execution v12 - creator workbench split view)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -81,6 +81,26 @@ Repo: `d:/projects/xuxuxu`
     - channel inference from role settings/profile metadata (teen mode and audience hints)
     - channel counts exposed in KPI and quick badges
     - channel badge rendered on role cards for faster scan
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Creator workbench v12 checkpoint (latest)
+- File changed:
+  - `app/characters/page.tsx`
+- Completed:
+  - Upgraded role workbench IA to separate creation vs unlocked management:
+    - `我的创作` (default)
+    - `已解锁角色`
+    - `全部`
+  - Added in-page search for role names and tab-aware empty states.
+  - Clarified dashboard counts:
+    - total
+    - created-by-me
+    - unlocked-from-square
+    - activated
+  - Localized fallback media copy to Chinese (`暂无图片`) for consistency.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

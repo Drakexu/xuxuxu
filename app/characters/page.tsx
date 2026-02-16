@@ -17,6 +17,7 @@ type CharacterRow = {
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
+type StudioTab = 'CREATED' | 'UNLOCKED' | 'ALL'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -60,8 +61,28 @@ export default function CharactersPage() {
   const [manageMode, setManageMode] = useState(false)
   const [deletingId, setDeletingId] = useState<string>('')
   const [busyId, setBusyId] = useState<string>('')
+  const [studioTab, setStudioTab] = useState<StudioTab>('CREATED')
+  const [query, setQuery] = useState('')
 
   const canRefresh = useMemo(() => !loading && !deletingId, [loading, deletingId])
+  const counts = useMemo(() => {
+    let unlocked = 0
+    for (const c of characters) {
+      if (isUnlockedFromSquare(c)) unlocked += 1
+    }
+    const created = Math.max(0, characters.length - unlocked)
+    return { created, unlocked, all: characters.length }
+  }, [characters])
+  const filteredCharacters = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return characters.filter((c) => {
+      const unlocked = isUnlockedFromSquare(c)
+      if (studioTab === 'CREATED' && unlocked) return false
+      if (studioTab === 'UNLOCKED' && !unlocked) return false
+      if (!q) return true
+      return String(c.name || '').toLowerCase().includes(q)
+    })
+  }, [characters, studioTab, query])
 
   useEffect(() => {
     if (!alert) return
@@ -248,8 +269,27 @@ export default function CharactersPage() {
           <div className="uiForm" style={{ paddingTop: 14 }}>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <span className="uiBadge">角色总数: {characters.length}</span>
-              <span className="uiBadge">已解锁: {characters.filter((c) => isUnlockedFromSquare(c)).length}</span>
+              <span className="uiBadge">我的创作: {counts.created}</span>
+              <span className="uiBadge">已解锁: {counts.unlocked}</span>
               <span className="uiBadge">已激活: {characters.filter((c) => isActivatedForHome(c)).length}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button className={`uiPill ${studioTab === 'CREATED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('CREATED')}>
+                我的创作
+              </button>
+              <button className={`uiPill ${studioTab === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('UNLOCKED')}>
+                已解锁角色
+              </button>
+              <button className={`uiPill ${studioTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('ALL')}>
+                全部
+              </button>
+              <input
+                className="uiInput"
+                style={{ maxWidth: 260 }}
+                placeholder="搜索角色名..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
@@ -266,16 +306,20 @@ export default function CharactersPage() {
 
         {loading && <div className="uiSkeleton">加载中...</div>}
 
-        {!loading && characters.length === 0 && (
+        {!loading && filteredCharacters.length === 0 && (
           <div className="uiEmpty">
-            <div className="uiEmptyTitle">还没有角色</div>
-            <div className="uiEmptyDesc">去创建一个角色，或在广场解锁别人公开的角色。</div>
+            <div className="uiEmptyTitle">
+              {studioTab === 'CREATED' ? '还没有创建角色' : studioTab === 'UNLOCKED' ? '还没有已解锁角色' : '还没有角色'}
+            </div>
+            <div className="uiEmptyDesc">
+              {query.trim() ? '没有匹配结果，试试清空搜索词。' : '去创建一个角色，或在广场解锁别人公开的角色。'}
+            </div>
           </div>
         )}
 
-        {!loading && characters.length > 0 && (
+        {!loading && filteredCharacters.length > 0 && (
           <div className="uiGrid">
-            {characters.map((c) => (
+            {filteredCharacters.map((c) => (
               <div
                 key={c.id}
                 className="uiCard"
@@ -289,7 +333,7 @@ export default function CharactersPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={imgById[c.id]} alt="" />
                   ) : (
-                    <div className="uiCardMediaFallback">No image</div>
+                    <div className="uiCardMediaFallback">暂无图片</div>
                   )}
                 </div>
 
