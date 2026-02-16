@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v10 - patch sanitize on latest state)
+Last updated: 2026-02-16 (checkpoint: high-target execution v11 - square channel IA + shell copy cleanup)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -60,6 +60,27 @@ Repo: `d:/projects/xuxuxu`
     - chat fire-and-forget patch apply (`/api/chat`)
     - cron patch replay worker (`/api/cron/patch`)
   - Cron path now includes turn evidence text (`turn.user_input + turn.assistant_text`) in sanitize quality gating.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### IA/UI alignment v11 checkpoint (latest)
+- Files changed:
+  - `app/_components/AppShell.tsx`
+  - `app/page.tsx`
+  - `app/square/page.tsx`
+- Completed:
+  - Rewrote shell navigation copy and brand blocks to clean CN-first text (removed mojibake-like labels in top-level entry points).
+  - Reworked landing page copy to clearly reflect 3-page IA:
+    - 首页 (life feed hub)
+    - 广场 (discover + unlock + activate)
+    - 创建角色 (workbench + assets + publish)
+  - Added Square "channel" filtering aligned to AibaJi/Candy-like browsing flow:
+    - `全部 / 男频 / 女频 / 青少年`
+    - channel inference from role settings/profile metadata (teen mode and audience hints)
+    - channel counts exposed in KPI and quick badges
+    - channel badge rendered on role cards for faster scan
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

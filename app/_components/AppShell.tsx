@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { ReactNode, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
@@ -19,9 +19,9 @@ export default function AppShell(props: {
 
   const primaryNav: NavItem[] = useMemo(
     () => [
-      { href: '/home', label: '首页', desc: '已激活角色与动态' },
+      { href: '/home', label: '首页', desc: '已激活角色与动态流' },
       { href: '/square', label: '广场', desc: '公开角色发现与解锁' },
-      { href: '/characters', label: '创建角色', desc: '你的角色工作台' },
+      { href: '/characters', label: '创建角色', desc: '角色工作台与资产管理' },
     ],
     [],
   )
@@ -29,7 +29,7 @@ export default function AppShell(props: {
   const secondaryNav: NavItem[] = useMemo(
     () => [
       { href: '/characters/new', label: '新建角色' },
-      { href: '/characters', label: '管理角色' },
+      { href: '/characters', label: '角色工作台' },
     ],
     [],
   )
@@ -49,9 +49,17 @@ export default function AppShell(props: {
   return (
     <div className="uiShell">
       <aside className="uiSidebar" aria-label="Navigation">
-        <div className="uiSidebarTop" onClick={() => router.push('/home')} role="button" tabIndex={0}>
+        <div
+          className="uiSidebarTop"
+          onClick={() => router.push('/home')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') router.push('/home')
+          }}
+          role="button"
+          tabIndex={0}
+        >
           <div className="uiBrand">XuxuXu</div>
-          <div className="uiBrandSub">角色宇宙</div>
+          <div className="uiBrandSub">AibaJi Web Lab</div>
           <div className="uiBrandHint">复刻爱巴基核心体验（语音除外）</div>
         </div>
 
@@ -80,7 +88,7 @@ export default function AppShell(props: {
 
         <div className="uiSidebarBottom">
           <div className="uiSidebarMeta" title={email}>
-            {email || ' '}
+            {email || '未登录邮箱'}
           </div>
           <button className="uiNavItem" onClick={logout}>
             退出登录

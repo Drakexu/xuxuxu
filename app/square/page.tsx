@@ -18,6 +18,7 @@ type PubCharacter = {
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
+type AudienceTab = 'ALL' | 'MALE' | 'FEMALE' | 'TEEN'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -33,6 +34,37 @@ function isActivatedBySettings(settings: unknown) {
 function getStr(r: Record<string, unknown>, k: string) {
   const v = r[k]
   return typeof v === 'string' ? v : ''
+}
+
+function getAudienceTab(c: PubCharacter): AudienceTab {
+  const p = asRecord(c.profile)
+  const s = asRecord(c.settings)
+  if (s.age_mode === 'teen' || s.teen_mode === true) return 'TEEN'
+
+  const cf = asRecord(s.creation_form)
+  const publish = asRecord(cf.publish)
+  const hints = [
+    s.target_gender,
+    s.audience_gender,
+    publish.target_gender,
+    p.target_gender,
+    p.audience_gender,
+  ]
+    .map((v) => String(v || '').trim().toLowerCase())
+    .filter(Boolean)
+    .join(' ')
+
+  if (!hints) return 'ALL'
+  if (hints.includes('female') || hints.includes('girl') || hints.includes('女生') || hints.includes('女') || hints.includes('f')) return 'FEMALE'
+  if (hints.includes('male') || hints.includes('boy') || hints.includes('男生') || hints.includes('男') || hints.includes('m')) return 'MALE'
+  return 'ALL'
+}
+
+function audienceLabel(audienceTab: AudienceTab) {
+  if (audienceTab === 'MALE') return '男频'
+  if (audienceTab === 'FEMALE') return '女频'
+  if (audienceTab === 'TEEN') return '青少年'
+  return '全部'
 }
 
 function pickAssetPath(rows: CharacterAssetRow[]) {
@@ -57,6 +89,7 @@ export default function SquarePage() {
   const [togglingId, setTogglingId] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'ALL' | 'LOCKED' | 'UNLOCKED' | 'ACTIVE'>('ALL')
+  const [audienceTab, setAudienceTab] = useState<AudienceTab>('ALL')
   const [sortBy, setSortBy] = useState<'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'>('UNLOCKED_FIRST')
   const [items, setItems] = useState<PubCharacter[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
@@ -238,10 +271,12 @@ export default function SquarePage() {
       const info = unlockedInfoBySourceId[c.id]
       const unlocked = !!info
       const active = !!info?.active
+      const audience = getAudienceTab(c)
 
       if (filter === 'LOCKED' && unlocked) return false
       if (filter === 'UNLOCKED' && !unlocked) return false
       if (filter === 'ACTIVE' && !active) return false
+      if (audienceTab !== 'ALL' && audience !== audienceTab) return false
 
       if (!q) return true
       const p = asRecord(c.profile)
@@ -280,21 +315,31 @@ export default function SquarePage() {
       return sb.ts - sa.ts
     })
     return arr
-  }, [items, unlockedInfoBySourceId, filter, query, sortBy])
+  }, [items, unlockedInfoBySourceId, filter, query, sortBy, audienceTab])
 
   const stats = useMemo(() => {
     let unlocked = 0
     let active = 0
+    let male = 0
+    let female = 0
+    let teen = 0
     for (const it of items) {
       const info = unlockedInfoBySourceId[it.id]
       if (info) unlocked += 1
       if (info?.active) active += 1
+      const audience = getAudienceTab(it)
+      if (audience === 'MALE') male += 1
+      else if (audience === 'FEMALE') female += 1
+      else if (audience === 'TEEN') teen += 1
     }
     return {
       total: items.length,
       unlocked,
       active,
       locked: Math.max(0, items.length - unlocked),
+      male,
+      female,
+      teen,
     }
   }, [items, unlockedInfoBySourceId])
   const spotlightItems = useMemo(() => filteredItems.slice(0, 3), [filteredItems])
@@ -305,7 +350,7 @@ export default function SquarePage() {
       <AppShell
         title="广场"
         badge="public"
-        subtitle="浏览所有用户公开的角色，点击进入详情页。"
+        subtitle="浏览公开角色并解锁到你的可聊天队列，支持男频/女频/青少年频道筛选。"
         actions={
           <button className="uiBtn uiBtnGhost" onClick={load} disabled={!canRefresh}>
             刷新
@@ -335,6 +380,18 @@ export default function SquarePage() {
               <b>{stats.active}</b>
               <span>已激活</span>
             </div>
+            <div className="uiKpi">
+              <b>{stats.male}</b>
+              <span>男频</span>
+            </div>
+            <div className="uiKpi">
+              <b>{stats.female}</b>
+              <span>女频</span>
+            </div>
+            <div className="uiKpi">
+              <b>{stats.teen}</b>
+              <span>青少年</span>
+            </div>
           </div>
         </section>
 
@@ -350,6 +407,9 @@ export default function SquarePage() {
                 <span className="uiBadge">未解锁: {stats.locked}</span>
                 <span className="uiBadge">已解锁: {stats.unlocked}</span>
                 <span className="uiBadge">已激活: {stats.active}</span>
+                <span className="uiBadge">男频: {stats.male}</span>
+                <span className="uiBadge">女频: {stats.female}</span>
+                <span className="uiBadge">青少年: {stats.teen}</span>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <input
@@ -377,6 +437,23 @@ export default function SquarePage() {
                   <option value="NEWEST">排序：最新发布</option>
                   <option value="NAME">排序：角色名</option>
                 </select>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="uiHint" style={{ marginTop: 0 }}>
+                  频道:
+                </span>
+                <button className={`uiPill ${audienceTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('ALL')}>
+                  全部
+                </button>
+                <button className={`uiPill ${audienceTab === 'MALE' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('MALE')}>
+                  男频
+                </button>
+                <button className={`uiPill ${audienceTab === 'FEMALE' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('FEMALE')}>
+                  女频
+                </button>
+                <button className={`uiPill ${audienceTab === 'TEEN' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('TEEN')}>
+                  青少年
+                </button>
               </div>
             </div>
           </div>
@@ -406,6 +483,7 @@ export default function SquarePage() {
                 const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
                 const romanceLabel = romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
                 const ageMode = s.age_mode === 'teen' || s.teen_mode === true ? '未成年模式' : '成人模式'
+                const audience = getAudienceTab(c)
                 const info = unlockedInfoBySourceId[c.id]
 
                 return (
@@ -426,6 +504,7 @@ export default function SquarePage() {
                     <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span className="uiBadge">公开</span>
                       <span className="uiBadge">{ageMode}</span>
+                      <span className="uiBadge">{audienceLabel(audience)}</span>
                       <span className="uiBadge">{romanceLabel}</span>
                       <span className="uiBadge" style={{ borderColor: info ? 'rgba(31,141,82,.45)' : 'rgba(0,0,0,.18)', color: info ? 'rgba(31,141,82,1)' : 'rgba(0,0,0,.62)', background: info ? 'rgba(31,141,82,.10)' : 'rgba(0,0,0,.03)' }}>
                         {info ? '已解锁' : '未解锁'}
@@ -502,6 +581,7 @@ export default function SquarePage() {
               const romance = typeof s.romance_mode === 'string' ? s.romance_mode : ''
               const romanceLabel = romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
               const ageMode = s.age_mode === 'teen' || s.teen_mode === true ? '未成年模式' : '成人模式'
+              const audience = getAudienceTab(c)
               const info = unlockedInfoBySourceId[c.id]
 
               return (
@@ -522,6 +602,7 @@ export default function SquarePage() {
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <span className="uiBadge">公开</span>
                     <span className="uiBadge">{ageMode}</span>
+                    <span className="uiBadge">{audienceLabel(audience)}</span>
                     <span className="uiBadge">{romanceLabel}</span>
                     <span className="uiBadge" style={{ borderColor: info ? 'rgba(31,141,82,.45)' : 'rgba(0,0,0,.18)', color: info ? 'rgba(31,141,82,1)' : 'rgba(0,0,0,.62)', background: info ? 'rgba(31,141,82,.10)' : 'rgba(0,0,0,.03)' }}>
                       {info ? '已解锁' : '未解锁'}
