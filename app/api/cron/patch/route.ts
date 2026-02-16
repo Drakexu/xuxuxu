@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { sanitizePatchOutput } from '@/lib/patchValidation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -422,28 +423,13 @@ export async function POST(req: Request) {
           })) as MiniMaxResponse
 
           const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
-          const patchObj = safeExtractJsonObject(patchText)
-          if (!patchObj || typeof patchObj !== 'object') throw new Error('PatchScribe output is not valid JSON object')
+        const patchObjRaw = safeExtractJsonObject(patchText)
+          if (!patchObjRaw || typeof patchObjRaw !== 'object') throw new Error('PatchScribe output is not valid JSON object')
 
-        // Minimal schema presence check.
-        const requiredKeys = [
-          'focus_panel_next',
-          'run_state_patch',
-          'plot_board_patch',
-          'persona_system_patch',
-          'ip_pack_patch',
-          'schedule_board_patch',
-          'ledger_patch',
-          'memory_patch',
-          'style_guard_patch',
-          'fact_patch_add',
-          'moderation_flags',
-        ]
-          for (const k of requiredKeys) {
-            if (!(k in patchObj)) throw new Error(`Patch missing key: ${k}`)
-          }
+        const patch = sanitizePatchOutput(patchObjRaw)
+        if (!patch) throw new Error('Patch schema invalid')
 
-          const p = asRecord(patchObj)
+          const p = patch
           const applyPatchOnce = async () => {
             const up = await sb.from('patch_jobs').update({ status: 'processing' }).eq('id', jobId).in('status', ['pending', 'failed'])
             if (up.error) throw new Error(`Lock patch job failed: ${up.error.message}`)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { sanitizePatchOutput } from '@/lib/patchValidation'
 
 type JsonObject = Record<string, unknown>
 
@@ -1482,23 +1483,8 @@ export async function POST(req: Request) {
           const patchRaw = safeExtractJsonObject(patchText)
           if (!patchRaw || typeof patchRaw !== 'object') throw new Error('PatchScribe output is not valid JSON object')
 
-          const requiredKeys = [
-            'focus_panel_next',
-            'run_state_patch',
-            'plot_board_patch',
-            'persona_system_patch',
-            'ip_pack_patch',
-            'schedule_board_patch',
-            'ledger_patch',
-            'memory_patch',
-            'style_guard_patch',
-            'fact_patch_add',
-            'moderation_flags',
-          ]
-          for (const k of requiredKeys) {
-            if (!(k in patchRaw)) throw new Error(`Patch missing key: ${k}`)
-          }
-          const patchObj = asRecord(patchRaw)
+          const patchObj = sanitizePatchOutput(patchRaw)
+          if (!patchObj) throw new Error('Patch schema invalid')
 
           const applyPatchOnce = async () => {
             const stNow = await sb.from('conversation_states').select('state,version').eq('conversation_id', convIdFinal).maybeSingle()
