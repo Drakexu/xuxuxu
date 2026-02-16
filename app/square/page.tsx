@@ -95,6 +95,7 @@ export default function SquarePage() {
   const [imgById, setImgById] = useState<Record<string, string>>({})
   const [unlockedInfoBySourceId, setUnlockedInfoBySourceId] = useState<Record<string, { localId: string; active: boolean }>>({})
   const [alert, setAlert] = useState<Alert>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   const canRefresh = useMemo(() => !loading, [loading])
 
@@ -112,10 +113,7 @@ export default function SquarePage() {
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
-    if (!userId) {
-      router.replace('/login')
-      return
-    }
+    setIsLoggedIn(!!userId)
 
     const r1 = await supabase
       .from('characters')
@@ -142,24 +140,26 @@ export default function SquarePage() {
     setItems(nextItems)
 
     // Best-effort: show "已解锁" badges by checking user's copied characters.
-    try {
-      const mine = await supabase
-        .from('characters')
-        .select('id,settings')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(600)
-      if (!mine.error) {
-        const map: Record<string, { localId: string; active: boolean }> = {}
-        for (const row of (mine.data ?? []) as Array<{ id: string; settings?: unknown }>) {
-          const s = asRecord(row.settings)
-          const src = typeof s.source_character_id === 'string' ? s.source_character_id.trim() : ''
-          if (src) map[src] = { localId: row.id, active: isActivatedBySettings(row.settings) }
+    if (userId) {
+      try {
+        const mine = await supabase
+          .from('characters')
+          .select('id,settings')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(600)
+        if (!mine.error) {
+          const map: Record<string, { localId: string; active: boolean }> = {}
+          for (const row of (mine.data ?? []) as Array<{ id: string; settings?: unknown }>) {
+            const s = asRecord(row.settings)
+            const src = typeof s.source_character_id === 'string' ? s.source_character_id.trim() : ''
+            if (src) map[src] = { localId: row.id, active: isActivatedBySettings(row.settings) }
+          }
+          setUnlockedInfoBySourceId(map)
         }
-        setUnlockedInfoBySourceId(map)
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
 
     // Best-effort media: sign latest cover/full_body/head per character.
@@ -262,8 +262,7 @@ export default function SquarePage() {
 
   useEffect(() => {
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router])
+  }, [])
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -398,6 +397,9 @@ export default function SquarePage() {
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
 
         {loading && <div className="uiSkeleton">加载中...</div>}
+        {!loading && !isLoggedIn && (
+          <div className="uiAlert uiAlertOk">当前为游客浏览模式。登录后可解锁角色并激活到首页。</div>
+        )}
 
         {!loading && (
           <div className="uiPanel" style={{ marginTop: 0 }}>
@@ -557,6 +559,30 @@ export default function SquarePage() {
                         </button>
                       </div>
                     )}
+                    {!info && (
+                      <div className="uiCardActions">
+                        <button
+                          className="uiBtn uiBtnPrimary"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            router.push(`/square/${c.id}`)
+                          }}
+                        >
+                          {isLoggedIn ? '去解锁' : '登录后解锁'}
+                        </button>
+                        {!isLoggedIn ? (
+                          <button
+                            className="uiBtn uiBtnGhost"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              router.push('/login')
+                            }}
+                          >
+                            去登录
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -653,6 +679,30 @@ export default function SquarePage() {
                       >
                         详情
                       </button>
+                    </div>
+                  )}
+                  {!info && (
+                    <div className="uiCardActions">
+                      <button
+                        className="uiBtn uiBtnPrimary"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/square/${c.id}`)
+                        }}
+                      >
+                        {isLoggedIn ? '去解锁' : '登录后解锁'}
+                      </button>
+                      {!isLoggedIn ? (
+                        <button
+                          className="uiBtn uiBtnGhost"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            router.push('/login')
+                          }}
+                        >
+                          去登录
+                        </button>
+                      ) : null}
                     </div>
                   )}
                 </div>

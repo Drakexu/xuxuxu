@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v12 - creator workbench split view)
+Last updated: 2026-02-16 (checkpoint: high-target execution v13 - square guest-browse unlock funnel)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -101,6 +101,22 @@ Repo: `d:/projects/xuxuxu`
     - unlocked-from-square
     - activated
   - Localized fallback media copy to Chinese (`暂无图片`) for consistency.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Square product loop v13 checkpoint (latest)
+- Files changed:
+  - `app/square/page.tsx`
+  - `app/square/[characterId]/page.tsx`
+- Completed:
+  - Enabled guest browsing for Square list/detail pages (no forced login redirect for discovery).
+  - Added guest-mode UX hints and explicit unlock funnel:
+    - list cards show `登录后解锁` / `去登录` actions when not authenticated
+    - detail page allows full preview and switches CTA to login-first unlock
+  - Kept unlock/activate operations protected behind authenticated checks.
+  - Removed stale lint suppression in square page effect block.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

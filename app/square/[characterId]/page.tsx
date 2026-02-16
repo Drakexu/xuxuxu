@@ -51,8 +51,9 @@ export default function SquareDetailPage() {
   const [imgUrl, setImgUrl] = useState('')
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [busy, setBusy] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
-  const canUnlock = useMemo(() => !!item && !busy && !unlockedCharId, [item, busy, unlockedCharId])
+  const canUnlock = useMemo(() => !!item && !busy && !unlockedCharId && isLoggedIn, [item, busy, unlockedCharId, isLoggedIn])
   const detailMeta = useMemo(() => {
     if (!item) {
       return {
@@ -100,10 +101,7 @@ export default function SquareDetailPage() {
 
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData.user?.id
-      if (!userId) {
-        router.replace('/login')
-        return
-      }
+      setIsLoggedIn(!!userId)
 
       const r = await supabase
         .from('characters')
@@ -127,27 +125,29 @@ export default function SquareDetailPage() {
       setItem(c)
 
       // Already unlocked?
-      try {
-        const me = await supabase
-          .from('characters')
-          .select('id,settings,created_at')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(400)
-        if (!me.error) {
-          const rows = (me.data ?? []) as Array<{ id: string; settings?: unknown }>
-          const found = rows.find((x) => {
-            const s = asRecord(x.settings)
-            return typeof s.source_character_id === 'string' && s.source_character_id === id
-          })
-          if (found?.id) {
-            setUnlockedCharId(found.id)
-            const s = asRecord(found.settings)
-            setUnlockedActive(s.activated !== false && s.home_hidden !== true)
+      if (userId) {
+        try {
+          const me = await supabase
+            .from('characters')
+            .select('id,settings,created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(400)
+          if (!me.error) {
+            const rows = (me.data ?? []) as Array<{ id: string; settings?: unknown }>
+            const found = rows.find((x) => {
+              const s = asRecord(x.settings)
+              return typeof s.source_character_id === 'string' && s.source_character_id === id
+            })
+            if (found?.id) {
+              setUnlockedCharId(found.id)
+              const s = asRecord(found.settings)
+              setUnlockedActive(s.activated !== false && s.home_hidden !== true)
+            }
           }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
 
       // Media
@@ -202,7 +202,8 @@ export default function SquareDetailPage() {
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
     if (!userId) {
-      router.replace('/login')
+      setBusy(false)
+      router.push('/login')
       return
     }
 
@@ -268,7 +269,7 @@ export default function SquareDetailPage() {
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData.user?.id
       if (!userId) {
-        router.replace('/login')
+        router.push('/login')
         return
       }
 
@@ -316,6 +317,7 @@ export default function SquareDetailPage() {
       >
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
         {loading && <div className="uiSkeleton">加载中...</div>}
+        {!loading && !isLoggedIn && <div className="uiAlert uiAlertOk">当前为游客浏览模式。登录后可解锁该角色并发起对话。</div>}
 
         {!loading && item && (
           <div style={{ display: 'grid', gap: 14 }}>
@@ -327,11 +329,11 @@ export default function SquareDetailPage() {
               </div>
               <div className="uiKpiGrid">
                 <div className="uiKpi">
-                  <b>{unlockedCharId ? '是' : '否'}</b>
+                  <b>{isLoggedIn ? (unlockedCharId ? '是' : '否') : '-'}</b>
                   <span>已解锁</span>
                 </div>
                 <div className="uiKpi">
-                  <b>{unlockedCharId ? (unlockedActive ? '是' : '否') : '-'}</b>
+                  <b>{isLoggedIn ? (unlockedCharId ? (unlockedActive ? '是' : '否') : '-') : '-'}</b>
                   <span>已激活到首页</span>
                 </div>
                 <div className="uiKpi">
@@ -373,9 +375,16 @@ export default function SquareDetailPage() {
                       </button>
                     </>
                   ) : (
-                    <button className="uiBtn uiBtnPrimary" disabled={!canUnlock} onClick={unlock}>
-                      {busy ? '解锁中...' : '解锁'}
-                    </button>
+                    <>
+                      <button className="uiBtn uiBtnPrimary" disabled={!canUnlock} onClick={unlock}>
+                        {busy ? '解锁中...' : isLoggedIn ? '解锁' : '登录后解锁'}
+                      </button>
+                      {!isLoggedIn ? (
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
+                          去登录
+                        </button>
+                      ) : null}
+                    </>
                   )}
                 </div>
               </div>
@@ -462,9 +471,16 @@ export default function SquareDetailPage() {
                     </button>
                   </>
                 ) : (
-                  <button className="uiBtn uiBtnPrimary" disabled={!canUnlock || busy} onClick={unlock}>
-                    {busy ? '解锁中...' : '解锁到我的角色'}
-                  </button>
+                  <>
+                    <button className="uiBtn uiBtnPrimary" disabled={!canUnlock || busy} onClick={unlock}>
+                      {busy ? '解锁中...' : isLoggedIn ? '解锁到我的角色' : '登录后解锁'}
+                    </button>
+                    {!isLoggedIn ? (
+                      <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
+                        去登录
+                      </button>
+                    ) : null}
+                  </>
                 )}
               </div>
             </div>
