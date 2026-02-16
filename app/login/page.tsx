@@ -1,18 +1,27 @@
-'use client'
+﻿'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
+function resolveEmailRedirectTo() {
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || '').trim()
+  if (site) return `${site.replace(/\/+$/, '')}/auth/callback`
+  if (typeof window !== 'undefined') return `${window.location.origin}/auth/callback`
+  return undefined
+}
+
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sent, setSent] = useState(false)
+
+  const canSubmit = useMemo(() => email.trim().length > 3 && !loading, [email, loading])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSent(false)
 
     const v = email.trim()
     if (!v) {
@@ -21,21 +30,20 @@ export default function LoginPage() {
     }
 
     setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error: signError } = await supabase.auth.signInWithOtp({
       email: v,
       options: {
-        // Supabase dashboard should set redirect URL allow-list too.
-        emailRedirectTo: process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback` : undefined,
+        emailRedirectTo: resolveEmailRedirectTo(),
       },
     })
     setLoading(false)
 
-    if (error) {
-      setError(error.message)
+    if (signError) {
+      setError(signError.message)
       return
     }
 
-    router.push('/auth/callback')
+    setSent(true)
   }
 
   return (
@@ -62,13 +70,17 @@ export default function LoginPage() {
           </label>
 
           {error && <div className="uiAlert uiAlertErr">{error}</div>}
+          {sent && (
+            <div className="uiAlert uiAlertOk">
+              登录邮件已发送，请在邮箱中点击链接完成验证。
+            </div>
+          )}
 
-          <button type="submit" className="uiBtn uiBtnPrimary" disabled={loading}>
-            {loading ? '发送中...' : '发送登录链接'}
+          <button type="submit" className="uiBtn uiBtnPrimary" disabled={!canSubmit}>
+            {loading ? '发送中...' : '发送登录邮件'}
           </button>
         </form>
       </main>
     </div>
   )
 }
-

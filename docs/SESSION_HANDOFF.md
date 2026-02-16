@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v14 - schedule output normalization)
+Last updated: 2026-02-16 (checkpoint: high-target execution v15 - login callback flow fix)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -131,6 +131,24 @@ Repo: `d:/projects/xuxuxu`
     - `normalizeMomentPost`: strips accidental bracket wrappers and stabilizes social-post text
   - Applied normalization on cron generation path before `messages` insert.
   - Capped diary payload length on insert (`clip(..., 1800)`) and kept explicit `【日记 YYYY-MM-DD】` header.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Auth flow v15 checkpoint (latest)
+- Files changed:
+  - `app/login/page.tsx`
+  - `app/auth/callback/page.tsx`
+- Completed:
+  - Fixed incorrect login UX flow:
+    - removed immediate redirect to `/auth/callback` right after sending magic-link email
+    - login page now shows explicit “mail sent” status and waits for user to click email link
+  - Hardened callback handling for Supabase auth link variants:
+    - supports `code` exchange via `exchangeCodeForSession`
+    - supports hash-based `access_token/refresh_token` session set
+    - supports `token_hash + type` verify flow
+  - Added robust error surfacing on callback page.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
