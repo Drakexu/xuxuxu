@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v7 - visual layering assets page)
+Last updated: 2026-02-16 (checkpoint: high-target execution v8 - patch consistency gates)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -558,6 +558,22 @@ Repo: `d:/projects/xuxuxu`
     - background layer selection + role layer selection
     - role transform controls (scale + vertical offset + reset)
     - supports cover/full_body/head assets as composition sources
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+
+### High-target execution v8 checkpoint (latest)
+- Files changed:
+  - `lib/patchValidation.ts`
+  - `docs/aibaji/template_diff.md`
+- Completed:
+  - Added turn-level multi-cast/NPC consistency gates in patch sanitization:
+    - if `narration_mode=MULTI_CAST` but present non-user roles are insufficient, fallback to `DIALOG`
+    - normalize `current_main_role` to in-scene roles
+    - prevent writing currently present speaking roles into `npc_database`
+    - require evidence for unconfirmed NPC add/update entries
+  - Updated template diff doc to reflect this gate and shifted remaining gap to cross-turn contradiction checks.
 - Validation:
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass

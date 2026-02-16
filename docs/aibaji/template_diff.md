@@ -67,6 +67,10 @@ Source references:
 - Patch quality gate is now evidence-aware:
   - `lib/patchValidation.ts` downgrades `confirmed=true` when turn text evidence is missing
   - applies to event/npc/relation add operations and wardrobe confirmation
+  - multi-cast/NPC consistency gate:
+    - auto-fallback `narration_mode` from `MULTI_CAST` to `DIALOG` when present roles are insufficient
+    - prevent writing currently present speaking roles into `npc_database`
+    - require evidence for unconfirmed NPC add/update records
 - Schedule control loop is now closed:
   - added state API for `PLAY/PAUSE/LOCK/UNLOCK`
   - cron `schedule` route now honors manual pause + story lock
@@ -90,18 +94,20 @@ Source references:
   - dynamic context moduleized
   - prompt OS moduleized
 - Remaining:
-  - add explicit plot granularity and ending anti-repeat policies as dedicated config slices
+  - expose granularity/ending controls in creator-facing UI and persist per character
 
 2. Prompt-to-template traceability
-- Add explicit mapping table from template section to runtime context keys.
-- Add checklist for missing/partial/aligned status.
+- Added `docs/aibaji/prompt_alignment_map.md`.
+- Remaining:
+  - optional machine-readable JSON mirror for regression tooling.
 
 3. Patch quality gates (partial)
 - Done:
   - schema and enum sanitization
   - confirmed-fact downgrade based on turn evidence
+  - multi-cast/NPC consistency checks for turn-level patch input
 - Remaining:
-  - optional turn-level consistency checks for multi-cast/NPC adds
+  - add contradiction checks across recent turns (cross-turn consistency)
 
 4. UI parity and social-surface depth
 - Emoji/expression visual layer and clothing composition are still basic.
@@ -109,9 +115,9 @@ Source references:
 - Marketplace growth loop (copy/fork/rank/recommend) still needs product polish.
 
 ## Next Actions
-1. Add dedicated prompt slices for plot granularity + anti-repeat ending policy.
-2. Add machine-readable template alignment checklist (JSON/MD table).
-3. Add turn-level consistency checks for multi-cast/NPC patch operations.
+1. Add creator-facing controls for plot granularity and ending mode persistence.
+2. Add machine-readable template alignment checklist (JSON mirror).
+3. Add cross-turn contradiction checks on patch output.
 4. Expand visual layer: expression/outfit/background composed render states.
 
 ## Traceability Artifact

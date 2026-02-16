@@ -124,6 +124,39 @@ function downgradeUnverifiedConfirmedInArray(raw: unknown, evidenceLc: string) {
   })
 }
 
+function sanitizeNpcAddOrUpdate(raw: unknown, args: { evidenceLc: string; presentCharacters: string[] }) {
+  const rows = asArray(raw)
+  const out: Array<Record<string, unknown>> = []
+  const presentSet = new Set(args.presentCharacters.map((x) => x.toLowerCase()))
+
+  for (const item of take(rows, 120)) {
+    const r = asRecord(item)
+    const name = asString(r['name']) || asString(r['npc']) || asString(r['id'])
+    if (!name) continue
+
+    const nextName = name.slice(0, MAX_SHORT_TEXT_LEN)
+    if (presentSet.has(nextName.toLowerCase())) {
+      // Do not write currently speaking roles into NPC database.
+      continue
+    }
+
+    const normalized: Record<string, unknown> = { ...r, name: nextName }
+    const summary = asString(normalized['summary'])
+    if (summary) normalized['summary'] = summary.slice(0, MAX_TEXT_LEN)
+
+    const confirmed = asBool(normalized['confirmed']) === true
+    const hasEvidence = hasEvidenceForRecord(normalized, args.evidenceLc)
+    if (!confirmed && args.evidenceLc && !hasEvidence) {
+      // For unconfirmed NPC additions, require turn evidence.
+      continue
+    }
+
+    out.push(normalized)
+  }
+
+  return out
+}
+
 function sanitizeWardrobe(raw: unknown): JsonObject {
   const src = asRecord(raw)
   const out: JsonObject = {}
@@ -208,6 +241,16 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
   const runStateHint = asString(sanitizedRun['goal'])
   if (runStateHint) sanitizedRun['goal'] = runStateHint.slice(0, MAX_SHORT_TEXT_LEN)
 
+  const nonUserRoles = presentCharacters.filter((x) => x !== '{user}')
+  if (sanitizedRun['narration_mode'] === 'MULTI_CAST' && nonUserRoles.length < 2) {
+    sanitizedRun['narration_mode'] = 'DIALOG'
+  }
+  if (!currentMainRole && nonUserRoles.length) {
+    sanitizedRun['current_main_role'] = nonUserRoles[0]
+  } else if (currentMainRole && !presentCharacters.includes(currentMainRole) && nonUserRoles.length) {
+    sanitizedRun['current_main_role'] = nonUserRoles[0]
+  }
+
   const plotPatch = asRecord(rawObj['plot_board_patch'])
   const sanitizedPlot: JsonObject = {}
   for (const [k, v] of Object.entries(plotPatch)) {
@@ -224,7 +267,10 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
   const ledgerPatch = asRecord(rawObj['ledger_patch'])
   const sanitizedLedger: JsonObject = {}
   sanitizedLedger['event_log_add'] = sanitizeLedgerEventLogAdd(downgradeUnverifiedConfirmedInArray(ledgerPatch['event_log_add'], evidenceLc))
-  sanitizedLedger['npc_db_add_or_update'] = sanitizePatchAddArray(downgradeUnverifiedConfirmedInArray(ledgerPatch['npc_db_add_or_update'], evidenceLc), 120)
+  sanitizedLedger['npc_db_add_or_update'] = sanitizeNpcAddOrUpdate(downgradeUnverifiedConfirmedInArray(ledgerPatch['npc_db_add_or_update'], evidenceLc), {
+    evidenceLc,
+    presentCharacters,
+  })
   sanitizedLedger['inventory_delta'] = sanitizeInventoryDelta(ledgerPatch['inventory_delta'])
   sanitizedLedger['wardrobe_update'] = (() => {
     const w = sanitizeWardrobe(ledgerPatch['wardrobe_update'])
