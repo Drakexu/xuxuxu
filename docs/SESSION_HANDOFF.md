@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v25 - square workspace + detail action rail)
+Last updated: 2026-02-16 (checkpoint: high-target execution v26 - creator publish loop in studio)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -336,6 +336,23 @@ Repo: `d:/projects/xuxuxu`
   - Added detail-layout CSS primitives:
     - `uiSquareDetailWorkspace`, `uiSquareDetailAside`
   - Responsive behavior now collapses both list/detail workspaces to single-column on smaller screens.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Creator studio publish loop v26 checkpoint (latest)
+- File changed:
+  - `app/characters/page.tsx`
+- Completed:
+  - Added publish/unpublish capability directly in creator workbench cards:
+    - self-created roles can now toggle `public/private` from list actions
+    - keeps square release loop inside the studio without opening SQL/admin tools
+  - Added direct "view on square" shortcut for already-public self-created roles.
+  - Unified card action logic with explicit role type split:
+    - self-created roles: edit/assets/publish flow
+    - unlocked roles: activate/hide/deactivate queue flow
+  - Studio counters now include explicit `已激活` aggregate from role queue state.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
