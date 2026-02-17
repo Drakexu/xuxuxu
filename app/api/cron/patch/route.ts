@@ -22,6 +22,7 @@ type PatchJobRow = {
   patch_input: unknown
   status: 'pending' | 'processing' | 'done' | 'failed' | string
   attempts: number
+  created_at?: string | null
 }
 
 type MiniMaxResponse = {
@@ -379,6 +380,27 @@ async function optimisticUpdateCharacterState(args: {
   return nextVersion
 }
 
+function hasUpdatedRows(data: unknown) {
+  if (Array.isArray(data)) return data.length > 0
+  return !!(data && typeof data === 'object')
+}
+
+async function claimPatchJobForProcessing(args: {
+  sb: ReturnType<typeof createAdminClient>
+  jobId: string
+  fromStatuses: string[]
+}) {
+  const { sb, jobId, fromStatuses } = args
+  const upd = await sb
+    .from('patch_jobs')
+    .update({ status: 'processing', last_error: '' })
+    .eq('id', jobId)
+    .in('status', fromStatuses)
+    .select('id')
+  if (upd.error) throw new Error(upd.error.message)
+  return hasUpdatedRows(upd.data)
+}
+
 async function incrementPatchJobAttempts(args: {
   sb: ReturnType<typeof createAdminClient>
   jobId: string
@@ -409,57 +431,72 @@ export async function POST(req: Request) {
     const sb = createAdminClient()
     const max = clamp(Number(process.env.PATCH_CRON_BATCH ?? 10), 1, 50)
 
-    const pending = await sb
+    const pendingFailed = await sb
       .from('patch_jobs')
-      .select('id,user_id,conversation_id,character_id,turn_seq,patch_input,status,attempts')
+      .select('id,user_id,conversation_id,character_id,turn_seq,patch_input,status,attempts,created_at')
       .in('status', ['pending', 'failed'])
       .order('created_at', { ascending: true })
       .limit(max)
 
-    if (pending.error) return NextResponse.json({ error: pending.error.message }, { status: 500 })
+    if (pendingFailed.error) return NextResponse.json({ error: pendingFailed.error.message }, { status: 500 })
+
+    const staleMinutes = clamp(Number(process.env.PATCH_PROCESSING_STALE_MIN ?? 10), 1, 240)
+    const staleBefore = new Date(Date.now() - staleMinutes * 60 * 1000).toISOString()
+    const pendingRows = (pendingFailed.data ?? []) as PatchJobRow[]
+
+    let staleRows: PatchJobRow[] = []
+    if (pendingRows.length < max) {
+      const stale = await sb
+        .from('patch_jobs')
+        .select('id,user_id,conversation_id,character_id,turn_seq,patch_input,status,attempts,created_at')
+        .eq('status', 'processing')
+        .lte('created_at', staleBefore)
+        .order('created_at', { ascending: true })
+        .limit(max - pendingRows.length)
+      if (stale.error) return NextResponse.json({ error: stale.error.message }, { status: 500 })
+      staleRows = (stale.data ?? []) as PatchJobRow[]
+    }
 
     let processed = 0
     let ok = 0
     let failed = 0
 
-    const rows = (pending.data ?? []) as PatchJobRow[]
+    const rows = [...pendingRows, ...staleRows]
 
-      for (const row of rows) {
-        const jobId = String(row.id || '')
-        if (!jobId) continue
+    for (const row of rows) {
+      const jobId = String(row.id || '')
+      if (!jobId) continue
+      const fromStatuses = row.status === 'processing' ? ['processing'] : ['pending', 'failed']
+      let claimed = false
+      try {
+        claimed = await claimPatchJobForProcessing({ sb, jobId, fromStatuses })
+      } catch {
+        failed++
+        continue
+      }
+      if (!claimed) continue
+      processed++
+      try {
+        const pi = asRecord(row.patch_input)
+        if (!Object.keys(pi).length) throw new Error('Missing patch_input')
 
-        processed++
-        {
-          const up = await sb.from('patch_jobs').update({ status: 'processing' }).eq('id', jobId).in('status', ['pending', 'failed'])
-          if (up.error) {
-            failed++
-            continue
-          }
-        }
-        try {
-          const pi = asRecord(row.patch_input)
-          if (!Object.keys(pi).length) throw new Error('Missing patch_input')
+        const conversationId = String(row.conversation_id || '')
+        const characterId = String(row.character_id || '')
+        const pJson = (await callMiniMax(mmBase, mmKey, {
+          model: patchModel,
+          messages: [
+            { role: 'system', name: 'System', content: patchSystemPrompt() },
+            { role: 'user', name: 'User', content: `PATCH_INPUT:\n${JSON.stringify(pi)}` },
+          ],
+          temperature: 0.2,
+          top_p: 0.7,
+          max_completion_tokens: 2048,
+        })) as MiniMaxResponse
 
-          const conversationId = String(row.conversation_id || '')
-          const characterId = String(row.character_id || '')
-          const pJson = (await callMiniMax(mmBase, mmKey, {
-            model: patchModel,
-            messages: [
-              { role: 'system', name: 'System', content: patchSystemPrompt() },
-              { role: 'user', name: 'User', content: `PATCH_INPUT:\n${JSON.stringify(pi)}` },
-            ],
-            temperature: 0.2,
-            top_p: 0.7,
-            max_completion_tokens: 2048,
-          })) as MiniMaxResponse
-
-          const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
-          const patchObjRaw = safeExtractJsonObject(patchText)
-          if (!patchObjRaw || typeof patchObjRaw !== 'object') throw new Error('PatchScribe output is not valid JSON object')
-          const applyPatchOnce = async () => {
-            const up = await sb.from('patch_jobs').update({ status: 'processing' }).eq('id', jobId).in('status', ['pending', 'failed'])
-            if (up.error) throw new Error(`Lock patch job failed: ${up.error.message}`)
-
+        const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
+        const patchObjRaw = safeExtractJsonObject(patchText)
+        if (!patchObjRaw || typeof patchObjRaw !== 'object') throw new Error('PatchScribe output is not valid JSON object')
+        const applyPatchOnce = async () => {
             const st = await sb.from('conversation_states').select('state,version').eq('conversation_id', conversationId).maybeSingle()
             if (st.error || !st.data?.state) throw new Error(`Load conversation_states failed: ${st.error?.message || 'no state'}`)
             const conversationStateVerNow = Number(st.data.version ?? 0)
@@ -545,36 +582,35 @@ export async function POST(req: Request) {
               await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
               ok++
             }
-          }
-
-          for (let attempt = 1; attempt <= PATCH_APPLY_MAX_ATTEMPTS; attempt++) {
-            try {
-              await applyPatchOnce()
-              break
-            } catch (err: unknown) {
-              const msg = formatErr(err)
-              if (isVersionConflict(err) && attempt < PATCH_APPLY_MAX_ATTEMPTS) {
-                await incrementPatchJobAttempts({ sb, jobId, status: 'processing', lastError: msg })
-                await sleep(PATCH_APPLY_RETRY_BASE_MS * attempt)
-                continue
-              }
-              await incrementPatchJobAttempts({
-                sb,
-                jobId,
-                status: attempt >= PATCH_APPLY_MAX_ATTEMPTS ? 'failed' : 'pending',
-                lastError: msg,
-              })
-              failed++
-              break
-            }
-          }
-        } catch (e: unknown) {
-          const msg = formatErr(e)
-          await incrementPatchJobAttempts({ sb, jobId, status: 'pending', lastError: msg })
-          failed++
         }
-      }
 
+        for (let attempt = 1; attempt <= PATCH_APPLY_MAX_ATTEMPTS; attempt++) {
+          try {
+            await applyPatchOnce()
+            break
+          } catch (err: unknown) {
+            const msg = formatErr(err)
+            if (isVersionConflict(err) && attempt < PATCH_APPLY_MAX_ATTEMPTS) {
+              await incrementPatchJobAttempts({ sb, jobId, status: 'processing', lastError: msg })
+              await sleep(PATCH_APPLY_RETRY_BASE_MS * attempt)
+              continue
+            }
+            await incrementPatchJobAttempts({
+              sb,
+              jobId,
+              status: attempt >= PATCH_APPLY_MAX_ATTEMPTS ? 'failed' : 'pending',
+              lastError: msg,
+            })
+            failed++
+            break
+          }
+        }
+      } catch (e: unknown) {
+        const msg = formatErr(e)
+        await incrementPatchJobAttempts({ sb, jobId, status: 'pending', lastError: msg })
+        failed++
+      }
+    }
     return NextResponse.json({ ok: true, processed, ok_count: ok, failed_count: failed })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })

@@ -1770,3 +1770,25 @@ pm run -s build -> pass
   - `npm run -s lint` passed
   - `npx tsc --noEmit` passed
   - `npm run -s build` passed
+
+## 2026-02-17 checkpoint: PatchScribe strong-consistency pass #2
+- Files changed:
+  - `app/api/chat/route.ts`
+  - `app/api/cron/patch/route.ts`
+  - `.env.example`
+  - `docs/cron.md`
+- Completed:
+  - Added explicit patch job claim gate (`status -> processing`) and only proceeds when claim actually updates a row.
+  - Fixed race window where workers could continue applying even when claim updated 0 rows.
+  - Added stale `processing` recovery in cron:
+    - `/api/cron/patch` now also scans `processing` jobs older than `PATCH_PROCESSING_STALE_MIN` minutes.
+    - resolves crash/interruption cases where jobs were left in `processing` and never retried.
+  - Chat inline patch path now runs only when local worker successfully claims the queued job; otherwise cron recovery path handles it.
+  - Added env/docs knobs:
+    - `PATCH_CRON_BATCH`
+    - `PATCH_PROCESSING_STALE_MIN`
+  - Updated cron runbook and monitoring SQL to match actual `patch_jobs` columns (`created_at` / `patched_at`).
+- Validation:
+  - `npm run -s lint` passed
+  - `npx tsc --noEmit` passed
+  - `npm run -s build` passed

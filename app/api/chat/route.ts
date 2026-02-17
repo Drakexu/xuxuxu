@@ -943,6 +943,27 @@ async function optimisticUpdateCharacterState(args: {
   return nextVersion
 }
 
+function hasUpdatedRows(data: unknown) {
+  if (Array.isArray(data)) return data.length > 0
+  return !!(data && typeof data === 'object')
+}
+
+async function claimPatchJobForProcessing(args: {
+  sb: SupabaseClient<{ public: Record<string, never> }, 'public'>
+  jobId: string
+  fromStatuses: string[]
+}) {
+  const { sb, jobId, fromStatuses } = args
+  const upd = await sb
+    .from('patch_jobs')
+    .update({ status: 'processing', last_error: '' } as unknown as never)
+    .eq('id', jobId)
+    .in('status', fromStatuses)
+    .select('id')
+  if (upd.error) throw new Error(upd.error.message)
+  return hasUpdatedRows(upd.data)
+}
+
 async function incrementPatchJobAttempts(args: {
   sb: SupabaseClient<{ public: Record<string, never> }, 'public'>
   jobId: string
@@ -1342,12 +1363,21 @@ export async function POST(req: Request) {
         patchError = patchError || 'patch_jobs insert failed'
       }
     }
+    let patchJobClaimed = false
     if (patchJobId) {
-      await sb.from('patch_jobs').update({ status: 'processing', last_error: '' }).eq('id', patchJobId).eq('status', 'pending')
+      try {
+        patchJobClaimed = await claimPatchJobForProcessing({
+          sb,
+          jobId: patchJobId,
+          fromStatuses: ['pending', 'failed'],
+        })
+      } catch {
+        patchJobClaimed = false
+      }
     }
 
     // Fire-and-forget PatchScribe now (doesn't block the response). Cron can retry from patch_jobs if needed.
-    {
+    if (!patchJobId || patchJobClaimed) {
       void (async () => {
         try {
           const pJson = (await callMiniMax(mmBase, mmKey, {

@@ -53,6 +53,8 @@ On Vercel, set `CRON_SECRET` in **Project Settings -> Environment Variables** (P
 - `MINIMAX_API_KEY`, `MINIMAX_BASE_URL` (for memory/schedule generation)
 - `CONVERSATION_BOOTSTRAP_SCAN_LIMIT` (optional; default `1200`)
 - `CONVERSATION_BOOTSTRAP_CREATE_LIMIT` (optional; default `240`)
+- `PATCH_CRON_BATCH` (optional; default `10`, max `50`)
+- `PATCH_PROCESSING_STALE_MIN` (optional; default `10`)
 
 ## Conversation Bootstrap Cron
 
@@ -72,7 +74,8 @@ Behavior:
 ## Patch Job Recovery Model
 
 - `/api/chat` enqueues one `patch_jobs` row after each assistant turn.
-- `/api/cron/patch` reads jobs with `status = pending | failed` and applies them.
+- `/api/cron/patch` reads jobs with `status = pending | failed`, and re-claims stale `processing` jobs (`created_at` older than `PATCH_PROCESSING_STALE_MIN`).
+- Workers must claim a status transition before applying a job, so race windows do not blindly double-process.
 - Every apply attempt:
   - reads latest `conversation_states` + `character_states` with `version`,
   - applies patch with idempotency check (`run_state.applied_patch_job_ids`),
@@ -123,14 +126,14 @@ group by status
 order by status;
 
 -- recent failures
-select id, conversation_id, turn_seq, attempts, last_error, updated_at
+select id, conversation_id, turn_seq, attempts, last_error, created_at
 from patch_jobs
 where status = 'failed'
-order by updated_at desc
+order by created_at desc
 limit 50;
 
--- old pending jobs (possible stuck signals)
-select id, conversation_id, turn_seq, attempts, created_at, updated_at
+-- old pending/processing jobs (possible stuck signals)
+select id, conversation_id, turn_seq, attempts, status, created_at, patched_at
 from patch_jobs
 where status in ('pending', 'processing')
   and created_at < now() - interval '30 minutes'
