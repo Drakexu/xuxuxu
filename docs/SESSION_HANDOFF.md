@@ -2069,3 +2069,26 @@ pm run -s build -> pass
   - `npx tsc --noEmit` -> pass
 - Ops note:
   - re-run `supabase/schema_square_unlocks.sql` to apply the upgraded unlock function and creator split logic.
+
+## 2026-02-18 checkpoint: square growth metrics pass (hot/revenue/social)
+- Files changed:
+  - app/api/square/metrics/route.ts
+  - app/square/page.tsx
+  - app/square/[characterId]/page.tsx
+- Completed:
+  - Upgraded square metrics API from basic counts to multi-signal metrics:
+    - kept backward-compatible fields: unlocked, active
+    - added: likes, saves, reactions, comments, revenue, sales, hot
+    - added signals readiness flags for reactions/comments/revenue channels.
+  - Extended square ranking and conversion surfaces:
+    - list page added sort modes: HOT and REVENUE
+    - recommendation score now combines user preference + global hot signal
+    - cards now show heat/comment/revenue hints
+    - hero + sidebar expose market KPI snapshots.
+  - Extended square detail social proof:
+    - added KPIs for hot/comments/revenue
+    - status badges and related-role rows include hot/comment signals.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

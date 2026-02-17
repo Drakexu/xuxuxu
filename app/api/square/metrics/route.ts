@@ -4,7 +4,18 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-type CharacterRow = { settings?: unknown }
+type CharacterRow = { id?: string | null; settings?: unknown }
+type SquareMetric = {
+  unlocked: number
+  active: number
+  likes: number
+  saves: number
+  reactions: number
+  comments: number
+  revenue: number
+  sales: number
+  hot: number
+}
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -40,6 +51,11 @@ function isActivatedBySettings(settings: unknown) {
   return true
 }
 
+function isMissingTableError(msg: string, table: string) {
+  const s = String(msg || '').toLowerCase()
+  return s.includes(table) && (s.includes('does not exist') || s.includes('relation') || s.includes('schema cache'))
+}
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
@@ -47,6 +63,9 @@ export async function GET(req: Request) {
     if (!ids.length) return NextResponse.json({ ok: true, metrics: {} })
 
     const scanLimit = clamp(Number(process.env.SQUARE_METRICS_SCAN_LIMIT ?? 12000), 1000, 60000)
+    const reactionScanLimit = clamp(Number(process.env.SQUARE_REACTIONS_SCAN_LIMIT ?? 30000), 1000, 80000)
+    const commentScanLimit = clamp(Number(process.env.SQUARE_COMMENTS_SCAN_LIMIT ?? 30000), 1000, 80000)
+    const revenueScanLimit = clamp(Number(process.env.SQUARE_REVENUE_SCAN_LIMIT ?? 30000), 1000, 80000)
     let sb: ReturnType<typeof createAdminClient>
     try {
       sb = createAdminClient()
@@ -54,14 +73,25 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, unavailable: true, metrics: {} })
     }
 
-    const r = await sb.from('characters').select('settings').order('created_at', { ascending: false }).limit(scanLimit)
+    const r = await sb.from('characters').select('id,settings').order('created_at', { ascending: false }).limit(scanLimit)
     if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
 
     const target = new Set(ids)
-    const metrics: Record<string, { unlocked: number; active: number }> = {}
+    const metrics: Record<string, SquareMetric> = {}
     for (const id of ids) {
-      metrics[id] = { unlocked: 0, active: 0 }
+      metrics[id] = {
+        unlocked: 0,
+        active: 0,
+        likes: 0,
+        saves: 0,
+        reactions: 0,
+        comments: 0,
+        revenue: 0,
+        sales: 0,
+        hot: 0,
+      }
     }
+    const localToSourceId: Record<string, string> = {}
 
     for (const row of (r.data ?? []) as CharacterRow[]) {
       const s = asRecord(row.settings)
@@ -69,11 +99,108 @@ export async function GET(req: Request) {
       if (!sourceId || !target.has(sourceId)) continue
       metrics[sourceId].unlocked += 1
       if (isActivatedBySettings(s)) metrics[sourceId].active += 1
+      const localId = String(row.id || '').trim()
+      if (localId && !localToSourceId[localId]) localToSourceId[localId] = sourceId
+    }
+
+    let reactionsReady = false
+    try {
+      const rr = await sb
+        .from('feed_reactions')
+        .select('character_id,liked,saved')
+        .order('updated_at', { ascending: false })
+        .limit(reactionScanLimit)
+      if (rr.error) {
+        if (!isMissingTableError(rr.error.message || '', 'feed_reactions')) throw rr.error
+      } else {
+        reactionsReady = true
+        for (const row of rr.data ?? []) {
+          const rrow = asRecord(row)
+          const localId = String(rrow.character_id || '').trim()
+          const sourceId = localToSourceId[localId] || ''
+          if (!sourceId || !metrics[sourceId]) continue
+          const liked = rrow.liked === true
+          const saved = rrow.saved === true
+          if (liked) metrics[sourceId].likes += 1
+          if (saved) metrics[sourceId].saves += 1
+          metrics[sourceId].reactions += (liked ? 1 : 0) + (saved ? 2 : 0)
+        }
+      }
+    } catch {
+      reactionsReady = false
+    }
+
+    let commentsReady = false
+    try {
+      const cr = await sb
+        .from('feed_comments')
+        .select('character_id')
+        .order('created_at', { ascending: false })
+        .limit(commentScanLimit)
+      if (cr.error) {
+        if (!isMissingTableError(cr.error.message || '', 'feed_comments')) throw cr.error
+      } else {
+        commentsReady = true
+        for (const row of cr.data ?? []) {
+          const crow = asRecord(row)
+          const localId = String(crow.character_id || '').trim()
+          const sourceId = localToSourceId[localId] || ''
+          if (!sourceId || !metrics[sourceId]) continue
+          metrics[sourceId].comments += 1
+        }
+      }
+    } catch {
+      commentsReady = false
+    }
+
+    let revenueReady = false
+    try {
+      const tr = await sb
+        .from('wallet_transactions')
+        .select('source_character_id,kind,amount,reason')
+        .in('source_character_id', ids)
+        .eq('reason', 'square_unlock')
+        .order('created_at', { ascending: false })
+        .limit(revenueScanLimit)
+      if (tr.error) {
+        if (!isMissingTableError(tr.error.message || '', 'wallet_transactions')) throw tr.error
+      } else {
+        revenueReady = true
+        for (const row of tr.data ?? []) {
+          const trow = asRecord(row)
+          const sourceId = String(trow.source_character_id || '').trim()
+          if (!sourceId || !metrics[sourceId]) continue
+          if (String(trow.kind || '') !== 'debit') continue
+          const amount = Number(trow.amount || 0)
+          if (!Number.isFinite(amount) || amount <= 0) continue
+          metrics[sourceId].revenue += Math.floor(amount)
+          metrics[sourceId].sales += 1
+        }
+      }
+    } catch {
+      revenueReady = false
+    }
+
+    for (const id of ids) {
+      const m = metrics[id]
+      m.hot =
+        m.unlocked * 2 +
+        m.active * 3 +
+        m.likes +
+        m.saves * 2 +
+        m.comments * 2 +
+        m.sales * 2 +
+        Math.floor(m.revenue / 50)
     }
 
     return NextResponse.json({
       ok: true,
       scan_limit: scanLimit,
+      signals: {
+        reactionsReady,
+        commentsReady,
+        revenueReady,
+      },
       metrics,
     })
   } catch (e: unknown) {

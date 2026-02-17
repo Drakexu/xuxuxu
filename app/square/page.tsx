@@ -19,10 +19,21 @@ type PubCharacter = {
 }
 
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
+type SquareMetric = {
+  unlocked: number
+  active: number
+  likes: number
+  saves: number
+  reactions: number
+  comments: number
+  revenue: number
+  sales: number
+  hot: number
+}
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
 type AudienceTab = 'ALL' | 'MALE' | 'FEMALE' | 'TEEN'
-type SquareSort = 'RECOMMENDED' | 'POPULAR' | 'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'
+type SquareSort = 'RECOMMENDED' | 'POPULAR' | 'HOT' | 'REVENUE' | 'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'
 type PriceFilter = 'ALL' | 'FREE' | 'PAID'
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -128,7 +139,7 @@ export default function SquarePage() {
   const [items, setItems] = useState<PubCharacter[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
   const [unlockedInfoBySourceId, setUnlockedInfoBySourceId] = useState<Record<string, { localId: string; active: boolean }>>({})
-  const [squareMetricsBySourceId, setSquareMetricsBySourceId] = useState<Record<string, { unlocked: number; active: number }>>({})
+  const [squareMetricsBySourceId, setSquareMetricsBySourceId] = useState<Record<string, SquareMetric>>({})
   const [reactionScoreBySourceId, setReactionScoreBySourceId] = useState<Record<string, number>>({})
   const [audienceAffinity, setAudienceAffinity] = useState<Record<AudienceTab, number>>({ ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 })
   const [hasPreferenceSignal, setHasPreferenceSignal] = useState(false)
@@ -217,12 +228,19 @@ export default function SquarePage() {
         if (resp.ok) {
           const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
           const m = asRecord(data.metrics)
-          const nextMetrics: Record<string, { unlocked: number; active: number }> = {}
+          const nextMetrics: Record<string, SquareMetric> = {}
           for (const id of ids) {
             const row = asRecord(m[id])
             nextMetrics[id] = {
               unlocked: Number(row.unlocked || 0),
               active: Number(row.active || 0),
+              likes: Number(row.likes || 0),
+              saves: Number(row.saves || 0),
+              reactions: Number(row.reactions || 0),
+              comments: Number(row.comments || 0),
+              revenue: Number(row.revenue || 0),
+              sales: Number(row.sales || 0),
+              hot: Number(row.hot || 0),
             }
           }
           setSquareMetricsBySourceId(nextMetrics)
@@ -510,10 +528,14 @@ export default function SquarePage() {
       const reaction = Number(reactionScoreBySourceId[c.id] || 0)
       const audience = getAudienceTab(c)
       const affinity = audience === 'ALL' ? 0 : Number(audienceAffinity[audience] || 0)
-      const rec = reaction * 3 + affinity
       const metrics = squareMetricsBySourceId[c.id]
-      const pop = Number(metrics?.unlocked || 0) * 2 + Number(metrics?.active || 0) * 3
-      return { active, unlocked, ts, name, rec, pop }
+      const hot = Number(metrics?.hot || 0)
+      const revenue = Number(metrics?.revenue || 0)
+      const social = Number(metrics?.likes || 0) + Number(metrics?.saves || 0) * 2 + Number(metrics?.comments || 0) * 2
+      const rec = reaction * 3 + affinity + hot
+      const pop = Number(metrics?.unlocked || 0) * 2 + Number(metrics?.active || 0) * 3 + social
+      const sales = Number(metrics?.sales || 0)
+      return { active, unlocked, ts, name, rec, pop, hot, revenue, sales }
     }
     arr.sort((a, b) => {
       const sa = score(a)
@@ -526,6 +548,17 @@ export default function SquarePage() {
       }
       if (sortBy === 'POPULAR') {
         if (sb.pop !== sa.pop) return sb.pop - sa.pop
+        if (sb.hot !== sa.hot) return sb.hot - sa.hot
+        return sb.ts - sa.ts
+      }
+      if (sortBy === 'HOT') {
+        if (sb.hot !== sa.hot) return sb.hot - sa.hot
+        if (sb.pop !== sa.pop) return sb.pop - sa.pop
+        return sb.ts - sa.ts
+      }
+      if (sortBy === 'REVENUE') {
+        if (sb.revenue !== sa.revenue) return sb.revenue - sa.revenue
+        if (sb.sales !== sa.sales) return sb.sales - sa.sales
         if (sb.rec !== sa.rec) return sb.rec - sa.rec
         return sb.ts - sa.ts
       }
@@ -576,6 +609,26 @@ export default function SquarePage() {
       paid,
     }
   }, [items, unlockedInfoBySourceId])
+  const marketStats = useMemo(() => {
+    let totalHot = 0
+    let totalRevenue = 0
+    let totalComments = 0
+    let totalSales = 0
+    for (const it of items) {
+      const m = squareMetricsBySourceId[it.id]
+      if (!m) continue
+      totalHot += Number(m.hot || 0)
+      totalRevenue += Number(m.revenue || 0)
+      totalComments += Number(m.comments || 0)
+      totalSales += Number(m.sales || 0)
+    }
+    return {
+      totalHot,
+      totalRevenue,
+      totalComments,
+      totalSales,
+    }
+  }, [items, squareMetricsBySourceId])
   const spotlightItems = useMemo(() => filteredItems.slice(0, 3), [filteredItems])
   const gridItems = useMemo(() => filteredItems.slice(3), [filteredItems])
 
@@ -631,6 +684,9 @@ export default function SquarePage() {
               解锁 {metrics.unlocked} · 激活 {metrics.active}
             </span>
           ) : null}
+          {metrics && metrics.hot > 0 ? <span className="uiBadge">热度 {metrics.hot}</span> : null}
+          {metrics && metrics.comments > 0 ? <span className="uiBadge">评论 {metrics.comments}</span> : null}
+          {metrics && metrics.revenue > 0 ? <span className="uiBadge">营收 {metrics.revenue} 币</span> : null}
           <span
             className="uiBadge"
             style={{
@@ -828,6 +884,18 @@ export default function SquarePage() {
               <span>付费角色</span>
             </div>
             <div className="uiKpi">
+              <b>{marketStats.totalHot}</b>
+              <span>全站热度总分</span>
+            </div>
+            <div className="uiKpi">
+              <b>{marketStats.totalComments}</b>
+              <span>全站评论数</span>
+            </div>
+            <div className="uiKpi">
+              <b>{marketStats.totalRevenue}</b>
+              <span>解锁营收(币)</span>
+            </div>
+            <div className="uiKpi">
               <b>{isLoggedIn ? walletBalance : '-'}</b>
               <span>我的星币</span>
             </div>
@@ -839,9 +907,9 @@ export default function SquarePage() {
             <div className="uiSquareFlowCard">
               <div className="uiSquareFlowStep">STEP 1</div>
               <div className="uiSquareFlowTitle">发现角色</div>
-              <div className="uiSquareFlowDesc">从推荐、热度和频道里筛选想体验的角色。</div>
-              <button className="uiPill" onClick={() => setSortBy('RECOMMENDED')}>
-                看推荐
+              <div className="uiSquareFlowDesc">从推荐、热度、评论活跃和营收榜里筛选想体验的角色。</div>
+              <button className="uiPill" onClick={() => setSortBy('HOT')}>
+                看热度榜
               </button>
             </div>
             <div className="uiSquareFlowCard">
@@ -912,6 +980,8 @@ export default function SquarePage() {
                     <span className="uiBadge">未解锁: {stats.locked}</span>
                     <span className="uiBadge">已解锁: {stats.unlocked}</span>
                     <span className="uiBadge">已激活: {stats.active}</span>
+                    <span className="uiBadge">热度: {marketStats.totalHot}</span>
+                    <span className="uiBadge">评论: {marketStats.totalComments}</span>
                   </div>
                   <input
                     className="uiInput"
@@ -947,6 +1017,8 @@ export default function SquarePage() {
                   <select className="uiInput" value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
                     <option value="RECOMMENDED">排序：为你推荐</option>
                     <option value="POPULAR">排序：热度优先</option>
+                    <option value="HOT">排序：实时热榜</option>
+                    <option value="REVENUE">排序：营收优先</option>
                     <option value="UNLOCKED_FIRST">排序：已解锁优先</option>
                     <option value="ACTIVE_FIRST">排序：已激活优先</option>
                     <option value="NEWEST">排序：最新发布</option>
@@ -954,8 +1026,8 @@ export default function SquarePage() {
                   </select>
                   <div className="uiHint">
                     {hasPreferenceSignal
-                      ? '推荐排序已根据你的点赞/收藏学习偏好。'
-                      : '推荐排序会随着你的点赞/收藏逐步学习偏好。'}
+                      ? '推荐排序会结合你的点赞/收藏偏好与全站热度信号。'
+                      : '推荐排序会结合全站热度信号，并随着你的点赞/收藏逐步学习偏好。'}
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className={`uiPill ${audienceTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('ALL')}>
@@ -987,6 +1059,8 @@ export default function SquarePage() {
                       <span className="uiBadge">星币余额: {walletBalance}</span>
                       <span className="uiBadge">累计解锁: {walletUnlocked}</span>
                       <span className="uiBadge">累计消费: {walletSpent}</span>
+                      <span className="uiBadge">全站成交: {marketStats.totalSales}</span>
+                      <span className="uiBadge">全站营收: {marketStats.totalRevenue} 币</span>
                       {!walletReady ? <span className="uiBadge">钱包未初始化（可继续免费解锁）</span> : null}
                     </div>
                   ) : null}

@@ -19,6 +19,17 @@ type PubCharacter = {
 }
 
 type CharacterAssetRow = { character_id?: string; kind: string; storage_path: string; created_at?: string | null }
+type SquareMetric = {
+  unlocked: number
+  active: number
+  likes: number
+  saves: number
+  reactions: number
+  comments: number
+  revenue: number
+  sales: number
+  hot: number
+}
 type AudienceTab = 'ALL' | 'MALE' | 'FEMALE' | 'TEEN'
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
@@ -106,7 +117,7 @@ export default function SquareDetailPage() {
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [relatedItems, setRelatedItems] = useState<PubCharacter[]>([])
   const [relatedImgById, setRelatedImgById] = useState<Record<string, string>>({})
-  const [squareMetricsBySourceId, setSquareMetricsBySourceId] = useState<Record<string, { unlocked: number; active: number }>>({})
+  const [squareMetricsBySourceId, setSquareMetricsBySourceId] = useState<Record<string, SquareMetric>>({})
   const [myUnlockedBySourceId, setMyUnlockedBySourceId] = useState<Record<string, { localId: string; active: boolean }>>({})
   const [busy, setBusy] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -371,12 +382,19 @@ export default function SquareDetailPage() {
           if (resp.ok) {
             const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
             const m = asRecord(data.metrics)
-            const nextMetrics: Record<string, { unlocked: number; active: number }> = {}
+            const nextMetrics: Record<string, SquareMetric> = {}
             for (const sourceId of ids) {
               const row = asRecord(m[sourceId])
               nextMetrics[sourceId] = {
                 unlocked: Number(row.unlocked || 0),
                 active: Number(row.active || 0),
+                likes: Number(row.likes || 0),
+                saves: Number(row.saves || 0),
+                reactions: Number(row.reactions || 0),
+                comments: Number(row.comments || 0),
+                revenue: Number(row.revenue || 0),
+                sales: Number(row.sales || 0),
+                hot: Number(row.hot || 0),
               }
             }
             setSquareMetricsBySourceId(nextMetrics)
@@ -584,8 +602,16 @@ export default function SquareDetailPage() {
                   <span>全站激活</span>
                 </div>
                 <div className="uiKpi">
-                  <b>{(item.system_prompt || '').length}</b>
-                  <span>提示词长度</span>
+                  <b>{Number(currentSquareMetrics?.hot || 0)}</b>
+                  <span>全站热度</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{Number(currentSquareMetrics?.comments || 0)}</b>
+                  <span>全站评论</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{Number(currentSquareMetrics?.revenue || 0)}</b>
+                  <span>解锁营收(币)</span>
                 </div>
                 <div className="uiKpi">
                   <b>{isLoggedIn ? walletBalance : '-'}</b>
@@ -648,6 +674,9 @@ export default function SquareDetailPage() {
                         解锁 {currentSquareMetrics.unlocked} · 激活 {currentSquareMetrics.active}
                       </span>
                     ) : null}
+                    {currentSquareMetrics && currentSquareMetrics.hot > 0 ? <span className="uiBadge">热度 {currentSquareMetrics.hot}</span> : null}
+                    {currentSquareMetrics && currentSquareMetrics.comments > 0 ? <span className="uiBadge">评论 {currentSquareMetrics.comments}</span> : null}
+                    {currentSquareMetrics && currentSquareMetrics.revenue > 0 ? <span className="uiBadge">营收 {currentSquareMetrics.revenue} 币</span> : null}
                   </div>
 
                   {detailMeta.authorNote && (
@@ -766,6 +795,9 @@ export default function SquareDetailPage() {
                     <span className="uiBadge">价格 {detailMeta.unlockPrice > 0 ? `${detailMeta.unlockPrice} 币` : '免费'}</span>
                     <span className="uiBadge">全站解锁 {Number(currentSquareMetrics?.unlocked || 0)}</span>
                     <span className="uiBadge">全站激活 {Number(currentSquareMetrics?.active || 0)}</span>
+                    <span className="uiBadge">全站热度 {Number(currentSquareMetrics?.hot || 0)}</span>
+                    <span className="uiBadge">全站评论 {Number(currentSquareMetrics?.comments || 0)}</span>
+                    <span className="uiBadge">解锁营收 {Number(currentSquareMetrics?.revenue || 0)} 币</span>
                     {isLoggedIn ? <span className="uiBadge">我的星币 {walletBalance}</span> : null}
                     {isLoggedIn ? <span className="uiBadge">累计消费 {walletSpent}</span> : null}
                     {isLoggedIn ? <span className="uiBadge">累计解锁 {walletUnlocked}</span> : null}
@@ -817,6 +849,7 @@ export default function SquareDetailPage() {
                                 {brief || audienceLabel(getAudienceTab(r))}
                                 {price > 0 ? ` · ${price}币` : ' · 免费'}
                                 {metrics ? ` · 解锁${Number(metrics.unlocked || 0)} 激活${Number(metrics.active || 0)}` : ''}
+                                {metrics ? ` · 热度${Number(metrics.hot || 0)} 评论${Number(metrics.comments || 0)}` : ''}
                               </div>
                             </div>
                           </div>
