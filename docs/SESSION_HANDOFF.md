@@ -1307,3 +1307,16 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v18 checkpoint (latest)
+- Files changed:
+  - `app/chat/[characterId]/page.tsx`
+- Completed:
+  - Chat-side visual control upgrade:
+    - added quick background presets (`Daily/Night/Room`) derived from available assets
+    - unified ledger health chips to shared Candy semantic classes
+  - This improves visual control UX without changing existing chat/state APIs.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass

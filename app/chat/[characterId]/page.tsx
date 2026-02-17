@@ -177,6 +177,17 @@ export default function ChatPage() {
     return { total: messages.length, user, assistant }
   }, [messages])
 
+  const backgroundPresets = useMemo(() => {
+    const list = assetUrls.filter((a) => a.kind === 'cover' || /bg|background|scene|street|city|room|night|beach/i.test(a.path))
+    if (!list.length) return [] as Array<{ id: string; label: string; path: string }>
+    const pick = (keys: string[]) => list.find((a) => keys.some((k) => a.path.toLowerCase().includes(k))) || list[0]
+    return [
+      { id: 'daily', label: 'Daily', path: pick(['street', 'city', 'day', 'cafe']).path },
+      { id: 'night', label: 'Night', path: pick(['night', 'moon', 'neon']).path },
+      { id: 'room', label: 'Room', path: pick(['room', 'home', 'indoor']).path },
+    ]
+  }, [assetUrls])
+
   const storyLockLabel = useMemo(() => {
     if (!storyLockUntil) return ''
     const t = Date.parse(storyLockUntil)
@@ -1252,7 +1263,7 @@ export default function ChatPage() {
             <div className="uiForm">
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {ledgerHealth.map((h) => (
-                  <span key={h.key} className="uiBadge" style={{ background: h.ok ? 'rgba(31,141,82,.12)' : 'rgba(179,42,42,.12)', borderColor: h.ok ? 'rgba(31,141,82,.4)' : 'rgba(179,42,42,.35)' }}>
+                  <span key={h.key} className={`uiBadge ${h.ok ? 'uiBadgeHealthOk' : 'uiBadgeHealthWarn'}`}>
                     {h.label}: {h.ok ? '完整' : '缺失'}
                   </span>
                 ))}
@@ -1260,6 +1271,11 @@ export default function ChatPage() {
               {assetUrls.length > 0 && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div className="uiHint">聊天背景：</div>
+                  {backgroundPresets.map((p) => (
+                    <button key={`preset:${p.id}`} className="uiBtn uiBtnSecondary" onClick={() => setChatBgPath(p.path, { manual: true })}>
+                      Preset {p.label}
+                    </button>
+                  ))}
                   {assetUrls.map((a) => (
                     <button key={a.path} className="uiBtn uiBtnGhost" onClick={() => setChatBgPath(a.path, { manual: true })}>
                       {a.kind}
