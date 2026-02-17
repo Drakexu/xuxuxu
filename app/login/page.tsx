@@ -22,13 +22,10 @@ function readCooldownLeft() {
   return Math.max(0, OTP_COOLDOWN_SECONDS - passed)
 }
 
-function mapAuthErrorMessage(raw: string, fallbackWaitSec = OTP_COOLDOWN_SECONDS) {
-  const text = String(raw || '').trim()
-  const lc = text.toLowerCase()
-  if (lc.includes('rate limit') || lc.includes('rate_limit') || lc.includes('too many requests')) {
-    return `邮件发送过于频繁，请 ${fallbackWaitSec} 秒后重试。`
-  }
-  return text || '登录邮件发送失败，请稍后重试。'
+function readLastSentAt() {
+  if (typeof window === 'undefined') return 0
+  const last = Number(window.localStorage.getItem(LAST_OTP_SENT_AT_KEY) || 0)
+  return Number.isFinite(last) && last > 0 ? last : 0
 }
 
 function formatClockTime(ts: number) {
@@ -39,10 +36,14 @@ function formatClockTime(ts: number) {
   return `${hh}:${mm}:${ss}`
 }
 
-function readLastSentAt() {
-  if (typeof window === 'undefined') return 0
-  const last = Number(window.localStorage.getItem(LAST_OTP_SENT_AT_KEY) || 0)
-  return Number.isFinite(last) && last > 0 ? last : 0
+function mapAuthErrorMessage(raw: string, fallbackWaitSec = OTP_COOLDOWN_SECONDS) {
+  const text = String(raw || '').trim()
+  const lc = text.toLowerCase()
+  if (lc.includes('rate limit') || lc.includes('rate_limit') || lc.includes('too many requests')) {
+    return `邮件发送过于频繁，请 ${fallbackWaitSec} 秒后重试。`
+  }
+  if (lc.includes('invalid email')) return '邮箱格式无效，请检查后重试。'
+  return text || '登录邮件发送失败，请稍后重试。'
 }
 
 export default function LoginPage() {
@@ -55,9 +56,7 @@ export default function LoginPage() {
   const [lastSentAt, setLastSentAt] = useState(() => readLastSentAt())
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCooldownLeft(readCooldownLeft())
-    }, 1000)
+    const timer = window.setInterval(() => setCooldownLeft(readCooldownLeft()), 1000)
     return () => window.clearInterval(timer)
   }, [])
 
@@ -85,16 +84,14 @@ export default function LoginPage() {
       return
     }
     if (cooldownLeft > 0) {
-      setError(retryAtLabel ? `请等待 ${cooldownLeft} 秒后再发送（约 ${retryAtLabel} 可重试）。` : `请等待 ${cooldownLeft} 秒后再发送。`)
+      setError(retryAtLabel ? `请等待 ${cooldownLeft} 秒后重试（约 ${retryAtLabel} 可重发）。` : `请等待 ${cooldownLeft} 秒后重试。`)
       return
     }
 
     setLoading(true)
     const { error: signError } = await supabase.auth.signInWithOtp({
       email: v,
-      options: {
-        emailRedirectTo: resolveEmailRedirectTo(),
-      },
+      options: { emailRedirectTo: resolveEmailRedirectTo() },
     })
     setLoading(false)
 
@@ -131,8 +128,8 @@ export default function LoginPage() {
       <div className="uiAuthWrap">
         <section className="uiAuthPanel">
           <span className="uiBadge">XuxuXu 登录</span>
-          <h1 className="uiAuthTitle">用邮箱魔法链接进入角色世界</h1>
-          <p className="uiAuthSub">登录后可解锁广场角色、管理创作工作台，并在首页持续查看角色朋友圈、日记和日程片段。</p>
+          <h1 className="uiAuthTitle">通过邮箱魔法链接登录</h1>
+          <p className="uiAuthSub">登录后可解锁广场角色、管理创建角色，并在首页持续查看角色朋友圈、日记和日程片段。</p>
           <div className="uiAuthMeta">
             <span className="uiBadge">首页动态流</span>
             <span className="uiBadge">广场解锁</span>
@@ -140,7 +137,7 @@ export default function LoginPage() {
           </div>
           <div className="uiActions">
             <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
-              先去广场看看
+              先看广场
             </button>
             <button className="uiBtn uiBtnGhost" onClick={() => router.push('/')}>
               返回介绍页
@@ -171,11 +168,7 @@ export default function LoginPage() {
             </label>
 
             {error && <div className="uiAlert uiAlertErr">{error}</div>}
-            {sent && (
-              <div className="uiAlert uiAlertOk">
-                登录邮件已发送，请在邮箱中点击链接完成验证（可同时检查垃圾邮件箱）。
-              </div>
-            )}
+            {sent && <div className="uiAlert uiAlertOk">登录邮件已发送，请前往邮箱点击链接完成验证（请同时检查垃圾箱）。</div>}
             {cooldownLeft > 0 && <div className="uiHint">发送冷却中：{cooldownLeft} 秒（约 {retryAtLabel} 可重发）</div>}
 
             <button type="submit" className="uiBtn uiBtnPrimary" disabled={!canSubmit}>

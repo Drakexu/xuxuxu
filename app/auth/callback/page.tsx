@@ -72,17 +72,6 @@ export default function CallbackPage() {
             setLoading(false)
             return
           }
-        } else if (accessToken && refreshToken) {
-          setStep('写入 token 会话...')
-          const { error: setSessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          })
-          if (setSessionError) {
-            setError(setSessionError.message || '登录验证失败（token 会话建立失败），请重试。')
-            setLoading(false)
-            return
-          }
         } else if (tokenHash) {
           if (!otpType) {
             setError('登录链接缺少 type 参数，请重新获取登录邮件。')
@@ -99,13 +88,24 @@ export default function CallbackPage() {
             setLoading(false)
             return
           }
+        } else if (accessToken && refreshToken) {
+          setStep('写入 token 会话...')
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          if (setSessionError) {
+            setError(setSessionError.message || '登录验证失败（token 会话建立失败），请重试。')
+            setLoading(false)
+            return
+          }
         }
 
         setStep('确认会话状态...')
         const session = await waitForSession()
         if (!session?.user) {
           const hasTicket = Boolean(code || tokenHash || (accessToken && refreshToken))
-          setError(hasTicket ? '登录票据已处理，但会话未建立，请重试登录。' : '未检测到登录票据，请从邮箱中的登录链接进入。')
+          setError(hasTicket ? '登录票据已处理，但会话未建立，请回到登录页重试。' : '未检测到登录票据，请从邮箱中的登录链接进入。')
           setLoading(false)
           return
         }
@@ -127,7 +127,7 @@ export default function CallbackPage() {
         <section className="uiAuthPanel">
           <span className="uiBadge">验证登录</span>
           <h1 className="uiAuthTitle">正在处理邮箱登录票据</h1>
-          <p className="uiAuthSub">通常会在几秒内完成。如失败，请返回登录页重新发送链接，并确保使用最新的一封邮件。</p>
+          <p className="uiAuthSub">通常会在几秒内完成。若失败，请返回登录页重新发送链接，并使用最新的一封邮件。</p>
           <div className="uiAuthMeta">
             <span className="uiBadge">阶段: {step}</span>
           </div>

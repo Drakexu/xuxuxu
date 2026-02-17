@@ -1497,3 +1497,24 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v28 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/login/page.tsx
+  - pp/auth/callback/page.tsx
+- Completed:
+  - Rebuilt login and callback pages to clean UTF-8 implementations (removed mojibake-corrupted UI copy).
+  - Kept and hardened email magic-link flow:
+    - login-side cooldown/rate-limit messaging
+    - callback-side support for code, 	oken_hash+type, and ccess_token+refresh_token
+    - explicit staged status text for troubleshooting
+  - Improved callback failure clarity with deterministic fallback messages when no session is established.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass
