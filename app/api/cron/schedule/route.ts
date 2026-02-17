@@ -71,6 +71,23 @@ function hourStartUtc(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), 0, 0, 0))
 }
 
+const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function addHoursUtc(d: Date, deltaHours: number) {
+  return new Date(d.getTime() + deltaHours * HOUR_MS)
+}
+
+function addDaysUtc(d: Date, deltaDays: number) {
+  return new Date(d.getTime() + deltaDays * DAY_MS)
+}
+
+function clampInsertTime(slot: Date, now: Date) {
+  const latest = now.getTime() - 5 * 1000
+  const safe = Math.min(slot.getTime(), latest)
+  return new Date(safe)
+}
+
 function minutesAgo(d: Date, mins: number) {
   return new Date(d.getTime() - mins * 60 * 1000)
 }
@@ -455,6 +472,8 @@ export async function POST(req: Request) {
     const momentMinMinutes = clamp(Number(process.env.MOMENT_POST_MINUTES ?? 60), 10, 24 * 60)
     const momentProb = clamp(Number(process.env.MOMENT_POST_PROB ?? 1), 0, 1)
     const momentHardCadence = envFlag(process.env.MOMENT_POST_HARD_CADENCE, true)
+    const momentBackfillMax = clamp(Number(process.env.MOMENT_POST_BACKFILL_MAX ?? 2), 0, 8)
+    const diaryBackfillDays = clamp(Number(process.env.DIARY_DAILY_BACKFILL_DAYS ?? 0), 0, 7)
 
     const convs = await sb.from('conversations').select('id,user_id,character_id,created_at,title').order('created_at', { ascending: false }).limit(300)
     if (convs.error) return NextResponse.json({ error: convs.error.message }, { status: 500 })
@@ -599,41 +618,54 @@ export async function POST(req: Request) {
         }
       }
 
-      // Moments: default to hard hourly cadence by UTC hour even if user is active.
-      // Set MOMENT_POST_HARD_CADENCE=false to fall back to idle-gated behavior.
+      // Moments: default to hard hourly cadence by UTC hour, with optional backlog catch-up.
+      // Set MOMENT_POST_HARD_CADENCE=false to restore idle-gated behavior.
       try {
-        let shouldPost = false
+        const postSlots: Date[] = []
         if (!scheduleControl.blocked) {
           const now2 = new Date()
+          const currentHourStart = hourStartUtc(now2)
+          const currentHourEnd = addHoursUtc(currentHourStart, 1)
+          const momentThisHour = await sb
+            .from('messages')
+            .select('id')
+            .eq('conversation_id', convId)
+            .eq('role', 'assistant')
+            .eq('input_event', 'MOMENT_POST')
+            .gte('created_at', currentHourStart.toISOString())
+            .lt('created_at', currentHourEnd.toISOString())
+            .limit(1)
+            .maybeSingle()
+          const hasMomentThisHour = !!momentThisHour.data?.id
+
           if (momentHardCadence) {
-            const hourStart = hourStartUtc(now2)
-            const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000)
-            const momentThisHour = await sb
-              .from('messages')
-              .select('id')
-              .eq('conversation_id', convId)
-              .eq('role', 'assistant')
-              .eq('input_event', 'MOMENT_POST')
-              .gte('created_at', hourStart.toISOString())
-              .lt('created_at', hourEnd.toISOString())
-              .limit(1)
-              .maybeSingle()
-            shouldPost = !momentThisHour.data?.id
+            if (!hasMomentThisHour) {
+              let createCount = 1
+              if (momentBackfillMax > 0) {
+                const latestMoment = await sb
+                  .from('messages')
+                  .select('created_at')
+                  .eq('conversation_id', convId)
+                  .eq('role', 'assistant')
+                  .eq('input_event', 'MOMENT_POST')
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle()
+                const lastAt = latestMoment.data?.created_at ? new Date(String(latestMoment.data.created_at)) : null
+                if (lastAt && Number.isFinite(lastAt.getTime())) {
+                  const gapHours = Math.floor((currentHourStart.getTime() - hourStartUtc(lastAt).getTime()) / HOUR_MS)
+                  if (Number.isFinite(gapHours) && gapHours > 1) createCount = Math.min(gapHours, 1 + momentBackfillMax)
+                }
+              }
+              for (let i = createCount - 1; i >= 0; i--) {
+                const slotHour = addHoursUtc(currentHourStart, -i)
+                postSlots.push(new Date(slotHour.getTime() + 5 * 60 * 1000))
+              }
+            }
           } else if (canRunScheduledContent) {
+            let shouldPost = false
             if (momentStrictHourly) {
-              const hourStart = hourStartUtc(now2)
-              const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000)
-              const momentThisHour = await sb
-                .from('messages')
-                .select('id')
-                .eq('conversation_id', convId)
-                .eq('role', 'assistant')
-                .eq('input_event', 'MOMENT_POST')
-                .gte('created_at', hourStart.toISOString())
-                .lt('created_at', hourEnd.toISOString())
-                .limit(1)
-                .maybeSingle()
-              shouldPost = !momentThisHour.data?.id
+              shouldPost = !hasMomentThisHour
             } else {
               const momentCutoff = minutesAgo(now2, momentMinMinutes)
               const momentRecent = await sb
@@ -647,46 +679,116 @@ export async function POST(req: Request) {
                 .maybeSingle()
               shouldPost = !momentRecent.data?.id && Math.random() < momentProb
             }
+            if (shouldPost) postSlots.push(now2)
           }
         }
 
-        if (shouldPost) {
+        if (postSlots.length) {
           const recent = await loadRecentMessages()
           const chstState = await loadCharacterState()
-          const postTextRaw = await genMomentPost({
+          const nowInsert = new Date()
+          for (const slot of postSlots) {
+            const postTextRaw = await genMomentPost({
+              mmBase,
+              mmKey,
+              characterName,
+              characterSystemPrompt: sysPrompt,
+              conversationState: stState,
+              recentMessages: recent,
+            })
+            const postText = normalizeMomentPost(postTextRaw)
+            const insM = await sb.from('messages').insert({
+              user_id: userId,
+              conversation_id: convId,
+              role: 'assistant',
+              content: postText,
+              input_event: 'MOMENT_POST',
+              created_at: clampInsertTime(slot, nowInsert).toISOString(),
+            })
+            if (!insM.error) {
+              momentOk++
+              await enqueuePatchJobBestEffort({
+                sb,
+                userId,
+                conversationId: convId,
+                characterId,
+                inputEvent: 'MOMENT_POST',
+                userInput: '',
+                assistantText: postText,
+                conversationState: stState,
+                characterState: chstState,
+                recentMessages: recent,
+              })
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!scheduleControl.blocked && diaryBackfillDays > 0) {
+        const todayStart = dayStartUtc(now)
+        for (let daysBack = diaryBackfillDays; daysBack >= 1; daysBack--) {
+          const startBackfill = addDaysUtc(todayStart, -daysBack)
+          const endBackfill = addDaysUtc(startBackfill, 1)
+          const dayBackfill = dayKeyUtc(startBackfill)
+          const existsBackfill = await sb
+            .from('messages')
+            .select('id')
+            .eq('conversation_id', convId)
+            .eq('role', 'assistant')
+            .eq('input_event', 'DIARY_DAILY')
+            .gte('created_at', startBackfill.toISOString())
+            .lt('created_at', endBackfill.toISOString())
+            .limit(1)
+            .maybeSingle()
+          if (existsBackfill.data?.id) continue
+
+          const dayMsgsBackfill = await sb
+            .from('messages')
+            .select('role,content,created_at')
+            .eq('conversation_id', convId)
+            .gte('created_at', startBackfill.toISOString())
+            .lt('created_at', endBackfill.toISOString())
+            .order('created_at', { ascending: true })
+            .limit(120)
+          const recentMessagesBackfill = ((dayMsgsBackfill.data ?? []) as MsgRow[]).map((m) => ({ role: String(m.role || ''), content: String(m.content || '') }))
+
+          const diaryBackfill = await genDailyDiary({
             mmBase,
             mmKey,
             characterName,
             characterSystemPrompt: sysPrompt,
-            conversationState: stState,
-            recentMessages: recent,
+            recentMessages: recentMessagesBackfill,
           })
-          const postText = normalizeMomentPost(postTextRaw)
-          const insM = await sb.from('messages').insert({
+          const contentBackfill = `銆愭棩璁?${dayBackfill}銆慭n${clip(diaryBackfill, 1800)}`
+          const dayCloseBackfill = new Date(startBackfill.getTime() + 23 * 60 * 60 * 1000 + 50 * 60 * 1000)
+
+          const insBackfill = await sb.from('messages').insert({
             user_id: userId,
             conversation_id: convId,
             role: 'assistant',
-            content: postText,
-            input_event: 'MOMENT_POST',
+            content: contentBackfill,
+            input_event: 'DIARY_DAILY',
+            created_at: clampInsertTime(dayCloseBackfill, new Date()).toISOString(),
           })
-          if (!insM.error) {
-            momentOk++
+          if (!insBackfill.error) {
+            diaryOk++
+            const chstState = await loadCharacterState()
             await enqueuePatchJobBestEffort({
               sb,
               userId,
               conversationId: convId,
               characterId,
-              inputEvent: 'MOMENT_POST',
+              inputEvent: 'DIARY_DAILY',
               userInput: '',
-              assistantText: postText,
+              assistantText: contentBackfill,
               conversationState: stState,
               characterState: chstState,
-              recentMessages: recent,
+              recentMessages: recentMessagesBackfill,
             })
           }
         }
-      } catch {
-        // ignore
       }
 
       const day = dayKeyUtc(now)

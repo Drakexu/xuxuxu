@@ -28,8 +28,12 @@ Behavior:
 - `MOMENT_POST` defaults to strict hourly mode: max 1 post per UTC hour per conversation.
   - `MOMENT_POST_HARD_CADENCE=true` (default) enforces hourly posting checks even when conversation is not idle.
   - Set `MOMENT_POST_HARD_CADENCE=false` to restore idle-gated behavior.
+  - `MOMENT_POST_BACKFILL_MAX` controls missed-hour catch-up when hard cadence is enabled.
+    Example: `2` means "current hour + up to 2 missed hours" in one run.
   - Can be switched to probabilistic mode with `MOMENT_POST_STRICT_HOURLY=false`.
   - In probabilistic mode, cadence is controlled by `MOMENT_POST_MINUTES` + `MOMENT_POST_PROB`.
+- `DIARY_DAILY_BACKFILL_DAYS` controls missed-day diary catch-up before today's diary check.
+  Example: `2` means try backfilling yesterday and the day before yesterday.
 - Idle detection for schedule generation now uses this anchor priority:
   - latest user message time
   - else latest message time
@@ -101,6 +105,8 @@ Use the included defaults unless traffic is very high:
 - Keep conversations bootstrap cron at `*/30 * * * *`.
 - Keep `MOMENT_POST_HARD_CADENCE=true` for guaranteed hourly moment checks.
 - Keep `MOMENT_POST_STRICT_HOURLY=true` for "朋友圈每小时一条" behavior.
+- Keep `MOMENT_POST_BACKFILL_MAX=2` (or higher during recovery) to reduce missed-hour gaps.
+- Keep `DIARY_DAILY_BACKFILL_DAYS=0` for normal cost, and raise temporarily if diary days were missed.
 
 ### Backlog catch-up playbook
 

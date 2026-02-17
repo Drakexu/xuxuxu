@@ -68,6 +68,10 @@ npm run start
   - `patchOk`
   - `patchError`
 - PatchScribe remains best-effort. Patch failure must not break chat response.
+- Schedule cadence knobs:
+  - `MOMENT_POST_HARD_CADENCE` / `MOMENT_POST_BACKFILL_MAX`
+  - `DIARY_DAILY_BACKFILL_DAYS`
+  See `docs/cron.md` for recovery tuning.
 
 ## Feed Reactions
 

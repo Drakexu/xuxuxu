@@ -2233,3 +2233,23 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: schedule backfill hardening pass
+- Files changed:
+  - app/api/cron/schedule/route.ts
+  - .env.example
+  - docs/cron.md
+  - README.md
+- Completed:
+  - Added moment missed-hour catch-up controls:
+    - `MOMENT_POST_BACKFILL_MAX` (default 2)
+    - when hard cadence is enabled, one run can fill current hour + limited missed hours
+  - Added diary missed-day catch-up control:
+    - `DIARY_DAILY_BACKFILL_DAYS` (default 0)
+    - backfills previous missing diary days before today's normal diary check
+  - Added safe insert timestamp clamping for backfilled items.
+  - Updated env template and cron docs with tuning guidance.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
