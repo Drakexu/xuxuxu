@@ -15,6 +15,7 @@ type FeedItem = {
 }
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
+type FeedSort = 'NEWEST' | 'LIKED_FIRST' | 'SAVED_FIRST'
 const CHARACTER_FEED_PAGE_SIZE = 120
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 type ConversationRow = { id: string; created_at?: string | null; state?: unknown }
@@ -102,6 +103,7 @@ export default function CharacterHomePage() {
 
   const [title, setTitle] = useState('')
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
+  const [feedSort, setFeedSort] = useState<FeedSort>('NEWEST')
   const [likedOnly, setLikedOnly] = useState(false)
   const [savedOnly, setSavedOnly] = useState(false)
   const [feedQuery, setFeedQuery] = useState('')
@@ -528,8 +530,29 @@ export default function CharacterHomePage() {
     if (q) next = next.filter((x) => (x.content || '').toLowerCase().includes(q))
     if (likedOnly) next = next.filter((x) => !!feedReactions[x.id]?.liked)
     if (savedOnly) next = next.filter((x) => !!feedReactions[x.id]?.saved)
+    const ts = (it: FeedItem) => {
+      const n = Date.parse(String(it.created_at || ''))
+      return Number.isFinite(n) ? n : 0
+    }
+    if (feedSort === 'LIKED_FIRST') {
+      next = next.slice().sort((a, b) => {
+        const la = feedReactions[a.id]?.liked ? 1 : 0
+        const lb = feedReactions[b.id]?.liked ? 1 : 0
+        if (lb !== la) return lb - la
+        return ts(b) - ts(a)
+      })
+    } else if (feedSort === 'SAVED_FIRST') {
+      next = next.slice().sort((a, b) => {
+        const sa = feedReactions[a.id]?.saved ? 1 : 0
+        const sb = feedReactions[b.id]?.saved ? 1 : 0
+        if (sb !== sa) return sb - sa
+        return ts(b) - ts(a)
+      })
+    } else {
+      next = next.slice().sort((a, b) => ts(b) - ts(a))
+    }
     return next
-  }, [items, feedTab, feedQuery, likedOnly, savedOnly, feedReactions])
+  }, [items, feedTab, feedQuery, feedSort, likedOnly, savedOnly, feedReactions])
 
   const stats = useMemo(() => {
     const moment = items.filter((x) => x.input_event === 'MOMENT_POST').length
@@ -818,6 +841,15 @@ export default function CharacterHomePage() {
                   </button>
                   <button className={`uiPill ${savedOnly ? 'uiPillActive' : ''}`} onClick={() => setSavedOnly((v) => !v)}>
                     仅看收藏
+                  </button>
+                  <button className={`uiPill ${feedSort === 'NEWEST' ? 'uiPillActive' : ''}`} onClick={() => setFeedSort('NEWEST')}>
+                    最新优先
+                  </button>
+                  <button className={`uiPill ${feedSort === 'LIKED_FIRST' ? 'uiPillActive' : ''}`} onClick={() => setFeedSort('LIKED_FIRST')}>
+                    喜欢优先
+                  </button>
+                  <button className={`uiPill ${feedSort === 'SAVED_FIRST' ? 'uiPillActive' : ''}`} onClick={() => setFeedSort('SAVED_FIRST')}>
+                    收藏优先
                   </button>
                 </div>
 

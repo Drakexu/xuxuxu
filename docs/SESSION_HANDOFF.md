@@ -1347,3 +1347,18 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v21 checkpoint (latest)
+- Files changed:
+  - `app/home/page.tsx`
+  - `app/home/[characterId]/page.tsx`
+- Completed:
+  - Added feed sort strategies driven by interaction signals:
+    - `最新优先`
+    - `喜欢优先`
+    - `收藏优先`
+  - Sort now works alongside existing filters (`仅看喜欢` / `仅看收藏` / event tabs / search).
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
