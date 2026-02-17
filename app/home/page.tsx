@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { fetchFeedReactions, mergeFeedReactionMap, saveFeedReaction, type FeedReactionMap } from '@/lib/feedReactions'
@@ -43,6 +43,8 @@ type RoleSort = 'QUEUE' | 'RECENT' | 'LEDGER'
 type LifeEvent = 'MOMENT_POST' | 'DIARY_DAILY' | 'SCHEDULE_TICK'
 const FEED_PAGE_SIZE = 80
 const FEED_REACTION_STORAGE_KEY = 'xuxuxu:feed:reactions:v1'
+const FEED_LIVE_REFRESH_STORAGE_KEY = 'xuxuxu:feed:live_refresh:v1'
+const FEED_LIVE_POLL_MS = 60 * 1000
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 const LIFE_EVENT_CONFIG: Array<{ event: LifeEvent; tab: FeedTab; title: string; cadence: string; emptyHint: string }> = [
@@ -151,6 +153,10 @@ export default function HomeFeedPage() {
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
   const [feedReactionTableReady, setFeedReactionTableReady] = useState(true)
   const [feedCommentTableReady, setFeedCommentTableReady] = useState(true)
+  const [feedLiveRefresh, setFeedLiveRefresh] = useState(true)
+  const [feedLiveSyncAt, setFeedLiveSyncAt] = useState('')
+  const feedAllowedCharacterIdsRef = useRef<string[]>([])
+  const latestFeedAtRef = useRef('')
 
   const canLoad = useMemo(() => !loading, [loading])
 
@@ -172,6 +178,44 @@ export default function HomeFeedPage() {
       // ignore quota/private mode errors
     }
   }, [feedReactions])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FEED_LIVE_REFRESH_STORAGE_KEY)
+      if (!raw) return
+      const normalized = raw.trim().toLowerCase()
+      if (normalized === '0' || normalized === 'false' || normalized === 'off') setFeedLiveRefresh(false)
+      else if (normalized === '1' || normalized === 'true' || normalized === 'on') setFeedLiveRefresh(true)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FEED_LIVE_REFRESH_STORAGE_KEY, feedLiveRefresh ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }, [feedLiveRefresh])
+
+  useEffect(() => {
+    feedAllowedCharacterIdsRef.current = feedAllowedCharacterIds.slice(0, 300)
+  }, [feedAllowedCharacterIds])
+
+  useEffect(() => {
+    let newest = ''
+    let newestTs = 0
+    for (const it of items) {
+      const ts = Date.parse(String(it.created_at || ''))
+      if (!Number.isFinite(ts)) continue
+      if (ts > newestTs) {
+        newestTs = ts
+        newest = String(it.created_at || '')
+      }
+    }
+    latestFeedAtRef.current = newest
+  }, [items])
 
   useEffect(() => {
     const messageIds = items.map((it) => String(it.id || '').trim()).filter(Boolean).slice(0, 200)
@@ -475,6 +519,57 @@ export default function HomeFeedPage() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
+
+  useEffect(() => {
+    if (!canLoad || !feedLiveRefresh) return
+    let canceled = false
+    const poll = async () => {
+      if (canceled || loading || loadingMoreFeed) return
+      const allowedIds = feedAllowedCharacterIdsRef.current.filter(Boolean).slice(0, 240)
+      if (!allowedIds.length) return
+      try {
+        const { data: userData } = await supabase.auth.getUser()
+        const userId = userData.user?.id
+        if (!userId) return
+        const since = latestFeedAtRef.current || new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        const rFeed = await supabase
+          .from('messages')
+          .select('id,created_at,input_event,content,conversation_id,conversations(character_id)')
+          .eq('user_id', userId)
+          .in('input_event', ['DIARY_DAILY', 'MOMENT_POST', 'SCHEDULE_TICK'])
+          .in('conversations.character_id', allowedIds)
+          .gt('created_at', since)
+          .order('created_at', { ascending: true })
+          .limit(200)
+        if (rFeed.error) return
+        const raw = (rFeed.data ?? []) as FeedItem[]
+        if (!raw.length) {
+          setFeedLiveSyncAt(new Date().toISOString())
+          return
+        }
+        const allowed = new Set(allowedIds)
+        const incoming = raw.filter((it) => allowed.has(String(it.conversations?.character_id || '')))
+        if (!incoming.length) return
+        setItems((prev) => {
+          const seen = new Set(prev.map((x) => x.id))
+          const merged = [...incoming.filter((x) => !seen.has(x.id)), ...prev]
+          merged.sort((a, b) => (Date.parse(String(b.created_at || '')) || 0) - (Date.parse(String(a.created_at || '')) || 0))
+          return merged.slice(0, 400)
+        })
+        setFeedLiveSyncAt(new Date().toISOString())
+      } catch {
+        // ignore transient refresh failures
+      }
+    }
+    const timer = setInterval(() => {
+      void poll()
+    }, FEED_LIVE_POLL_MS)
+    void poll()
+    return () => {
+      canceled = true
+      clearInterval(timer)
+    }
+  }, [canLoad, feedLiveRefresh, loading, loadingMoreFeed])
 
   const loadMoreFeed = async () => {
     if (loading || loadingMoreFeed || !feedHasMore || !feedCursor) return
@@ -1131,7 +1226,11 @@ export default function HomeFeedPage() {
                     <button className={`uiPill ${feedSort === 'HOT_FIRST' ? 'uiPillActive' : ''}`} onClick={() => setFeedSort('HOT_FIRST')}>
                       热度优先
                     </button>
+                    <button className={`uiPill ${feedLiveRefresh ? 'uiPillActive' : ''}`} onClick={() => setFeedLiveRefresh((v) => !v)}>
+                      自动刷新 {feedLiveRefresh ? '开' : '关'}
+                    </button>
                   </div>
+                  {feedLiveRefresh ? <div className="uiHint">自动刷新中（每分钟检查一次）{feedLiveSyncAt ? ` · 最近同步 ${new Date(feedLiveSyncAt).toLocaleTimeString()}` : ''}</div> : null}
 
                   {filtered.length === 0 && (
                     <div className="uiEmpty" style={{ marginTop: 8 }}>

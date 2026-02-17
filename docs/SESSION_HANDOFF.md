@@ -2212,3 +2212,24 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: home live refresh pass
+- Files changed:
+  - app/home/page.tsx
+  - app/home/[characterId]/page.tsx
+- Completed:
+  - Added feed live polling on both home surfaces:
+    - aggregate `/home`
+    - single-role `/home/[characterId]`
+  - Polling behavior:
+    - checks every 60s for newly generated autonomous posts (`MOMENT_POST`, `DIARY_DAILY`, `SCHEDULE_TICK`)
+    - merges new items at top without full page reload
+    - keeps list bounded to prevent unlimited growth
+  - Added UI switch in feed controls:
+    - `自动刷新 开/关`
+    - shows recent sync time when enabled
+  - Added local persistence for live refresh preference.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

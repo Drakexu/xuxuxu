@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { fetchFeedReactions, mergeFeedReactionMap, saveFeedReaction, type FeedReactionMap } from '@/lib/feedReactions'
@@ -24,6 +24,7 @@ type FeedItem = {
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
 type FeedSort = 'NEWEST' | 'LIKED_FIRST' | 'SAVED_FIRST' | 'COMMENT_FIRST' | 'HOT_FIRST'
 const CHARACTER_FEED_PAGE_SIZE = 120
+const CHARACTER_FEED_LIVE_POLL_MS = 60 * 1000
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 type ConversationRow = { id: string; created_at?: string | null; state?: unknown }
 type RelationshipStage = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7'
@@ -126,6 +127,9 @@ export default function CharacterHomePage() {
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
   const [feedReactionTableReady, setFeedReactionTableReady] = useState(true)
   const [feedCommentTableReady, setFeedCommentTableReady] = useState(true)
+  const [feedLiveRefresh, setFeedLiveRefresh] = useState(true)
+  const [feedLiveSyncAt, setFeedLiveSyncAt] = useState('')
+  const latestFeedAtRef = useRef('')
   const [coverUrl, setCoverUrl] = useState('')
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [snapshot, setSnapshot] = useState<LedgerSnapshot | null>(null)
@@ -143,6 +147,7 @@ export default function CharacterHomePage() {
   const [updatingRelationship, setUpdatingRelationship] = useState(false)
   const [updatingPromptPolicy, setUpdatingPromptPolicy] = useState(false)
   const feedReactionStorageKey = useMemo(() => `xuxuxu:feed:reactions:v1:${characterId}`, [characterId])
+  const feedLiveStorageKey = useMemo(() => `xuxuxu:feed:live_refresh:v1:${characterId}`, [characterId])
 
   useEffect(() => {
     try {
@@ -162,6 +167,40 @@ export default function CharacterHomePage() {
       // ignore quota/private mode errors
     }
   }, [feedReactionStorageKey, feedReactions])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(feedLiveStorageKey)
+      if (!raw) return
+      const normalized = raw.trim().toLowerCase()
+      if (normalized === '0' || normalized === 'false' || normalized === 'off') setFeedLiveRefresh(false)
+      else if (normalized === '1' || normalized === 'true' || normalized === 'on') setFeedLiveRefresh(true)
+    } catch {
+      // ignore
+    }
+  }, [feedLiveStorageKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(feedLiveStorageKey, feedLiveRefresh ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }, [feedLiveStorageKey, feedLiveRefresh])
+
+  useEffect(() => {
+    let newest = ''
+    let newestTs = 0
+    for (const it of items) {
+      const ts = Date.parse(String(it.created_at || ''))
+      if (!Number.isFinite(ts)) continue
+      if (ts > newestTs) {
+        newestTs = ts
+        newest = String(it.created_at || '')
+      }
+    }
+    latestFeedAtRef.current = newest
+  }, [items])
 
   useEffect(() => {
     const messageIds = items.map((it) => String(it.id || '').trim()).filter(Boolean).slice(0, 200)
@@ -519,6 +558,52 @@ export default function CharacterHomePage() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, characterId])
+
+  useEffect(() => {
+    if (loading || !feedLiveRefresh) return
+    let canceled = false
+    const poll = async () => {
+      if (canceled || loading || loadingMoreFeed) return
+      try {
+        const { data: userData } = await supabase.auth.getUser()
+        const userId = userData.user?.id
+        if (!userId) return
+        const since = latestFeedAtRef.current || new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        const rFeed = await supabase
+          .from('messages')
+          .select('id,created_at,input_event,content,conversation_id')
+          .eq('user_id', userId)
+          .eq('character_id', characterId)
+          .in('input_event', ['DIARY_DAILY', 'MOMENT_POST', 'SCHEDULE_TICK'])
+          .gt('created_at', since)
+          .order('created_at', { ascending: true })
+          .limit(200)
+        if (rFeed.error) return
+        const rows = (rFeed.data ?? []) as FeedItem[]
+        if (!rows.length) {
+          setFeedLiveSyncAt(new Date().toISOString())
+          return
+        }
+        setItems((prev) => {
+          const seen = new Set(prev.map((x) => x.id))
+          const merged = [...rows.filter((x) => !seen.has(x.id)), ...prev]
+          merged.sort((a, b) => (Date.parse(String(b.created_at || '')) || 0) - (Date.parse(String(a.created_at || '')) || 0))
+          return merged.slice(0, 400)
+        })
+        setFeedLiveSyncAt(new Date().toISOString())
+      } catch {
+        // ignore polling errors
+      }
+    }
+    const timer = setInterval(() => {
+      void poll()
+    }, CHARACTER_FEED_LIVE_POLL_MS)
+    void poll()
+    return () => {
+      canceled = true
+      clearInterval(timer)
+    }
+  }, [loading, loadingMoreFeed, characterId, feedLiveRefresh])
 
   const loadMoreFeed = async () => {
     if (loading || loadingMoreFeed || !feedHasMore || !feedCursor) return
@@ -975,7 +1060,11 @@ export default function CharacterHomePage() {
                   <button className={`uiPill ${feedSort === 'HOT_FIRST' ? 'uiPillActive' : ''}`} onClick={() => setFeedSort('HOT_FIRST')}>
                     热度优先
                   </button>
+                  <button className={`uiPill ${feedLiveRefresh ? 'uiPillActive' : ''}`} onClick={() => setFeedLiveRefresh((v) => !v)}>
+                    自动刷新 {feedLiveRefresh ? '开' : '关'}
+                  </button>
                 </div>
+                {feedLiveRefresh ? <div className="uiHint">自动刷新中（每分钟检查一次）{feedLiveSyncAt ? ` · 最近同步 ${new Date(feedLiveSyncAt).toLocaleTimeString()}` : ''}</div> : null}
 
                 {filtered.length === 0 && (
                   <div className="uiEmpty" style={{ marginTop: 0 }}>
