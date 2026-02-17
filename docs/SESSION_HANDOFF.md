@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v31 - selected character status card on home)
+Last updated: 2026-02-17 (checkpoint: prompt alignment core v32)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -44,6 +44,32 @@ Repo: `d:/projects/xuxuxu`
 - Working tree: local feature edits across chat/home/square/patch validation.
 - Lint: passes (`npm run lint`).
 - Typecheck: passes (`npx tsc --noEmit`).
+
+### Prompt alignment core v32 checkpoint (latest)
+- Files changed:
+  - `lib/prompt/promptOs.ts`
+  - `lib/prompt/dynamicContext.ts`
+  - `app/api/chat/route.ts`
+  - `docs/aibaji/prompt_alignment_map.md`
+  - `docs/aibaji/template_diff.md`
+  - `docs/aibaji/prompt_alignment_map.json`
+- Completed:
+  - Refactored Prompt OS assembly to section-based module registry (`buildPromptOsSections`) with stable section IDs and order.
+  - Expanded runtime prompt policy with explicit reconcile/narration/stage/user-drive fields.
+  - Reworked dynamic context assembly for fixed-order readability and stronger fact layering:
+    - added `FACT_PATCH_RECENT` block
+    - added run-state fields (`relationship_stage`, `romance_mode`, `user_drive`, `reconcile_hint`)
+    - avoided `[object Object]` memory rendering via text-or-json fallback
+  - Fixed prompt-related mojibake in chat pipeline:
+    - reconcile trigger regex
+    - PatchScribe system prompt text
+    - assistant rewrite instruction text
+  - Added machine-readable prompt alignment mirror for tooling:
+    - `docs/aibaji/prompt_alignment_map.json`
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
 
 ### Patch consistency v10 checkpoint (latest)
 - Files changed:

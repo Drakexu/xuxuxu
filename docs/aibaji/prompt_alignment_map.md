@@ -1,6 +1,6 @@
 # Prompt Alignment Map (Aibaji -> Runtime)
 
-Last updated: 2026-02-16
+Last updated: 2026-02-17
 
 ## Section Mapping
 
@@ -15,6 +15,11 @@ Last updated: 2026-02-16
 | Ending Anti-repeat | `style_guard` -> `derivePromptOsPolicy` | Aligned | New dedicated policy slice with anti-repeat window and ending mix. |
 | Dynamic Context Assembly | `lib/prompt/dynamicContext.ts` | Aligned | Runtime state, memory, ledger, profile packed each turn. |
 | Ledger Injection | `dynamicContext` FACT_LEDGER + patch validation | Aligned | NPC / inventory / wardrobe / relation / events included. |
+
+## Machine-readable Mirror
+
+- `docs/aibaji/prompt_alignment_map.json`
+- Purpose: keep section-level runtime traceability consumable by tooling/regression checks.
 
 ## Gaps Remaining
 

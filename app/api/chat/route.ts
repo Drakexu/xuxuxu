@@ -563,7 +563,7 @@ function buildDynamicContext(args: {
   if (typeof userMessageForModel === 'string') {
     const t = userMessageForModel.trim()
     run.user_drive = inputEvent === 'TALK_DBL' ? 'PERMIT_CONTINUE' : t.length <= 2 ? 'PASSIVE' : 'ACTIVE'
-    run.reconcile_hint = /浣犺涓嶈寰梶鍒板簳鏄粈涔坾璇存竻妤殀纭涓€涓媩鍒硦寮剕浣犺閿欎簡|涓嶆槸杩欐牱鐨剕鍒紪|reconcile|fact check/i.test(t)
+    run.reconcile_hint = /你记不记得|到底是什么|说清楚|确认一下|别糊弄|你说错了|不是这样的|别编|reconcile|fact\s*check|核对/i.test(t)
       ? 'RECONCILE'
       : ''
     if (isExitMultiCast(t)) run.multi_cast_hint = ''
@@ -622,6 +622,7 @@ function buildDynamicContext(args: {
     plotBoard: asRecord(cs['plot_board']),
     scheduleBoard: asRecord(cs['schedule_board']),
     ledger: asRecord(cs['ledger']),
+    factPatch: asArray(cs['fact_patch']),
     memoryState: asRecord(cs['memory']),
     styleGuard: asRecord(cs['style_guard']),
     memoryA,
@@ -629,19 +630,21 @@ function buildDynamicContext(args: {
   })
 }
 function patchSystemPrompt() {
-  return `浣犳槸鈥淧atchScribe鈥濄€備綘灏嗘敹鍒?PATCH_INPUT锛圝SON锛夈€備綘蹇呴』鍙緭鍑轰竴涓?JSON 瀵硅薄锛屼笉瑕佽緭鍑轰换浣曞叾瀹冩枃瀛椼€?
+  return `You are PatchScribe. You will receive PATCH_INPUT JSON and must output exactly one JSON object.
 
-瑙勫垯锛?
-1) 涓ユ牸 JSON锛氫笉瑕?markdown锛屼笉瑕佹敞閲婏紝涓嶈澶氫綑绌鸿璇存槑銆?
-2) 鎵€鏈夐《灞傚瓧娈靛繀椤诲瓨鍦紝鍗充娇涓虹┖涔熻缁欑┖瀵硅薄/绌烘暟缁勶細
+Rules:
+1) Strict JSON only: no markdown, no comments, no prose.
+2) Keep all top-level keys present even if empty:
 focus_panel_next, run_state_patch, plot_board_patch, persona_system_patch, ip_pack_patch,
 schedule_board_patch, ledger_patch, memory_patch, style_guard_patch, fact_patch_add, moderation_flags
-3) ledger_patch 鐨?confirmed=true 鍙兘鏉ヨ嚜瀵硅瘽鏄庣‘纭锛涘惁鍒?confirmed=false銆?
-4) experience_axes_delta 鐨勬瘡涓酱鑼冨洿 [-0.2, 0.2]銆?
-5) 鍏佽鍦?run_state_patch 涓洿鏂帮細narration_mode锛圖IALOG|NARRATION|MULTI_CAST|CG|SCHEDULE锛夈€乸resent_characters銆乧urrent_main_role銆乺elationship_stage 绛夛紝浣嗗繀椤讳笌瀵硅瘽涓?input_event 涓€鑷达紝绂佹鍑┖澶у箙璺冲彉銆?
-6) 鑻ョ敤鎴疯緭鍏ュ嚭鐜扳€滅粨鏉熸紨缁?鍥炲埌鍗曡亰/鍋滄澶氳鑹测€濈瓑閫€鍑烘寚浠わ紝搴斿皢 narration_mode 缃负 DIALOG锛屽苟鍋滄澶氳鑹叉牸寮忕害鏉熴€?
+3) In ledger_patch, confirmed=true is allowed only when directly evidenced by turn text.
+4) Clamp each experience_axes_delta value to [-0.2, 0.2].
+5) run_state_patch may update narration_mode (DIALOG|NARRATION|MULTI_CAST|CG|SCHEDULE),
+present_characters, current_main_role, relationship_stage, but it must stay consistent with input_event.
+6) If user asks to exit multi-cast (for example: end roleplay / back to single chat),
+set narration_mode to DIALOG and remove strict multi-cast constraints.
 
-杈撳嚭 schema锛堢ず鎰忥級锛?
+Output schema (example keys):
 {
   "focus_panel_next": { ... },
   "run_state_patch": { ... },
@@ -653,7 +656,7 @@ schedule_board_patch, ledger_patch, memory_patch, style_guard_patch, fact_patch_
   "memory_patch": { "memory_b_episode": { "bucket_start":"", "summary":"", "open_loops":[], "tags":[] } },
   "style_guard_patch": { ... },
   "fact_patch_add": [],
-  "moderation_flags": { }
+  "moderation_flags": {}
 }`
 }
 
@@ -1025,11 +1028,12 @@ export async function POST(req: Request) {
               name: 'System',
               content:
                 `${promptOs}\n\n` +
-                `浣犲垰鎵嶇殑杈撳嚭杩濆弽浜嗏€滃彧杈撳嚭鍙洿鎺ュ睍绀虹殑瑙掕壊鏂囨湰鈥濈殑纭害鏉熴€傜幇鍦ㄨ浣犲彧杈撳嚭鈥滈噸鍐欏悗鐨勬渶缁堟枃鏈€濓紝涓嶈瑙ｉ噴锛屼笉瑕丣SON锛屼笉瑕佹彁鍒拌鍒欍€俓n` +
-                `- 鑻?INPUT_EVENT=FUNC_DBL锛氬彧杈撳嚭闀滃ご鎻忚堪锛屼笉杈撳嚭瀵硅瘽銆俓n` +
-                `- 鑻?INPUT_EVENT=SCHEDULE_TICK锛氬彧杈撳嚭涓€鏉℃嫭鍙风敓娲荤墖娈碉紙...锛夈€俓n`,
+                `Your previous output broke the hard output constraints. Rewrite now and output only the final user-facing character text.\n` +
+                `Do not explain rules. Do not output JSON. Do not output meta text.\n` +
+                `- If INPUT_EVENT=FUNC_DBL: camera-style visual narration only, no dialogue lines.\n` +
+                `- If INPUT_EVENT=SCHEDULE_TICK: output exactly one bracketed life snippet, no dialogue lines.\n`,
             },
-            { role: 'user', name: 'User', content: `INPUT_EVENT=${inputEvent || 'TALK_HOLD'}\n鐢ㄦ埛杈撳叆锛?{userMessageForModel}\n鍘熻緭鍑猴細\n${assistantMessage}` },
+            { role: 'user', name: 'User', content: `INPUT_EVENT=${inputEvent || 'TALK_HOLD'}\nUSER_INPUT=${userMessageForModel}\nORIGINAL_OUTPUT:\n${assistantMessage}` },
           ],
           temperature: 0.2,
           top_p: 0.7,

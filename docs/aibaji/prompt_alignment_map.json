@@ -1,0 +1,114 @@
+{
+  "version": "2026-02-17",
+  "source_refs": [
+    "docs/aibaji/prompt_os_template.txt",
+    "docs/aibaji/memory_plan.txt",
+    "docs/aibaji/relationship_ladder_designer.txt"
+  ],
+  "sections": [
+    {
+      "id": "identity_role_engine",
+      "template_section": "Identity / Role Engine",
+      "runtime_sources": [
+        "lib/prompt/promptOs.ts#buildPromptOsSections"
+      ],
+      "status": "aligned",
+      "notes": "Prompt-only in-character output remains first-order rule."
+    },
+    {
+      "id": "output_hard_constraints",
+      "template_section": "Output Hard Constraints",
+      "runtime_sources": [
+        "lib/prompt/promptOs.ts#buildPromptOsSections",
+        "app/api/chat/route.ts#shouldRewriteAssistantOutput"
+      ],
+      "status": "aligned",
+      "notes": "JSON/meta leakage and user impersonation are blocked by prompt and runtime rewrite guard."
+    },
+    {
+      "id": "authority_stack",
+      "template_section": "Authority Stack",
+      "runtime_sources": [
+        "lib/prompt/promptOs.ts#buildPromptOsSections",
+        "lib/prompt/dynamicContext.ts#buildDynamicContextText"
+      ],
+      "status": "aligned",
+      "notes": "Priority path includes safety/input-event/fact-patch/canon/ledger/memory."
+    },
+    {
+      "id": "input_channel_protocol",
+      "template_section": "Input Channel Protocol",
+      "runtime_sources": [
+        "lib/prompt/promptOs.ts#buildPromptOsSections",
+        "app/api/chat/route.ts#normInputEvent"
+      ],
+      "status": "aligned",
+      "notes": "TALK/FUNC/SCHEDULE event behavior is explicit in prompt and guardrails."
+    },
+    {
+      "id": "reconcile_mode",
+      "template_section": "Reconcile Mode",
+      "runtime_sources": [
+        "lib/prompt/promptOs.ts#derivePromptOsPolicy",
+        "app/api/chat/route.ts#buildDynamicContext"
+      ],
+      "status": "aligned",
+      "notes": "Reconcile hint is derived from user text and exposed to prompt policy + run state."
+    },
+    {
+      "id": "stage_multicast_subject_control",
+      "template_section": "Stage and Multi-cast Subject Control",
+      "runtime_sources": [
+        "lib/prompt/promptOs.ts#buildPromptOsSections",
+        "app/api/chat/route.ts#extractPresentCharacters"
+      ],
+      "status": "aligned",
+      "notes": "Strict multi-cast format, user speech ban, and exit-to-single flow are enforced."
+    },
+    {
+      "id": "plot_granularity",
+      "template_section": "Plot Granularity",
+      "runtime_sources": [
+        "lib/prompt/promptOs.ts#buildPromptOsSections",
+        "lib/prompt/promptOs.ts#derivePromptOsPolicy"
+      ],
+      "status": "aligned",
+      "notes": "LINE/BEAT/SCENE are mapped to dedicated policy lines."
+    },
+    {
+      "id": "ending_anti_repeat",
+      "template_section": "Ending Anti-repeat",
+      "runtime_sources": [
+        "lib/prompt/promptOs.ts#buildPromptOsSections",
+        "lib/patchValidation.ts"
+      ],
+      "status": "aligned",
+      "notes": "Ending mode, anti-repeat window, and ending preference hints are included."
+    },
+    {
+      "id": "dynamic_context_assembly",
+      "template_section": "Dynamic Context Assembly",
+      "runtime_sources": [
+        "lib/prompt/dynamicContext.ts#buildDynamicContextText",
+        "app/api/chat/route.ts#buildDynamicContext"
+      ],
+      "status": "aligned",
+      "notes": "Fixed-order context includes run state, boards, ledger digest/full json, fact patch, memory pack."
+    },
+    {
+      "id": "ledger_injection",
+      "template_section": "Ledger Injection",
+      "runtime_sources": [
+        "lib/prompt/dynamicContext.ts#buildLedgerDigest",
+        "app/api/chat/route.ts#applyLedgerPatch"
+      ],
+      "status": "aligned",
+      "notes": "NPC/inventory/wardrobe/events/relations are injected and patch-applied asynchronously."
+    }
+  ],
+  "remaining_gaps": [
+    "Cross-turn contradiction checks can still be expanded for stronger fact conflict detection.",
+    "Prompt policy regression tests are still missing.",
+    "Creator-side UI for per-role ending-mix presets can be deeper."
+  ]
+}

@@ -101,9 +101,11 @@ Source references:
   - optional: surface per-role ending mix presets (`next_endings_prefer`) in creator UI
 
 2. Prompt-to-template traceability
-- Added `docs/aibaji/prompt_alignment_map.md`.
+- Added:
+  - `docs/aibaji/prompt_alignment_map.md`
+  - `docs/aibaji/prompt_alignment_map.json`
 - Remaining:
-  - optional machine-readable JSON mirror for regression tooling.
+  - wire JSON mirror into automated regression checks.
 
 3. Patch quality gates (partial)
 - Done:
@@ -120,7 +122,7 @@ Source references:
 
 ## Next Actions
 1. Add creator-facing controls for plot granularity and ending mode persistence.
-2. Add machine-readable template alignment checklist (JSON mirror).
+2. Wire template alignment JSON mirror into automated regression checks.
 3. Add cross-turn contradiction checks on patch output.
 4. Expand visual layer: expression/outfit/background composed render states.
 
