@@ -1927,3 +1927,28 @@ pm run -s build -> pass
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run -s build` -> pass
+
+## 2026-02-17 checkpoint: wardrobe ops pass #10
+- Files changed:
+  - `app/wardrobe/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Upgraded wardrobe hub from display-only to operations page.
+  - Added gap radar board with direct filters:
+    - missing outfit
+    - missing assets
+    - missing NPC
+    - missing highlights
+    - complete
+    - all
+  - Added health filter controls in sidebar (can combine with source scope + search).
+  - Added wardrobe-item quick actions per role card:
+    - click outfit pills to quickly set `current_outfit`
+    - one-click outfit repair when current outfit is missing
+  - Quick outfit repair writes through existing API:
+    - `POST /api/state/wardrobe`
+  - Added wardrobe preview extraction from ledger items for card-level repair actions.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass

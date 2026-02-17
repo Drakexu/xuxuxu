@@ -1203,6 +1203,46 @@ body {
   filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.5));
 }
 
+.uiWardrobeGapBoard {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.uiWardrobeGapCard {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.8);
+  color: rgba(255, 255, 255, 0.88);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  transition: all 150ms ease;
+}
+
+.uiWardrobeGapCard b {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.uiWardrobeGapCard span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.uiWardrobeGapCard:hover {
+  border-color: rgba(249, 217, 142, 0.36);
+}
+
+.uiWardrobeGapCardActive {
+  border-color: rgba(249, 217, 142, 0.42);
+  background: rgba(77, 29, 40, 0.66);
+}
+
 .uiStudioBoard {
   margin-top: 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -1319,6 +1359,10 @@ body {
   .uiWardrobeSidebar {
     position: static;
   }
+
+  .uiWardrobeGapBoard {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 960px) {
@@ -1380,6 +1424,10 @@ body {
 
   .uiKpiGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .uiWardrobeGapBoard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .uiMobileDock {
@@ -1444,6 +1492,10 @@ body {
   }
 
   .uiStudioBoardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .uiWardrobeGapBoard {
     grid-template-columns: 1fr;
   }
 

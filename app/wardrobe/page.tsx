@@ -12,10 +12,12 @@ type ConversationStateRow = { conversation_id: string; state?: unknown; updated_
 
 type Scope = 'ALL' | 'UNLOCKED' | 'CREATED'
 type SortMode = 'UPDATED' | 'COMPLETE' | 'NAME'
+type HealthFilter = 'ALL' | 'COMPLETE' | 'MISSING_OUTFIT' | 'MISSING_ASSETS' | 'MISSING_NPC' | 'MISSING_HIGHLIGHTS'
 
 type WardrobeDigest = {
   conversationId: string
   outfit: string
+  wardrobePreview: string[]
   wardrobeCount: number
   inventoryCount: number
   npcCount: number
@@ -40,6 +42,22 @@ function isUnlockedFromSquare(c: CharacterRow) {
 
 function pickByKind(rows: CharacterAssetRow[], kind: string) {
   return rows.find((r) => r.kind === kind)?.storage_path || ''
+}
+
+function wardrobeNames(v: unknown) {
+  const src = asArray(v)
+  const out: string[] = []
+  for (const it of src) {
+    if (typeof it === 'string') {
+      const n = it.trim()
+      if (n) out.push(n)
+      continue
+    }
+    const r = asRecord(it)
+    const n = String(r.outfit || r.name || r.title || '').trim()
+    if (n) out.push(n)
+  }
+  return Array.from(new Set(out))
 }
 
 function relativeTimeLabel(iso: string) {
@@ -67,7 +85,9 @@ export default function WardrobePage() {
 
   const [scope, setScope] = useState<Scope>('ALL')
   const [sortMode, setSortMode] = useState<SortMode>('UPDATED')
+  const [healthFilter, setHealthFilter] = useState<HealthFilter>('ALL')
   const [query, setQuery] = useState('')
+  const [savingOutfitCharacterId, setSavingOutfitCharacterId] = useState('')
 
   const stats = useMemo(() => {
     let unlocked = 0
@@ -76,16 +96,24 @@ export default function WardrobePage() {
     let withWardrobe = 0
     let complete = 0
     let withAssets = 0
+    let missingOutfit = 0
+    let missingNpc = 0
+    let missingHighlights = 0
+    let missingAssets = 0
 
     for (const c of characters) {
       if (isUnlockedFromSquare(c)) unlocked += 1
       else created += 1
       const d = digestById[c.id]
       if (d?.outfit) withOutfit += 1
+      else missingOutfit += 1
       if ((d?.wardrobeCount || 0) > 0) withWardrobe += 1
+      if ((d?.npcCount || 0) <= 0) missingNpc += 1
+      if ((d?.highlightsCount || 0) <= 0) missingHighlights += 1
       if ((d?.completeness || 0) >= 4) complete += 1
       const s = stageById[c.id]
       if (s?.cover || s?.role) withAssets += 1
+      else missingAssets += 1
     }
 
     return {
@@ -96,15 +124,26 @@ export default function WardrobePage() {
       withWardrobe,
       complete,
       withAssets,
+      missingOutfit,
+      missingNpc,
+      missingHighlights,
+      missingAssets,
     }
   }, [characters, digestById, stageById])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     const arr = characters.filter((c) => {
+      const d = digestById[c.id]
+      const stage = stageById[c.id] || {}
       const unlocked = isUnlockedFromSquare(c)
       if (scope === 'UNLOCKED' && !unlocked) return false
       if (scope === 'CREATED' && unlocked) return false
+      if (healthFilter === 'COMPLETE' && Number(d?.completeness || 0) < 4) return false
+      if (healthFilter === 'MISSING_OUTFIT' && !!String(d?.outfit || '').trim()) return false
+      if (healthFilter === 'MISSING_ASSETS' && !!(stage.cover || stage.role)) return false
+      if (healthFilter === 'MISSING_NPC' && Number(d?.npcCount || 0) > 0) return false
+      if (healthFilter === 'MISSING_HIGHLIGHTS' && Number(d?.highlightsCount || 0) > 0) return false
       if (!q) return true
       return String(c.name || '').toLowerCase().includes(q)
     })
@@ -127,7 +166,7 @@ export default function WardrobePage() {
     })
 
     return arr
-  }, [characters, digestById, query, scope, sortMode])
+  }, [characters, digestById, stageById, healthFilter, query, scope, sortMode])
 
   const load = async () => {
     setLoading(true)
@@ -267,7 +306,8 @@ export default function WardrobePage() {
         const wardrobe = asRecord(ledger.wardrobe)
 
         const outfit = String(wardrobe.current_outfit || '').trim()
-        const wardrobeCount = asArray(wardrobe.items).length
+        const wardrobePreview = wardrobeNames(wardrobe.items)
+        const wardrobeCount = wardrobePreview.length
         const inventoryCount = asArray(ledger.inventory).length
         const npcCount = asArray(ledger.npc_database).length
         const highlightsCount = asArray(memory.highlights).length
@@ -278,6 +318,7 @@ export default function WardrobePage() {
         nextDigest[c.id] = {
           conversationId: convId,
           outfit,
+          wardrobePreview,
           wardrobeCount,
           inventoryCount,
           npcCount,
@@ -293,6 +334,56 @@ export default function WardrobePage() {
     }
 
     setLoading(false)
+  }
+
+  const quickSetOutfit = async (characterId: string, outfit: string) => {
+    const nextOutfit = String(outfit || '').trim()
+    if (!characterId || !nextOutfit) return
+    if (savingOutfitCharacterId) return
+
+    const digest = digestById[characterId]
+    const conversationId = String(digest?.conversationId || '').trim()
+    if (!conversationId) {
+      router.push(`/chat/${characterId}`)
+      return
+    }
+
+    setSavingOutfitCharacterId(characterId)
+    setError('')
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) throw new Error('登录状态失效，请重新登录。')
+
+      const resp = await fetch('/api/state/wardrobe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ conversationId, currentOutfit: nextOutfit, confirmed: true }),
+      })
+      if (!resp.ok) {
+        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+        throw new Error(String(data.error || `请求失败(${resp.status})`))
+      }
+
+      setDigestById((prev) => {
+        const curr = prev[characterId]
+        if (!curr) return prev
+        const completeness = [true, curr.inventoryCount > 0, curr.npcCount > 0, curr.highlightsCount > 0].filter(Boolean).length
+        return {
+          ...prev,
+          [characterId]: {
+            ...curr,
+            outfit: nextOutfit,
+            updatedAt: new Date().toISOString(),
+            completeness,
+          },
+        }
+      })
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSavingOutfitCharacterId('')
+    }
   }
 
   useEffect(() => {
@@ -350,6 +441,33 @@ export default function WardrobePage() {
           </div>
         </section>
 
+        <section className="uiWardrobeGapBoard">
+          <button className={`uiWardrobeGapCard ${healthFilter === 'MISSING_OUTFIT' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('MISSING_OUTFIT')}>
+            <b>{stats.missingOutfit}</b>
+            <span>缺少当前穿搭</span>
+          </button>
+          <button className={`uiWardrobeGapCard ${healthFilter === 'MISSING_ASSETS' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('MISSING_ASSETS')}>
+            <b>{stats.missingAssets}</b>
+            <span>缺少图层资产</span>
+          </button>
+          <button className={`uiWardrobeGapCard ${healthFilter === 'MISSING_NPC' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('MISSING_NPC')}>
+            <b>{stats.missingNpc}</b>
+            <span>缺少 NPC</span>
+          </button>
+          <button className={`uiWardrobeGapCard ${healthFilter === 'MISSING_HIGHLIGHTS' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('MISSING_HIGHLIGHTS')}>
+            <b>{stats.missingHighlights}</b>
+            <span>缺少高光</span>
+          </button>
+          <button className={`uiWardrobeGapCard ${healthFilter === 'COMPLETE' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('COMPLETE')}>
+            <b>{stats.complete}</b>
+            <span>账本完整</span>
+          </button>
+          <button className={`uiWardrobeGapCard ${healthFilter === 'ALL' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('ALL')}>
+            <b>{stats.total}</b>
+            <span>全部角色</span>
+          </button>
+        </section>
+
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
         {loading && <div className="uiSkeleton">加载中...</div>}
 
@@ -374,6 +492,20 @@ export default function WardrobePage() {
                     </button>
                     <button className={`uiPill ${scope === 'CREATED' ? 'uiPillActive' : ''}`} onClick={() => setScope('CREATED')}>
                       我的创作
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className={`uiPill ${healthFilter === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setHealthFilter('ALL')}>
+                      账本：全部
+                    </button>
+                    <button className={`uiPill ${healthFilter === 'COMPLETE' ? 'uiPillActive' : ''}`} onClick={() => setHealthFilter('COMPLETE')}>
+                      账本：完整
+                    </button>
+                    <button className={`uiPill ${healthFilter === 'MISSING_OUTFIT' ? 'uiPillActive' : ''}`} onClick={() => setHealthFilter('MISSING_OUTFIT')}>
+                      缺穿搭
+                    </button>
+                    <button className={`uiPill ${healthFilter === 'MISSING_ASSETS' ? 'uiPillActive' : ''}`} onClick={() => setHealthFilter('MISSING_ASSETS')}>
+                      缺资产
                     </button>
                   </div>
                   <select className="uiInput" value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)}>
@@ -452,6 +584,22 @@ export default function WardrobePage() {
                           当前穿搭：{d?.outfit || '未记录'}
                         </div>
 
+                        {(d?.wardrobePreview || []).length > 0 && (
+                          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {d?.wardrobePreview.slice(0, 8).map((name) => (
+                              <button
+                                key={`${c.id}:${name}`}
+                                className={`uiPill ${name === d?.outfit ? 'uiPillActive' : ''}`}
+                                disabled={savingOutfitCharacterId === c.id}
+                                onClick={() => void quickSetOutfit(c.id, name)}
+                                title="快速设为当前穿搭"
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
                         <div className="uiCardActions">
                           <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${c.id}`)}>
                             聊天
@@ -462,6 +610,11 @@ export default function WardrobePage() {
                           <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${c.id}`)}>
                             动态中心
                           </button>
+                          {!d?.outfit && d?.wardrobePreview?.[0] ? (
+                            <button className="uiBtn uiBtnGhost" disabled={savingOutfitCharacterId === c.id} onClick={() => void quickSetOutfit(c.id, d.wardrobePreview[0])}>
+                              {savingOutfitCharacterId === c.id ? '修复中...' : '一键修复穿搭'}
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     )
