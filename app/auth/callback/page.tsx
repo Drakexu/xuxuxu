@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -34,16 +34,18 @@ export default function CallbackPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [step, setStep] = useState('初始化验证...')
 
   useEffect(() => {
     const run = async () => {
       try {
         const existing = await supabase.auth.getSession()
         if (!existing.error && existing.data?.session?.user) {
-          router.replace('/characters')
+          router.replace('/home')
           return
         }
 
+        setStep('解析登录票据...')
         const url = new URL(window.location.href)
         const query = url.searchParams
         const hash = parseHashParams()
@@ -63,6 +65,7 @@ export default function CallbackPage() {
         const otpType = normalizeOtpType(read('type'))
 
         if (code) {
+          setStep('使用 code 建立会话...')
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
           if (exchangeError) {
             setError(exchangeError.message || '登录验证失败（code 交换失败），请重试。')
@@ -70,6 +73,7 @@ export default function CallbackPage() {
             return
           }
         } else if (accessToken && refreshToken) {
+          setStep('写入 token 会话...')
           const { error: setSessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -85,6 +89,7 @@ export default function CallbackPage() {
             setLoading(false)
             return
           }
+          setStep('校验 OTP 票据...')
           const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: otpType,
@@ -96,6 +101,7 @@ export default function CallbackPage() {
           }
         }
 
+        setStep('确认会话状态...')
         const session = await waitForSession()
         if (!session?.user) {
           const hasTicket = Boolean(code || tokenHash || (accessToken && refreshToken))
@@ -104,7 +110,8 @@ export default function CallbackPage() {
           return
         }
 
-        router.replace('/characters')
+        setStep('登录成功，正在跳转...')
+        router.replace('/home')
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : '登录验证失败，请重试。')
         setLoading(false)
@@ -115,11 +122,48 @@ export default function CallbackPage() {
   }, [router])
 
   return (
-    <div className="uiPage">
-      <main className="uiMain">
-        {loading && <div className="uiSkeleton">正在验证登录...</div>}
-        {!loading && error && <div className="uiAlert uiAlertErr">{error}</div>}
-      </main>
+    <div className="uiAuthPage">
+      <div className="uiAuthWrap">
+        <section className="uiAuthPanel">
+          <span className="uiBadge">验证登录</span>
+          <h1 className="uiAuthTitle">正在处理邮箱登录票据</h1>
+          <p className="uiAuthSub">通常会在几秒内完成。如失败，请返回登录页重新发送链接，并确保使用最新的一封邮件。</p>
+          <div className="uiAuthMeta">
+            <span className="uiBadge">阶段: {step}</span>
+          </div>
+          <div className="uiActions">
+            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
+              返回登录页
+            </button>
+            <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
+              去广场浏览
+            </button>
+          </div>
+        </section>
+
+        <section className="uiAuthCard">
+          <div className="uiPanelHeader">
+            <div>
+              <div className="uiPanelTitle">验证状态</div>
+              <div className="uiPanelSub">若长时间停留，请返回登录页重新发起登录。</div>
+            </div>
+          </div>
+          <div className="uiForm" style={{ paddingTop: 14 }}>
+            {loading && <div className="uiSkeleton">{step}</div>}
+            {!loading && error && <div className="uiAlert uiAlertErr">{error}</div>}
+            {!loading && error && (
+              <div className="uiActions">
+                <button className="uiBtn uiBtnPrimary" onClick={() => router.push('/login')}>
+                  重新登录
+                </button>
+                <button className="uiBtn uiBtnGhost" onClick={() => router.push('/')}>
+                  返回首页
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

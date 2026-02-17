@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v27 - creator studio workspace layout)
+Last updated: 2026-02-16 (checkpoint: high-target execution v28 - auth surface + motion unification)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -370,6 +370,31 @@ Repo: `d:/projects/xuxuxu`
     - `uiStudioWorkspace`, `uiStudioSidebar`, `uiStudioMain`
   - Kept publish-loop actions from v26 and integrated them into both normal and manage modes.
   - Responsive behavior collapses studio workspace to single-column on smaller screens.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Auth surface + motion v28 checkpoint (latest)
+- Files changed:
+  - `app/login/page.tsx`
+  - `app/auth/callback/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Rebuilt login page into consistent product-style auth workspace:
+    - left: product context panel and quick navigation
+    - right: focused email magic-link form card
+    - kept cooldown/rate-limit behavior unchanged
+  - Rebuilt callback page into explicit verification state surface:
+    - stage labels for ticket/session processing
+    - actionable retry/navigation buttons on error
+    - success redirect target unified to `/home`
+  - Added global motion and auth style primitives:
+    - `uiFadeRise` entry animation
+    - staggered entry for main page sections
+    - auth layout classes (`uiAuth*`)
+    - reduced-motion fallback via media query
+  - Removed dependence on undefined `uiTopbar` classes in login flow.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
