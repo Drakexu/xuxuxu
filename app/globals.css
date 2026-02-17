@@ -35,7 +35,7 @@ body {
     radial-gradient(1200px 900px at 90% 0%, rgba(242, 125, 30, 0.12) 0%, rgba(242, 125, 30, 0) 60%),
     var(--bg);
   color: var(--text);
-  font-family: "Manrope", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Segoe UI", sans-serif;
+  font-family: var(--font-ui-sans), "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Segoe UI", sans-serif;
 }
 
 @keyframes uiFadeRise {
@@ -88,8 +88,10 @@ body {
 
 .uiBrand {
   font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  font-family: var(--font-ui-display), "Times New Roman", serif;
+  text-transform: uppercase;
 }
 
 .uiBrandSub {
@@ -221,15 +223,17 @@ body {
 .uiTitle {
   margin: 0;
   font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-family: var(--font-ui-display), "Times New Roman", serif;
 }
 
 .uiSectionTitle {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.05px;
+  font-family: var(--font-ui-display), "Times New Roman", serif;
 }
 
 .uiHint {
@@ -252,6 +256,18 @@ body {
   border: 1px solid var(--accent-border);
   color: var(--accent);
   background: rgba(231, 241, 255, 0.92);
+}
+
+.uiBadgeHealthOk {
+  border-color: rgba(249, 217, 142, 0.44) !important;
+  color: rgba(249, 217, 142, 0.98) !important;
+  background: rgba(77, 29, 40, 0.72) !important;
+}
+
+.uiBadgeHealthWarn {
+  border-color: rgba(185, 25, 35, 0.45) !important;
+  color: rgba(255, 208, 208, 0.94) !important;
+  background: rgba(77, 29, 40, 0.58) !important;
 }
 
 .uiPill {
@@ -492,7 +508,8 @@ body {
   margin: 8px 0 0;
   font-size: 24px;
   line-height: 1.2;
-  letter-spacing: -0.35px;
+  letter-spacing: 0;
+  font-family: var(--font-ui-display), "Times New Roman", serif;
 }
 
 .uiHeroSub {
@@ -714,7 +731,8 @@ body {
   margin: 0;
   font-size: 40px;
   line-height: 1.1;
-  letter-spacing: -0.6px;
+  letter-spacing: -0.1px;
+  font-family: var(--font-ui-display), "Times New Roman", serif;
 }
 
 .uiLandingSub {
@@ -781,7 +799,8 @@ body {
   margin: 4px 0 0;
   font-size: 30px;
   line-height: 1.15;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.08px;
+  font-family: var(--font-ui-display), "Times New Roman", serif;
 }
 
 .uiAuthSub {

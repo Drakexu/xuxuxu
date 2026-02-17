@@ -339,7 +339,7 @@ export default function CharacterAssetsPage() {
               <div className="uiForm">
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {detailHealth.map((h) => (
-                    <span key={h.key} className="uiBadge" style={{ background: h.ok ? 'rgba(31,141,82,.12)' : 'rgba(179,42,42,.12)', borderColor: h.ok ? 'rgba(31,141,82,.4)' : 'rgba(179,42,42,.35)' }}>
+                    <span key={h.key} className={`uiBadge ${h.ok ? 'uiBadgeHealthOk' : 'uiBadgeHealthWarn'}`}>
                       {h.label}: {h.ok ? '完整' : '缺失'}
                     </span>
                   ))}
@@ -405,8 +405,8 @@ export default function CharacterAssetsPage() {
                     height: 380,
                     borderRadius: 16,
                     overflow: 'hidden',
-                    border: '1px solid rgba(0,0,0,.1)',
-                    background: 'linear-gradient(180deg, rgba(230,240,255,.9), rgba(255,255,255,.95))',
+                    border: '1px solid rgba(255,255,255,.14)',
+                    background: 'linear-gradient(180deg, rgba(19,19,19,.95), rgba(58,21,30,.92))',
                   }}
                 >
                   {composerBgUrl ? (
@@ -427,7 +427,7 @@ export default function CharacterAssetsPage() {
                         width: 'auto',
                         transform: `translate(-50%, ${roleYOffset}px) scale(${roleScale / 100})`,
                         transformOrigin: 'center bottom',
-                        filter: 'drop-shadow(0 10px 16px rgba(0,0,0,.2))',
+                        filter: 'drop-shadow(0 14px 24px rgba(0,0,0,.48))',
                       }}
                     />
                   ) : null}

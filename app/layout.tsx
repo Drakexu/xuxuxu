@@ -1,16 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Cormorant_Garamond, JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const uiSans = Manrope({
+  variable: "--font-ui-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const uiMono = JetBrains_Mono({
+  variable: "--font-ui-mono",
   subsets: ["latin"],
 });
+
+const uiDisplay = Cormorant_Garamond({
+  variable: "--font-ui-display",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+
+const bodyClassName = [
+  uiSans.variable,
+  uiMono.variable,
+  uiDisplay.variable,
+  "antialiased",
+].join(" ");
 
 export const metadata: Metadata = {
   title: "XuxuXu AI",
@@ -24,11 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+      <body className={bodyClassName}>{children}</body>
     </html>
   );
 }

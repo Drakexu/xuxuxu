@@ -1170,3 +1170,58 @@ Repo: `d:/projects/xuxuxu`
 
 ## 8) Session note
 - This file should be updated at every major checkpoint before long runs or before handoff.
+
+### High-target execution v10 checkpoint (latest)
+- Files changed:
+  - `app/home/page.tsx`
+  - `app/square/page.tsx`
+  - `app/square/[characterId]/page.tsx`
+- Completed:
+  - Harmonized remaining inline badge/card colors to Candy palette in Home + Square surfaces.
+  - Updated featured/unlocked/active visual state chips in Square list.
+  - Updated prompt preview panel style in Square detail to dark glass style.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+
+### High-target execution v11 checkpoint (latest)
+- Files changed:
+  - `app/layout.tsx`
+  - `app/globals.css`
+- Completed:
+  - Replaced default Geist stack with custom typography stack:
+    - body: `Manrope`
+    - display/headings: `Cormorant Garamond`
+    - mono: `JetBrains Mono`
+  - Added reusable Candy health badge styles:
+    - `.uiBadgeHealthOk`
+    - `.uiBadgeHealthWarn`
+  - Applied display typography to brand/title/hero/auth headline layers.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+
+### High-target execution v12 checkpoint (latest)
+- Files changed:
+  - `app/home/[characterId]/page.tsx`
+  - `app/characters/[characterId]/assets/page.tsx`
+- Completed:
+  - Unified single-character feed badges with Candy palette.
+  - Switched ledger health chips to shared semantic classes.
+  - Updated static layer composer stage in assets page to dark/wine visual style.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+
+### Next mainline (big modules)
+1. Candy-structure parity pass:
+   - strengthen home/square/studio hero hierarchy and card grouping rhythm to feel less tool-like.
+2. Visual assets surface:
+   - add expression/pose/outfit presets and one-click scene presets in assets/chat surfaces.
+3. Product loop closure:
+   - improve unlock -> activate -> chat -> home-feed feedback loop with clearer CTA/state handoff.
+4. Social depth:
+   - add lightweight interactions on feed cards (bookmark/like intent and sorting hooks).

@@ -370,9 +370,9 @@ export default function HomeFeedPage() {
   }
 
   const eventBadgeStyle = (ev: string | null) => {
-    if (ev === 'MOMENT_POST') return { borderColor: 'rgba(255,68,132,.45)', color: 'rgba(200,20,84,.98)', background: 'rgba(255,231,242,.92)' }
-    if (ev === 'DIARY_DAILY') return { borderColor: 'rgba(20,144,132,.45)', color: 'rgba(20,144,132,.98)', background: 'rgba(236,255,251,.92)' }
-    if (ev === 'SCHEDULE_TICK') return { borderColor: 'rgba(84,112,198,.45)', color: 'rgba(72,94,171,.98)', background: 'rgba(233,240,255,.92)' }
+    if (ev === 'MOMENT_POST') return { borderColor: 'rgba(249,217,142,.44)', color: 'rgba(249,217,142,.98)', background: 'rgba(77,29,40,.72)' }
+    if (ev === 'DIARY_DAILY') return { borderColor: 'rgba(208,176,103,.42)', color: 'rgba(249,217,142,.9)', background: 'rgba(54,54,54,.7)' }
+    if (ev === 'SCHEDULE_TICK') return { borderColor: 'rgba(185,25,35,.45)', color: 'rgba(255,208,208,.94)', background: 'rgba(77,29,40,.58)' }
     return {}
   }
 

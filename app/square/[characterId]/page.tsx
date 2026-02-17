@@ -431,10 +431,11 @@ export default function SquareDetailPage() {
                     style={{
                       whiteSpace: 'pre-wrap',
                       lineHeight: 1.6,
-                      border: '1px solid rgba(0,0,0,.08)',
+                      border: '1px solid rgba(255,255,255,.14)',
                       borderRadius: 14,
                       padding: 12,
-                      background: '#fff',
+                      background: 'rgba(19,19,19,.84)',
+                      color: 'rgba(255,255,255,.92)',
                     }}
                   >
                     {(item.system_prompt || '').slice(0, 600)}

@@ -414,7 +414,7 @@ export default function SquarePage() {
     const info = unlockedInfoBySourceId[c.id]
 
     return (
-      <div key={c.id} className="uiCard" style={{ cursor: 'pointer', borderColor: featured ? 'rgba(32,84,176,.32)' : undefined }} onClick={() => router.push(`/square/${c.id}`)}>
+      <div key={c.id} className="uiCard" style={{ cursor: 'pointer', borderColor: featured ? 'rgba(249,217,142,.32)' : undefined }} onClick={() => router.push(`/square/${c.id}`)}>
         <div className="uiCardMedia">
           {imgById[c.id] ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -430,7 +430,7 @@ export default function SquarePage() {
         </div>
         <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {featured ? (
-            <span className="uiBadge" style={{ borderColor: 'rgba(32,84,176,.44)', color: 'rgba(32,84,176,.98)', background: 'rgba(231,241,255,.94)' }}>
+            <span className="uiBadge" style={{ borderColor: 'rgba(249,217,142,.44)', color: 'rgba(249,217,142,.98)', background: 'rgba(77,29,40,.72)' }}>
               精选
             </span>
           ) : null}
@@ -438,11 +438,18 @@ export default function SquarePage() {
           <span className="uiBadge">{ageMode}</span>
           <span className="uiBadge">{audienceLabel(audience)}</span>
           <span className="uiBadge">{romanceLabel}</span>
-          <span className="uiBadge" style={{ borderColor: info ? 'rgba(31,141,82,.45)' : 'rgba(0,0,0,.18)', color: info ? 'rgba(31,141,82,1)' : 'rgba(0,0,0,.62)', background: info ? 'rgba(31,141,82,.10)' : 'rgba(0,0,0,.03)' }}>
+          <span
+            className="uiBadge"
+            style={{
+              borderColor: info ? 'rgba(249,217,142,.44)' : 'rgba(255,255,255,.22)',
+              color: info ? 'rgba(249,217,142,.98)' : 'rgba(255,255,255,.72)',
+              background: info ? 'rgba(77,29,40,.7)' : 'rgba(54,54,54,.5)',
+            }}
+          >
             {info ? '已解锁' : '未解锁'}
           </span>
           {info?.active ? (
-            <span className="uiBadge" style={{ borderColor: 'rgba(20,144,132,.48)', color: 'rgba(20,144,132,.98)', background: 'rgba(20,144,132,.10)' }}>
+            <span className="uiBadge" style={{ borderColor: 'rgba(185,25,35,.45)', color: 'rgba(255,208,208,.94)', background: 'rgba(77,29,40,.58)' }}>
               已激活
             </span>
           ) : null}
