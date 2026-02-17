@@ -1603,3 +1603,24 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v33 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/characters/page.tsx
+- Completed:
+  - Upgraded creator workbench filters with visibility dimension:
+    - added 可见性：全部 / 仅公开 / 仅私密 pill filters
+    - kept existing 我的创作 / 已解锁角色 / 全部 dimension
+  - Added visibility KPIs in sidebar:
+    - 公开
+    - 私密
+  - This improves public-publish management at scale and reduces manual scanning in studio cards.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass

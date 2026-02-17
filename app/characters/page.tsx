@@ -18,6 +18,7 @@ type CharacterAssetRow = { character_id: string; kind: string; storage_path: str
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
 type StudioTab = 'CREATED' | 'UNLOCKED' | 'ALL'
+type VisibilityFilter = 'ALL' | 'PUBLIC' | 'PRIVATE'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -67,18 +68,22 @@ export default function CharactersPage() {
   const [deletingId, setDeletingId] = useState<string>('')
   const [busyId, setBusyId] = useState<string>('')
   const [studioTab, setStudioTab] = useState<StudioTab>('CREATED')
+  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('ALL')
   const [query, setQuery] = useState('')
 
   const canRefresh = useMemo(() => !loading && !deletingId, [loading, deletingId])
   const counts = useMemo(() => {
     let unlocked = 0
     let active = 0
+    let publicCount = 0
     for (const c of characters) {
       if (isUnlockedFromSquare(c)) unlocked += 1
       if (isActivatedForHome(c)) active += 1
+      if (c.visibility === 'public') publicCount += 1
     }
     const created = Math.max(0, characters.length - unlocked)
-    return { created, unlocked, all: characters.length, active }
+    const privateCount = Math.max(0, characters.length - publicCount)
+    return { created, unlocked, all: characters.length, active, publicCount, privateCount }
   }, [characters])
   const filteredCharacters = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -86,10 +91,13 @@ export default function CharactersPage() {
       const unlocked = isUnlockedFromSquare(c)
       if (studioTab === 'CREATED' && unlocked) return false
       if (studioTab === 'UNLOCKED' && !unlocked) return false
+      const isPublic = c.visibility === 'public'
+      if (visibilityFilter === 'PUBLIC' && !isPublic) return false
+      if (visibilityFilter === 'PRIVATE' && isPublic) return false
       if (!q) return true
       return String(c.name || '').toLowerCase().includes(q)
     })
-  }, [characters, studioTab, query])
+  }, [characters, studioTab, visibilityFilter, query])
 
   useEffect(() => {
     if (!alert) return
@@ -320,6 +328,8 @@ export default function CharactersPage() {
                     <span className="uiBadge">我的创作: {counts.created}</span>
                     <span className="uiBadge">已解锁: {counts.unlocked}</span>
                     <span className="uiBadge">已激活: {counts.active}</span>
+                    <span className="uiBadge">公开: {counts.publicCount}</span>
+                    <span className="uiBadge">私密: {counts.privateCount}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className={`uiPill ${studioTab === 'CREATED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('CREATED')}>
@@ -330,6 +340,17 @@ export default function CharactersPage() {
                     </button>
                     <button className={`uiPill ${studioTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('ALL')}>
                       全部
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className={`uiPill ${visibilityFilter === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setVisibilityFilter('ALL')}>
+                      可见性：全部
+                    </button>
+                    <button className={`uiPill ${visibilityFilter === 'PUBLIC' ? 'uiPillActive' : ''}`} onClick={() => setVisibilityFilter('PUBLIC')}>
+                      仅公开
+                    </button>
+                    <button className={`uiPill ${visibilityFilter === 'PRIVATE' ? 'uiPillActive' : ''}`} onClick={() => setVisibilityFilter('PRIVATE')}>
+                      仅私密
                     </button>
                   </div>
                   <input className="uiInput" placeholder="搜索角色名..." value={query} onChange={(e) => setQuery(e.target.value)} />
