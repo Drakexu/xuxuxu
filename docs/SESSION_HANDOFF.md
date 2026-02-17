@@ -1430,3 +1430,24 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v25 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/square/[characterId]/page.tsx
+- Completed:
+  - Added Square detail conversion enhancements:
+    - introduced audience-channel awareness (男频/女频/青少年/全部) on detail hero and badges
+    - added 同频道推荐 panel with up to 6 related public roles
+    - recommendation cards now support direct actions:
+      - unlocked role => 对话
+      - locked role => 查看（跳转详情）
+  - Added user unlocked-source map in detail page state, so related cards reflect unlock status in real time.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass
