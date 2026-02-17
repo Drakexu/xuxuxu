@@ -1293,3 +1293,17 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v17 checkpoint (latest)
+- Files changed:
+  - `README.md`
+- Completed:
+  - Replaced default Next.js template README with project-specific runbook.
+  - Added explicit setup for feed reactions persistence:
+    - run `supabase/schema_v1.sql`
+    - run `supabase/schema_feed_reactions.sql`
+  - Documented core surfaces, API stability constraints, and validation commands.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
