@@ -744,6 +744,61 @@ export default function SquarePage() {
           </div>
         </section>
 
+        <section className="uiSquareFlowBoard">
+          <div className="uiSquareFlowGrid">
+            <div className="uiSquareFlowCard">
+              <div className="uiSquareFlowStep">STEP 1</div>
+              <div className="uiSquareFlowTitle">发现角色</div>
+              <div className="uiSquareFlowDesc">从推荐、热度和频道里筛选想体验的角色。</div>
+              <button className="uiPill" onClick={() => setSortBy('RECOMMENDED')}>
+                看推荐
+              </button>
+            </div>
+            <div className="uiSquareFlowCard">
+              <div className="uiSquareFlowStep">STEP 2</div>
+              <div className="uiSquareFlowTitle">解锁到队列</div>
+              <div className="uiSquareFlowDesc">点击卡片即可解锁，角色会进入你的可聊天列表。</div>
+              <button className="uiPill" onClick={() => setFilter('LOCKED')}>
+                看未解锁
+              </button>
+            </div>
+            <div className="uiSquareFlowCard">
+              <div className="uiSquareFlowStep">STEP 3</div>
+              <div className="uiSquareFlowTitle">激活到首页</div>
+              <div className="uiSquareFlowDesc">激活后角色会持续产出朋友圈、日记和日程片段。</div>
+              <button className="uiPill" onClick={() => setFilter('ACTIVE')}>
+                看已激活
+              </button>
+            </div>
+            <div className="uiSquareFlowCard">
+              <div className="uiSquareFlowStep">STEP 4</div>
+              <div className="uiSquareFlowTitle">开始对话</div>
+              <div className="uiSquareFlowDesc">已解锁角色可以直接开聊并进入长期剧情。</div>
+              <button className="uiPill" onClick={() => router.push('/home')}>
+                去首页
+              </button>
+            </div>
+          </div>
+          <div className="uiSquareChannelRow">
+            <button className={`uiSquareChannelCard ${audienceTab === 'ALL' ? 'uiSquareChannelCardActive' : ''}`} onClick={() => setAudienceTab('ALL')}>
+              <b>{stats.total}</b>
+              <span>全部频道</span>
+            </button>
+            <button className={`uiSquareChannelCard ${audienceTab === 'MALE' ? 'uiSquareChannelCardActive' : ''}`} onClick={() => setAudienceTab('MALE')}>
+              <b>{stats.male}</b>
+              <span>男频</span>
+            </button>
+            <button className={`uiSquareChannelCard ${audienceTab === 'FEMALE' ? 'uiSquareChannelCardActive' : ''}`} onClick={() => setAudienceTab('FEMALE')}>
+              <b>{stats.female}</b>
+              <span>女频</span>
+            </button>
+            <button className={`uiSquareChannelCard ${audienceTab === 'TEEN' ? 'uiSquareChannelCardActive' : ''}`} onClick={() => setAudienceTab('TEEN')}>
+              <b>{stats.teen}</b>
+              <span>青少年</span>
+            </button>
+          </div>
+        </section>
+
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
 
         {loading && <div className="uiSkeleton">加载中...</div>}

@@ -1842,3 +1842,25 @@ pm run -s build -> pass
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run -s build` -> pass
+
+## 2026-02-17 checkpoint: IA visual pass #6 (home + square + studio)
+- Files changed:
+  - `app/home/page.tsx`
+  - `app/square/page.tsx`
+  - `app/characters/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Home:
+    - added a dedicated Life Hub section with 3 cards (moment/diary/schedule)
+    - each card shows total, 24h count, latest recency, and preview
+    - cards switch feed tab directly and reset filter noise for quicker reading
+    - right-side shortcut panel now includes type-first life actions
+  - Square:
+    - added an unlock funnel board (discover -> unlock -> activate -> chat)
+    - added channel quick cards (all/male/female/teen) with direct tab switching
+  - Studio:
+    - added a creator workflow board with top-level counters and quick filter cards
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass

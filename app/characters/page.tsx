@@ -313,6 +313,40 @@ export default function CharactersPage() {
           </>
         }
       >
+        {!loading && (
+          <section className="uiStudioBoard">
+            <div className="uiStudioBoardHead">
+              <div>
+                <h3 className="uiSectionTitle">创作工作流</h3>
+                <p className="uiHint" style={{ marginTop: 6 }}>
+                  创建角色 → 配置资产 → 发布到广场 → 在首页激活并进入长期互动。
+                </p>
+              </div>
+              <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters/new')}>
+                新建并开聊
+              </button>
+            </div>
+            <div className="uiStudioBoardGrid">
+              <button className={`uiStudioBoardCard ${studioTab === 'CREATED' ? 'uiStudioBoardCardActive' : ''}`} onClick={() => setStudioTab('CREATED')}>
+                <b>{counts.created}</b>
+                <span>我的创作</span>
+              </button>
+              <button className={`uiStudioBoardCard ${studioTab === 'UNLOCKED' ? 'uiStudioBoardCardActive' : ''}`} onClick={() => setStudioTab('UNLOCKED')}>
+                <b>{counts.unlocked}</b>
+                <span>已解锁角色</span>
+              </button>
+              <button className={`uiStudioBoardCard ${visibilityFilter === 'PUBLIC' ? 'uiStudioBoardCardActive' : ''}`} onClick={() => setVisibilityFilter('PUBLIC')}>
+                <b>{counts.publicCount}</b>
+                <span>公开角色</span>
+              </button>
+              <button className={`uiStudioBoardCard ${visibilityFilter === 'PRIVATE' ? 'uiStudioBoardCardActive' : ''}`} onClick={() => setVisibilityFilter('PRIVATE')}>
+                <b>{counts.privateCount}</b>
+                <span>私密角色</span>
+              </button>
+            </div>
+          </section>
+        )}
+
         {alert && <div className={`uiAlert ${alert.type === 'ok' ? 'uiAlertOk' : 'uiAlertErr'}`}>{alert.text}</div>}
 
         {loading && <div className="uiSkeleton">加载中...</div>}

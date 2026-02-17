@@ -1035,6 +1035,87 @@ body {
   gap: 14px;
 }
 
+.uiSquareFlowBoard {
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(26, 26, 26, 0.82);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.uiSquareFlowGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.uiSquareFlowCard {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(26, 26, 26, 0.92) 0%, rgba(37, 24, 30, 0.88) 100%);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.uiSquareFlowStep {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.uiSquareFlowTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.uiSquareFlowDesc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.uiSquareChannelRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.uiSquareChannelCard {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.8);
+  color: rgba(255, 255, 255, 0.88);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  transition: all 150ms ease;
+}
+
+.uiSquareChannelCard b {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.uiSquareChannelCard span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.uiSquareChannelCard:hover {
+  border-color: rgba(249, 217, 142, 0.36);
+}
+
+.uiSquareChannelCardActive {
+  border-color: rgba(249, 217, 142, 0.42);
+  background: rgba(77, 29, 40, 0.66);
+}
+
 .uiSquareDetailWorkspace {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.85fr);
@@ -1070,6 +1151,62 @@ body {
   gap: 12px;
 }
 
+.uiStudioBoard {
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(26, 26, 26, 0.82);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.uiStudioBoardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.uiStudioBoardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.uiStudioBoardCard {
+  appearance: none;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.8);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 12px;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  transition: all 150ms ease;
+}
+
+.uiStudioBoardCard:hover {
+  border-color: rgba(249, 217, 142, 0.36);
+}
+
+.uiStudioBoardCardActive {
+  border-color: rgba(249, 217, 142, 0.42);
+  background: rgba(77, 29, 40, 0.66);
+}
+
+.uiStudioBoardCard b {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.uiStudioBoardCard span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
 .uiMobileDock {
   display: none;
 }
@@ -1091,6 +1228,14 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .uiSquareFlowGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .uiSquareChannelRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .uiSquareSidebar {
     position: static;
   }
@@ -1105,6 +1250,10 @@ body {
 
   .uiStudioWorkspace {
     grid-template-columns: 1fr;
+  }
+
+  .uiStudioBoardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .uiStudioSidebar {
@@ -1217,12 +1366,25 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .uiSquareFlowGrid,
+  .uiSquareChannelRow {
+    grid-template-columns: 1fr;
+  }
+
   .uiThumbGrid {
     grid-template-columns: 1fr;
   }
 
   .uiKpiGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .uiStudioBoardHead {
+    flex-direction: column;
+  }
+
+  .uiStudioBoardGrid {
+    grid-template-columns: 1fr;
   }
 
   .uiAuthPage {
