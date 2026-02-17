@@ -1624,3 +1624,23 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v34 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/home/page.tsx
+- Completed:
+  - Added role-rail sorting controls in Home queue panel:
+    - 排序：队列顺序
+    - 排序：最近动态
+    - 排序：账本完整
+  - Sorting uses role digest signals (latestAt, complete) with deterministic queue-order fallback.
+  - Selected-role resolution now follows sorted rail order for consistent panel behavior.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass

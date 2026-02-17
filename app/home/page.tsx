@@ -32,6 +32,7 @@ type CharacterDigest = {
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
 type FeedSort = 'NEWEST' | 'LIKED_FIRST' | 'SAVED_FIRST'
+type RoleSort = 'QUEUE' | 'RECENT' | 'LEDGER'
 const FEED_PAGE_SIZE = 80
 const FEED_REACTION_STORAGE_KEY = 'xuxuxu:feed:reactions:v1'
 
@@ -101,6 +102,7 @@ export default function HomeFeedPage() {
   const [error, setError] = useState('')
   const [manage, setManage] = useState(false)
   const [viewMode, setViewMode] = useState<'ACTIVE' | 'UNLOCKED'>('ACTIVE')
+  const [roleSort, setRoleSort] = useState<RoleSort>('QUEUE')
 
   const [activated, setActivated] = useState<CharacterRow[]>([])
   const [unlocked, setUnlocked] = useState<CharacterRow[]>([])
@@ -503,10 +505,35 @@ export default function HomeFeedPage() {
   }, [unlocked])
 
   const visibleCharacters = useMemo(() => (viewMode === 'ACTIVE' ? activated : unlocked), [viewMode, activated, unlocked])
+  const sortedVisibleCharacters = useMemo(() => {
+    const arr = visibleCharacters.slice()
+    if (roleSort === 'RECENT') {
+      arr.sort((a, b) => {
+        const ta = Date.parse(String(characterDigestById[a.id]?.latestAt || '')) || 0
+        const tb = Date.parse(String(characterDigestById[b.id]?.latestAt || '')) || 0
+        if (tb !== ta) return tb - ta
+        return activationOrder(a) - activationOrder(b)
+      })
+      return arr
+    }
+    if (roleSort === 'LEDGER') {
+      arr.sort((a, b) => {
+        const ca = Number(characterDigestById[a.id]?.complete || 0)
+        const cb = Number(characterDigestById[b.id]?.complete || 0)
+        if (cb !== ca) return cb - ca
+        const ta = Date.parse(String(characterDigestById[a.id]?.latestAt || '')) || 0
+        const tb = Date.parse(String(characterDigestById[b.id]?.latestAt || '')) || 0
+        if (tb !== ta) return tb - ta
+        return activationOrder(a) - activationOrder(b)
+      })
+      return arr
+    }
+    return arr
+  }, [visibleCharacters, roleSort, characterDigestById])
   const selectedCharacter = useMemo(() => {
     if (!activeCharId) return null
-    return visibleCharacters.find((c) => c.id === activeCharId) || null
-  }, [visibleCharacters, activeCharId])
+    return sortedVisibleCharacters.find((c) => c.id === activeCharId) || null
+  }, [sortedVisibleCharacters, activeCharId])
   const activatedIdSet = useMemo(() => new Set(activated.map((c) => c.id)), [activated])
   const feedStats = useMemo(() => {
     let moments = 0
@@ -779,6 +806,17 @@ export default function HomeFeedPage() {
                       全部角色
                     </button>
                   </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className={`uiPill ${roleSort === 'QUEUE' ? 'uiPillActive' : ''}`} onClick={() => setRoleSort('QUEUE')}>
+                      排序：队列顺序
+                    </button>
+                    <button className={`uiPill ${roleSort === 'RECENT' ? 'uiPillActive' : ''}`} onClick={() => setRoleSort('RECENT')}>
+                      排序：最近动态
+                    </button>
+                    <button className={`uiPill ${roleSort === 'LEDGER' ? 'uiPillActive' : ''}`} onClick={() => setRoleSort('LEDGER')}>
+                      排序：账本完整
+                    </button>
+                  </div>
 
                   {visibleCharacters.length === 0 && (
                     <div className="uiEmpty" style={{ marginTop: 8 }}>
@@ -787,9 +825,9 @@ export default function HomeFeedPage() {
                     </div>
                   )}
 
-                  {visibleCharacters.length > 0 && (
+                  {sortedVisibleCharacters.length > 0 && (
                     <div className="uiRoleRail">
-                      {visibleCharacters.slice(0, 40).map((c) => {
+                      {sortedVisibleCharacters.slice(0, 40).map((c) => {
                         const digest = characterDigestById[c.id]
                         const status = activatedIdSet.has(c.id) ? '已激活' : '未激活'
                         const health = digest ? `${digest.complete}/4` : '0/4'
