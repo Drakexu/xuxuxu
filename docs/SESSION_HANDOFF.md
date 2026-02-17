@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-17 (checkpoint: subject guard hardening v33)
+Last updated: 2026-02-17 (checkpoint: patch contradiction guard v34)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -80,6 +80,29 @@ Repo: `d:/projects/xuxuxu`
     - non-whitelisted speakers trigger rewrite before persistence
     - user-speaker impersonation remains blocked and now participates in the same guard flow
   - Reused same guard arguments for first-pass output and rewrite output validation to keep behavior consistent.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Patch contradiction guard v34 checkpoint (latest)
+- Files changed:
+  - `lib/patchValidation.ts`
+  - `app/api/chat/route.ts`
+  - `app/api/cron/patch/route.ts`
+- Completed:
+  - Upgraded patch evidence window from turn-only to turn + recent message window:
+    - `sanitizePatchOutput` now accepts `recentMessages`
+    - chat/cron patch apply paths now pass `patch_input.recent_messages`
+  - Added cross-turn contradiction gates in patch sanitization:
+    - relationship stage regression guard:
+      - prevents stage downgrade without conflict evidence
+    - wardrobe confirmation conflict guard:
+      - prevents confirmed outfit overwrite when current confirmed outfit exists but no shift evidence
+    - NPC stable-field conflict guard:
+      - for existing NPCs, conflicting stable attributes are stripped or downgraded without evidence
+  - Kept existing safety gates intact (enum clamps, confirmed downgrade, inventory floor, dedupe).
+  - Normalized cron PatchScribe prompt text (removed mojibake block).
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

@@ -1242,6 +1242,7 @@ export async function POST(req: Request) {
             const patchObj = sanitizePatchOutput(patchRaw, {
               evidenceText: patchEvidenceText,
               conversationState: conversationStateNow,
+              recentMessages: asArray(patchInput['recent_messages']),
             })
             if (!patchObj) throw new Error('Patch schema invalid')
 

@@ -1,5 +1,5 @@
 export type JsonObject = Record<string, unknown>
-type SanitizePatchOptions = { evidenceText?: string; conversationState?: unknown }
+type SanitizePatchOptions = { evidenceText?: string; conversationState?: unknown; recentMessages?: unknown }
 
 const MAX_ARRAY_ITEMS = 160
 const MAX_TEXT_LEN = 1_000
@@ -51,6 +51,35 @@ function uniqueStrings(rows: unknown[], limit: number): string[] {
     if (out.length >= limit) break
   }
   return out
+}
+
+function normalizeLc(v: unknown) {
+  return String(v || '').trim().toLowerCase()
+}
+
+function hasAnyCue(textLc: string, cues: string[]) {
+  if (!textLc) return false
+  return cues.some((c) => !!c && textLc.includes(c.toLowerCase()))
+}
+
+function asContentText(v: unknown) {
+  if (typeof v === 'string') return v
+  const r = asRecord(v)
+  return String(r['content'] || r['text'] || r['summary'] || '')
+}
+
+function buildEvidenceWindow(opts: SanitizePatchOptions) {
+  const parts: string[] = []
+  const turnEvidence = String(opts.evidenceText || '').trim()
+  if (turnEvidence) parts.push(turnEvidence)
+
+  const rows = asArray(opts.recentMessages)
+  for (const row of rows.slice(-16)) {
+    const t = asContentText(row).trim()
+    if (t) parts.push(t)
+  }
+
+  return parts.join('\n').toLowerCase()
 }
 
 function sanitizeExperienceAxesDelta(raw: unknown): JsonObject {
@@ -174,6 +203,33 @@ function clampStageJump(next: unknown, current: unknown) {
   return `S${target}`
 }
 
+function applyStageRegressionGuard(next: unknown, current: unknown, evidenceLc: string) {
+  const n = stageNumber(next)
+  const c = stageNumber(current)
+  if (n === null || c === null) return next
+  if (n >= c) return next
+
+  const downgradeCues = [
+    '降温',
+    '冷淡',
+    '疏远',
+    '争吵',
+    '冲突',
+    '误会',
+    '决裂',
+    '拒绝',
+    '分手',
+    'break up',
+    'cool off',
+    'conflict',
+    'argument',
+    'distance',
+    'reject',
+  ]
+  if (hasAnyCue(evidenceLc, downgradeCues)) return next
+  return `S${c}`
+}
+
 function hasEvidenceForRecord(r: JsonObject, evidenceLc: string) {
   if (!evidenceLc) return true
   const keys = ['name', 'item', 'id', 'npc', 'content', 'summary', 'title'] as const
@@ -231,6 +287,52 @@ function sanitizeNpcAddOrUpdate(raw: unknown, args: { evidenceLc: string; presen
   return out
 }
 
+function indexNpcByNameFromState(state: unknown) {
+  const root = asRecord(state)
+  const ledger = asRecord(root['ledger'])
+  const npcs = asArray(ledger['npc_database'])
+  const map = new Map<string, JsonObject>()
+  for (const item of npcs) {
+    const r = asRecord(item)
+    const name = asString(r['name']) || asString(r['npc']) || asString(r['id'])
+    if (!name) continue
+    map.set(normalizeLc(name), r)
+  }
+  return map
+}
+
+function reconcileNpcAgainstState(rows: Array<Record<string, unknown>>, args: { state: unknown; evidenceLc: string }) {
+  const existingMap = indexNpcByNameFromState(args.state)
+  const stableKeys = ['role', 'identity', 'faction', 'relationship', 'relation', 'job', 'title'] as const
+
+  return rows.map((row) => {
+    const out: Record<string, unknown> = { ...row }
+    const name = asString(out['name']) || asString(out['npc']) || asString(out['id'])
+    if (!name) return out
+
+    const prev = existingMap.get(normalizeLc(name))
+    if (!prev) return out
+
+    let hasConflict = false
+    for (const key of stableKeys) {
+      const nextV = asString(out[key])
+      const prevV = asString(prev[key])
+      if (!nextV || !prevV) continue
+      if (normalizeLc(nextV) === normalizeLc(prevV)) continue
+      hasConflict = true
+      if (!args.evidenceLc.includes(normalizeLc(name)) && !args.evidenceLc.includes(normalizeLc(nextV))) {
+        delete out[key]
+      }
+    }
+
+    if (hasConflict && !args.evidenceLc.includes(normalizeLc(name))) {
+      out['confirmed'] = false
+    }
+
+    return out
+  })
+}
+
 function sanitizeWardrobe(raw: unknown): JsonObject {
   const src = asRecord(raw)
   const out: JsonObject = {}
@@ -246,6 +348,44 @@ function sanitizeWardrobe(raw: unknown): JsonObject {
   }
 
   return out
+}
+
+function reconcileWardrobeAgainstState(update: JsonObject, args: { state: unknown; evidenceLc: string }) {
+  const root = asRecord(args.state)
+  const ledger = asRecord(root['ledger'])
+  const currentWardrobe = asRecord(ledger['wardrobe'])
+
+  const currentOutfit = asString(currentWardrobe['current_outfit']) || ''
+  const currentConfirmed = asBool(currentWardrobe['confirmed']) === true
+  const nextOutfit = asString(update['current_outfit']) || ''
+  const nextConfirmed = asBool(update['confirmed']) === true
+
+  if (!nextOutfit) return update
+  if (!currentOutfit || normalizeLc(currentOutfit) === normalizeLc(nextOutfit)) return update
+  if (!currentConfirmed && !nextConfirmed) return update
+
+  const shiftCues = [
+    '换装',
+    '换上',
+    '换了',
+    '换衣',
+    '穿上',
+    '穿着',
+    '改穿',
+    'outfit',
+    'wearing',
+    'changed into',
+    'put on',
+    'dress',
+    'jacket',
+  ]
+  const hasShiftEvidence = args.evidenceLc.includes(normalizeLc(nextOutfit)) || hasAnyCue(args.evidenceLc, shiftCues)
+  if (hasShiftEvidence) return update
+
+  // Conflicting outfit change without evidence: avoid hard overwrite.
+  const downgraded: JsonObject = { ...update, confirmed: false }
+  delete downgraded['current_outfit']
+  return downgraded
 }
 
 function sanitizeMemoryEpisode(raw: unknown): JsonObject {
@@ -268,7 +408,7 @@ const ALLOWED_NARRATION_MODES = new Set(['DIALOG', 'NARRATION', 'MULTI_CAST', 'C
 const ALLOWED_PRESENT_CHAR_LIMIT = 8
 
 export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {}): JsonObject | null {
-  const evidenceLc = String(opts.evidenceText || '').toLowerCase()
+  const evidenceLc = buildEvidenceWindow(opts)
   const stateBefore = asRecord(opts.conversationState)
   const rawObj = asRecord(raw)
 
@@ -310,6 +450,11 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
   const relationshipStage = asString(sanitizedRun['relationship_stage'])
   if (relationshipStage) sanitizedRun['relationship_stage'] = relationshipStage.slice(0, 20)
   sanitizedRun['relationship_stage'] = clampStageJump(sanitizedRun['relationship_stage'], asRecord(stateBefore['run_state'])['relationship_stage'])
+  sanitizedRun['relationship_stage'] = applyStageRegressionGuard(
+    sanitizedRun['relationship_stage'],
+    asRecord(stateBefore['run_state'])['relationship_stage'],
+    evidenceLc,
+  )
 
   const turnSeq = asNumber(sanitizedRun['turn_seq'])
   if (turnSeq !== null) sanitizedRun['turn_seq'] = Math.floor(turnSeq)
@@ -351,15 +496,19 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
     evidenceLc,
     presentCharacters,
   })
+  sanitizedLedger['npc_db_add_or_update'] = reconcileNpcAgainstState(asArray(sanitizedLedger['npc_db_add_or_update']) as Array<Record<string, unknown>>, {
+    state: stateBefore,
+    evidenceLc,
+  })
   sanitizedLedger['inventory_delta'] = reconcileInventoryDeltaWithState(sanitizeInventoryDelta(ledgerPatch['inventory_delta']), stateBefore)
   sanitizedLedger['wardrobe_update'] = (() => {
     const w = sanitizeWardrobe(ledgerPatch['wardrobe_update'])
     const confirmed = asBool(w['confirmed'])
     const outfit = asString(w['current_outfit'])
     if (confirmed === true && outfit && evidenceLc && !evidenceLc.includes(outfit.toLowerCase())) {
-      return { ...w, confirmed: false }
+      return reconcileWardrobeAgainstState({ ...w, confirmed: false }, { state: stateBefore, evidenceLc })
     }
-    return w
+    return reconcileWardrobeAgainstState(w, { state: stateBefore, evidenceLc })
   })()
   sanitizedLedger['relation_ledger_add'] = dedupeAgainstState(
     sanitizePatchAddArray(downgradeUnverifiedConfirmedInArray(ledgerPatch['relation_ledger_add'], evidenceLc), 120),

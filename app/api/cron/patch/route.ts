@@ -280,19 +280,21 @@ function applyPatchToMemoryStates(args: {
 }
 
 function patchSystemPrompt() {
-  return `你是“PatchScribe”。你将收到 PATCH_INPUT（JSON）。你必须只输出一个 JSON 对象，不要输出任何其它文字。
+  return `You are PatchScribe. You will receive PATCH_INPUT JSON and must output exactly one JSON object.
 
-规则：
-1) 严格 JSON：不要 markdown，不要注释，不要多余空行说明。
-2) 所有顶层字段必须存在，即使为空也要给空对象/空数组：
+Rules:
+1) Strict JSON only: no markdown, no comments, no prose.
+2) Keep all top-level keys present even if empty:
 focus_panel_next, run_state_patch, plot_board_patch, persona_system_patch, ip_pack_patch,
 schedule_board_patch, ledger_patch, memory_patch, style_guard_patch, fact_patch_add, moderation_flags
-3) ledger_patch 的 confirmed=true 只能来自对话明确确认；否则 confirmed=false。
-4) experience_axes_delta 的每个轴范围 [-0.2, 0.2]。
-5) 允许在 run_state_patch 中更新：narration_mode（DIALOG|NARRATION|MULTI_CAST|CG|SCHEDULE）、present_characters、current_main_role、relationship_stage 等，但必须与对话与 input_event 一致，禁止凭空大幅跳变。
-6) 若用户输入出现“结束演绎/回到单聊/停止多角色”等退出指令，应将 narration_mode 置为 DIALOG，并停止多角色格式约束。
+3) In ledger_patch, confirmed=true is allowed only when directly evidenced by turn text.
+4) Clamp each experience_axes_delta value to [-0.2, 0.2].
+5) run_state_patch may update narration_mode (DIALOG|NARRATION|MULTI_CAST|CG|SCHEDULE),
+present_characters, current_main_role, relationship_stage, but it must stay consistent with input_event.
+6) If user asks to exit multi-cast (for example: end roleplay / back to single chat),
+set narration_mode to DIALOG and remove strict multi-cast constraints.
 
-输出 schema（示意）：
+Output schema (example keys):
 {
   "focus_panel_next": { ... },
   "run_state_patch": { ... },
@@ -304,10 +306,9 @@ schedule_board_patch, ledger_patch, memory_patch, style_guard_patch, fact_patch_
   "memory_patch": { "memory_b_episode": { "bucket_start":"", "summary":"", "open_loops":[], "tags":[] } },
   "style_guard_patch": { ... },
   "fact_patch_add": [],
-  "moderation_flags": { }
+  "moderation_flags": {}
 }`
 }
-
 async function optimisticUpdateConversationState(args: {
   sb: ReturnType<typeof createAdminClient>
   convId: string
@@ -438,6 +439,7 @@ export async function POST(req: Request) {
             const patch = sanitizePatchOutput(patchObjRaw, {
               evidenceText: patchEvidenceText,
               conversationState,
+              recentMessages: asArray(pi['recent_messages']),
             })
             if (!patch) throw new Error('Patch schema invalid')
 
@@ -538,3 +540,4 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   return POST(req)
 }
+
