@@ -1694,3 +1694,19 @@ pm run -s build -> pass
 - Validation:
   - `npm run lint` passed
   - `npm run build` passed
+
+## 2026-02-17 checkpoint: PatchScribe strong-consistency hardening
+- Updated `app/api/chat/route.ts` and `app/api/cron/patch/route.ts` idempotency logic to prevent false-done on partial apply.
+- Root issue fixed:
+  - previous flow could mark job applied when conversation_state succeeded but character_state failed,
+    causing retries to skip remaining character patch.
+- New behavior:
+  - patch job completion now requires applied marker in BOTH conversation_state and character_state.
+  - retries support partial-resume:
+    - if conversation side already applied, retry only applies missing character side.
+    - if character side already applied, retry only applies missing conversation side.
+  - marker sync helpers now normalize/read from both run_state and root-level fields for compatibility.
+- Added `applied_patch_job_ids` default seed in new character_state creation path.
+- Validation:
+  - `npm run lint` passed
+  - `npm run build` passed

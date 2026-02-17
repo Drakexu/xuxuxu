@@ -80,6 +80,36 @@ function asArray(v: unknown): unknown[] {
   return Array.isArray(v) ? v : []
 }
 
+function listIncludes(arr: unknown[], target: string) {
+  return arr.map((x) => String(x || '').trim()).filter(Boolean).includes(target)
+}
+
+function getConversationAppliedPatchJobIds(state: unknown) {
+  const root = asRecord(state)
+  const run = asRecord(root['run_state'])
+  const fromRun = asArray(run['applied_patch_job_ids']).map((x) => String(x || '').trim()).filter(Boolean)
+  const fromRoot = asArray(root['applied_patch_job_ids']).map((x) => String(x || '').trim()).filter(Boolean)
+  const set = new Set<string>([...fromRun, ...fromRoot])
+  return Array.from(set)
+}
+
+function setConversationAppliedPatchJobIds(state: JsonObject, ids: string[]) {
+  const uniq = Array.from(new Set(ids.map((x) => String(x || '').trim()).filter(Boolean))).slice(-240)
+  const run = asRecord(state['run_state'])
+  run['applied_patch_job_ids'] = uniq
+  state['run_state'] = run
+  state['applied_patch_job_ids'] = uniq
+}
+
+function getCharacterAppliedPatchJobIds(state: unknown) {
+  const root = asRecord(state)
+  return asArray(root['applied_patch_job_ids']).map((x) => String(x || '').trim()).filter(Boolean)
+}
+
+function setCharacterAppliedPatchJobIds(state: JsonObject, ids: string[]) {
+  state['applied_patch_job_ids'] = Array.from(new Set(ids.map((x) => String(x || '').trim()).filter(Boolean))).slice(-240)
+}
+
 function safeExtractJsonObject(text: string) {
   const s = String(text || '').trim()
   if (!s) return null
@@ -434,6 +464,20 @@ export async function POST(req: Request) {
             if (st.error || !st.data?.state) throw new Error(`Load conversation_states failed: ${st.error?.message || 'no state'}`)
             const conversationStateVerNow = Number(st.data.version ?? 0)
             const conversationState = structuredClone(st.data.state as JsonObject)
+
+            const ch = await sb.from('character_states').select('state,version').eq('character_id', characterId).maybeSingle()
+            if (ch.error || !ch.data?.state) throw new Error(`Load character_states failed: ${ch.error?.message || 'no state'}`)
+            const characterStateVerNow = Number(ch.data.version ?? 0)
+            const characterState = structuredClone(ch.data.state as JsonObject)
+
+            const convApplied = listIncludes(getConversationAppliedPatchJobIds(conversationState), jobId)
+            const charApplied = listIncludes(getCharacterAppliedPatchJobIds(characterState), jobId)
+            if (convApplied && charApplied) {
+              await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
+              ok++
+              return
+            }
+
             const turn = asRecord(pi['turn'])
             const patchEvidenceText = `${String(turn['user_input'] || '')}\n${String(turn['assistant_text'] || '')}`
             const patch = sanitizePatchOutput(patchObjRaw, {
@@ -443,47 +487,47 @@ export async function POST(req: Request) {
             })
             if (!patch) throw new Error('Patch schema invalid')
 
-            const ch = await sb.from('character_states').select('state,version').eq('character_id', characterId).maybeSingle()
-            if (ch.error || !ch.data?.state) throw new Error(`Load character_states failed: ${ch.error?.message || 'no state'}`)
-            const characterStateVerNow = Number(ch.data.version ?? 0)
-            const characterState = structuredClone(ch.data.state as JsonObject)
-
-            // Idempotency: if this job was already applied, mark done and skip.
-            {
-              const rs = asRecord(conversationState['run_state'])
-              const applied = asArray(rs['applied_patch_job_ids']).map(String)
-              if (applied.includes(jobId)) {
-                await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
-                ok++
-                return
-              }
-            }
+            const convNext = structuredClone(conversationState)
+            const charNext = structuredClone(characterState)
 
             const { memoryEpisode } = applyPatchToMemoryStates({
-              conversationState,
-              characterState,
+              conversationState: convNext,
+              characterState: charNext,
               patchObj: patch,
               includeMemoryEpisode: true,
             })
 
-            const rs = asRecord(conversationState['run_state'])
-            const applied = asArray(rs['applied_patch_job_ids']).map(String).filter(Boolean)
-            rs['applied_patch_job_ids'] = [...applied, jobId].slice(-240)
+            let appliedConvNow = convApplied
+            let appliedCharNow = charApplied
+            let wroteAnyState = false
 
-            await optimisticUpdateConversationState({
-              sb,
-              convId: conversationId,
-              state: conversationState,
-              expectedVersion: conversationStateVerNow,
-            })
-            await optimisticUpdateCharacterState({
-              sb,
-              characterId,
-              state: characterState,
-              expectedVersion: characterStateVerNow,
-            })
+            if (!convApplied) {
+              const ids = getConversationAppliedPatchJobIds(convNext)
+              setConversationAppliedPatchJobIds(convNext, [...ids, jobId])
+              await optimisticUpdateConversationState({
+                sb,
+                convId: conversationId,
+                state: convNext,
+                expectedVersion: conversationStateVerNow,
+              })
+              wroteAnyState = true
+              appliedConvNow = true
+            }
 
-            if (memoryEpisode) {
+            if (!charApplied) {
+              const ids = getCharacterAppliedPatchJobIds(charNext)
+              setCharacterAppliedPatchJobIds(charNext, [...ids, jobId])
+              await optimisticUpdateCharacterState({
+                sb,
+                characterId,
+                state: charNext,
+                expectedVersion: characterStateVerNow,
+              })
+              wroteAnyState = true
+              appliedCharNow = true
+            }
+
+            if (memoryEpisode && wroteAnyState) {
               await sb.from('memory_b_episodes').upsert(
                 {
                   conversation_id: conversationId,
@@ -497,8 +541,10 @@ export async function POST(req: Request) {
               )
             }
 
-            await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
-            ok++
+            if (appliedConvNow && appliedCharNow) {
+              await sb.from('patch_jobs').update({ status: 'done', last_error: '', patched_at: new Date().toISOString() }).eq('id', jobId)
+              ok++
+            }
           }
 
           for (let attempt = 1; attempt <= PATCH_APPLY_MAX_ATTEMPTS; attempt++) {
