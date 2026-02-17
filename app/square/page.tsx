@@ -275,7 +275,7 @@ export default function SquarePage() {
     }
   }
 
-  const unlockCharacterFromCard = async (source: PubCharacter) => {
+  const unlockCharacterFromCard = async (source: PubCharacter, options?: { startChat?: boolean }) => {
     if (!source?.id || unlockingId) return
     setUnlockingId(source.id)
     setAlert(null)
@@ -296,6 +296,7 @@ export default function SquarePage() {
         settings: normalizeUnlockedSettings(source.settings, source.id),
       }
 
+      let localId = ''
       const r1 = await supabase.from('characters').insert(payloadV2).select('id').single()
       if (r1.error) {
         const msg = r1.error.message || ''
@@ -303,12 +304,17 @@ export default function SquarePage() {
         if (!looksLikeLegacy) throw new Error(msg)
         const r2 = await supabase.from('characters').insert({ user_id: userId, name: source.name, system_prompt: source.system_prompt }).select('id').single()
         if (r2.error || !r2.data?.id) throw new Error(r2.error?.message || 'unlock failed')
+        localId = String(r2.data.id)
         setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId: r2.data.id, active: true } }))
       } else {
-        setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId: String(r1.data.id), active: true } }))
+        localId = String(r1.data.id)
+        setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId, active: true } }))
       }
 
-      setAlert({ type: 'ok', text: '已解锁并激活到首页队列。' })
+      setAlert({ type: 'ok', text: options?.startChat ? '已解锁并激活，正在跳转聊天。' : '已解锁并激活到首页队列。' })
+      if (options?.startChat && localId) {
+        router.push(`/chat/${localId}`)
+      }
     } catch (e: unknown) {
       setAlert({ type: 'err', text: e instanceof Error ? `解锁失败：${e.message}` : String(e) })
     } finally {
@@ -507,11 +513,23 @@ export default function SquarePage() {
                   router.push('/login')
                   return
                 }
-                void unlockCharacterFromCard(c)
+                void unlockCharacterFromCard(c, { startChat: true })
               }}
             >
-              {!isLoggedIn ? '登录后解锁' : unlockingId === c.id ? '解锁中...' : '一键解锁'}
+              {!isLoggedIn ? '登录后解锁' : unlockingId === c.id ? '解锁中...' : '解锁并开聊'}
             </button>
+            {isLoggedIn ? (
+              <button
+                className="uiBtn uiBtnGhost"
+                disabled={unlockingId === c.id}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void unlockCharacterFromCard(c)
+                }}
+              >
+                仅解锁
+              </button>
+            ) : null}
             <button
               className="uiBtn uiBtnGhost"
               onClick={(e) => {

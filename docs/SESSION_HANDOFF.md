@@ -1241,3 +1241,17 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v14 checkpoint (latest)
+- Files changed:
+  - `app/square/page.tsx`
+- Completed:
+  - Improved unlock conversion loop on square cards:
+    - new primary CTA: `解锁并开聊`
+    - optional secondary CTA: `仅解锁`
+    - post-unlock immediate redirect to `/chat/[localCharacterId]` when requested
+  - Keeps existing unlock->activate semantics while reducing first-chat friction.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
