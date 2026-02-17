@@ -1225,3 +1225,19 @@ Repo: `d:/projects/xuxuxu`
    - improve unlock -> activate -> chat -> home-feed feedback loop with clearer CTA/state handoff.
 4. Social depth:
    - add lightweight interactions on feed cards (bookmark/like intent and sorting hooks).
+
+### High-target execution v13 checkpoint (latest)
+- Files changed:
+  - `app/home/page.tsx`
+  - `app/home/[characterId]/page.tsx`
+- Completed:
+  - Added feed interaction layer (client-side persisted):
+    - like/save toggles on each feed card
+    - local persistence via localStorage
+    - `½ö¿´ÊÕ²Ø` filter on both aggregate and single-character feed
+  - Extended KPI cards with saved-item counts.
+  - Keeps backend schema unchanged while improving social-surface UX loop.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass

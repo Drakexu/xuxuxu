@@ -17,7 +17,9 @@ type FeedItem = {
 }
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
+type FeedReactionMap = Record<string, { liked?: boolean; saved?: boolean }>
 const FEED_PAGE_SIZE = 80
+const FEED_REACTION_STORAGE_KEY = 'xuxuxu:feed:reactions:v1'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -73,14 +75,35 @@ export default function HomeFeedPage() {
   const [imgById, setImgById] = useState<Record<string, string>>({})
   const [activeCharId, setActiveCharId] = useState<string>('') // '' => all
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
+  const [savedOnly, setSavedOnly] = useState(false)
   const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
+  const [feedReactions, setFeedReactions] = useState<FeedReactionMap>({})
   const [feedAllowedCharacterIds, setFeedAllowedCharacterIds] = useState<string[]>([])
   const [feedCursor, setFeedCursor] = useState('')
   const [feedHasMore, setFeedHasMore] = useState(false)
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
 
   const canLoad = useMemo(() => !loading, [loading])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FEED_REACTION_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as FeedReactionMap
+      if (parsed && typeof parsed === 'object') setFeedReactions(parsed)
+    } catch {
+      // ignore corrupted local cache
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FEED_REACTION_STORAGE_KEY, JSON.stringify(feedReactions))
+    } catch {
+      // ignore quota/private mode errors
+    }
+  }, [feedReactions])
 
   const updateCharacterSettings = async (characterId: string, patch: Record<string, unknown>) => {
     const { data: userData } = await supabase.auth.getUser()
@@ -272,8 +295,9 @@ export default function HomeFeedPage() {
     if (feedTab === 'SCHEDULE') next = next.filter((it) => it.input_event === 'SCHEDULE_TICK')
     const q = feedQuery.trim().toLowerCase()
     if (q) next = next.filter((it) => (it.content || '').toLowerCase().includes(q))
+    if (savedOnly) next = next.filter((it) => !!feedReactions[it.id]?.saved)
     return next
-  }, [items, activeCharId, feedTab, activated, unlocked, viewMode, feedQuery])
+  }, [items, activeCharId, feedTab, activated, unlocked, viewMode, feedQuery, savedOnly, feedReactions])
 
   const nameById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -300,9 +324,11 @@ export default function HomeFeedPage() {
       moments,
       diaries,
       schedules,
+      liked: items.filter((it) => !!feedReactions[it.id]?.liked).length,
+      saved: items.filter((it) => !!feedReactions[it.id]?.saved).length,
       total: items.length,
     }
-  }, [items])
+  }, [items, feedReactions])
   const selectedCharacterStats = useMemo(() => {
     if (!selectedCharacter) return null
     const targetId = selectedCharacter.id
@@ -376,6 +402,19 @@ export default function HomeFeedPage() {
     return {}
   }
 
+  const toggleReaction = (messageId: string, key: 'liked' | 'saved') => {
+    setFeedReactions((prev) => {
+      const curr = prev[messageId] || {}
+      return {
+        ...prev,
+        [messageId]: {
+          ...curr,
+          [key]: !curr[key],
+        },
+      }
+    })
+  }
+
   return (
     <div className="uiPage">
       <AppShell
@@ -423,6 +462,10 @@ export default function HomeFeedPage() {
             <div className="uiKpi">
               <b>{feedStats.schedules}</b>
               <span>日程片段</span>
+            </div>
+            <div className="uiKpi">
+              <b>{feedStats.saved}</b>
+              <span>收藏</span>
             </div>
           </div>
         </section>
@@ -550,6 +593,9 @@ export default function HomeFeedPage() {
                     <button className={`uiPill ${feedTab === 'SCHEDULE' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('SCHEDULE')}>
                       日程
                     </button>
+                    <button className={`uiPill ${savedOnly ? 'uiPillActive' : ''}`} onClick={() => setSavedOnly((v) => !v)}>
+                      仅看收藏
+                    </button>
                   </div>
 
                   {filtered.length === 0 && (
@@ -577,9 +623,23 @@ export default function HomeFeedPage() {
                               </div>
                               <div className="uiPanelSub">{new Date(it.created_at).toLocaleString()}</div>
                             </div>
-                            <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${String(it.conversations?.character_id || '')}`)}>
-                              去聊天
-                            </button>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <button
+                                className={`uiPill ${feedReactions[it.id]?.liked ? 'uiPillActive' : ''}`}
+                                onClick={() => toggleReaction(it.id, 'liked')}
+                              >
+                                {feedReactions[it.id]?.liked ? '已喜欢' : '喜欢'}
+                              </button>
+                              <button
+                                className={`uiPill ${feedReactions[it.id]?.saved ? 'uiPillActive' : ''}`}
+                                onClick={() => toggleReaction(it.id, 'saved')}
+                              >
+                                {feedReactions[it.id]?.saved ? '已收藏' : '收藏'}
+                              </button>
+                              <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${String(it.conversations?.character_id || '')}`)}>
+                                去聊天
+                              </button>
+                            </div>
                           </div>
                           <div className="uiForm">
                             <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{it.content}</div>

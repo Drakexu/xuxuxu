@@ -14,6 +14,7 @@ type FeedItem = {
 }
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
+type FeedReactionMap = Record<string, { liked?: boolean; saved?: boolean }>
 const CHARACTER_FEED_PAGE_SIZE = 120
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 type ConversationRow = { id: string; created_at?: string | null; state?: unknown }
@@ -101,8 +102,10 @@ export default function CharacterHomePage() {
 
   const [title, setTitle] = useState('')
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
+  const [savedOnly, setSavedOnly] = useState(false)
   const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
+  const [feedReactions, setFeedReactions] = useState<FeedReactionMap>({})
   const [feedCursor, setFeedCursor] = useState('')
   const [feedHasMore, setFeedHasMore] = useState(false)
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
@@ -122,6 +125,26 @@ export default function CharacterHomePage() {
   const [updatingSchedule, setUpdatingSchedule] = useState(false)
   const [updatingRelationship, setUpdatingRelationship] = useState(false)
   const [updatingPromptPolicy, setUpdatingPromptPolicy] = useState(false)
+  const feedReactionStorageKey = useMemo(() => `xuxuxu:feed:reactions:v1:${characterId}`, [characterId])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(feedReactionStorageKey)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as FeedReactionMap
+      if (parsed && typeof parsed === 'object') setFeedReactions(parsed)
+    } catch {
+      // ignore corrupted local cache
+    }
+  }, [feedReactionStorageKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(feedReactionStorageKey, JSON.stringify(feedReactions))
+    } catch {
+      // ignore quota/private mode errors
+    }
+  }, [feedReactionStorageKey, feedReactions])
 
   const applyControlState = (state: unknown, forceTeen = false) => {
     const root = asRecord(state)
@@ -475,15 +498,18 @@ export default function CharacterHomePage() {
     else if (feedTab === 'SCHEDULE') next = next.filter((x) => x.input_event === 'SCHEDULE_TICK')
     const q = feedQuery.trim().toLowerCase()
     if (q) next = next.filter((x) => (x.content || '').toLowerCase().includes(q))
+    if (savedOnly) next = next.filter((x) => !!feedReactions[x.id]?.saved)
     return next
-  }, [items, feedTab, feedQuery])
+  }, [items, feedTab, feedQuery, savedOnly, feedReactions])
 
   const stats = useMemo(() => {
     const moment = items.filter((x) => x.input_event === 'MOMENT_POST').length
     const diary = items.filter((x) => x.input_event === 'DIARY_DAILY').length
     const schedule = items.filter((x) => x.input_event === 'SCHEDULE_TICK').length
-    return { moment, diary, schedule, total: items.length }
-  }, [items])
+    const liked = items.filter((x) => !!feedReactions[x.id]?.liked).length
+    const saved = items.filter((x) => !!feedReactions[x.id]?.saved).length
+    return { moment, diary, schedule, liked, saved, total: items.length }
+  }, [items, feedReactions])
 
   const ledgerHealth = useMemo(() => {
     if (!snapshot) {
@@ -519,6 +545,19 @@ export default function CharacterHomePage() {
     const m = mins % 60
     return `${h}小时${m ? `${m}分钟` : ''}后解锁`
   }, [storyLockUntil])
+
+  const toggleReaction = (messageId: string, key: 'liked' | 'saved') => {
+    setFeedReactions((prev) => {
+      const curr = prev[messageId] || {}
+      return {
+        ...prev,
+        [messageId]: {
+          ...curr,
+          [key]: !curr[key],
+        },
+      }
+    })
+  }
 
   return (
     <div className="uiPage">
@@ -567,6 +606,10 @@ export default function CharacterHomePage() {
                 <div className="uiKpi">
                   <b>{stats.schedule}</b>
                   <span>日程片段</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{stats.saved}</b>
+                  <span>收藏</span>
                 </div>
                 <div className="uiKpi">
                   <b>
@@ -718,6 +761,9 @@ export default function CharacterHomePage() {
                   <button className={`uiPill ${feedTab === 'SCHEDULE' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('SCHEDULE')}>
                     日程
                   </button>
+                  <button className={`uiPill ${savedOnly ? 'uiPillActive' : ''}`} onClick={() => setSavedOnly((v) => !v)}>
+                    仅看收藏
+                  </button>
                 </div>
 
                 {filtered.length === 0 && (
@@ -738,9 +784,17 @@ export default function CharacterHomePage() {
                         </div>
                         <div className="uiPanelSub">{new Date(it.created_at).toLocaleString()}</div>
                       </div>
-                      <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${characterId}`)}>
-                        去聊天
-                      </button>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button className={`uiPill ${feedReactions[it.id]?.liked ? 'uiPillActive' : ''}`} onClick={() => toggleReaction(it.id, 'liked')}>
+                          {feedReactions[it.id]?.liked ? '已喜欢' : '喜欢'}
+                        </button>
+                        <button className={`uiPill ${feedReactions[it.id]?.saved ? 'uiPillActive' : ''}`} onClick={() => toggleReaction(it.id, 'saved')}>
+                          {feedReactions[it.id]?.saved ? '已收藏' : '收藏'}
+                        </button>
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${characterId}`)}>
+                          去聊天
+                        </button>
+                      </div>
                     </div>
                     <div className="uiForm">
                       <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{it.content}</div>
