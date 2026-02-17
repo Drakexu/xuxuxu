@@ -109,6 +109,7 @@ export async function GET(req: Request) {
       const rrSquare = await sb
         .from('square_reactions')
         .select('source_character_id,liked,saved')
+        .in('source_character_id', ids)
         .order('updated_at', { ascending: false })
         .limit(reactionScanLimit)
       if (!rrSquare.error) {
@@ -160,6 +161,7 @@ export async function GET(req: Request) {
       const crSquare = await sb
         .from('square_comments')
         .select('source_character_id')
+        .in('source_character_id', ids)
         .order('created_at', { ascending: false })
         .limit(commentScanLimit)
       if (!crSquare.error) {

@@ -2199,3 +2199,16 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: square metrics precision fix
+- Files changed:
+  - app/api/square/metrics/route.ts
+- Completed:
+  - Fixed square social metrics query scope:
+    - `square_reactions` and `square_comments` are now filtered by requested `ids`
+    - avoids global-table-limit skew when dataset grows
+  - Keeps fallback compatibility paths intact.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
