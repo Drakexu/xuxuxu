@@ -26,6 +26,8 @@ Behavior:
 - If `lock_mode = story_lock` and lock is still active, scheduled auto posts are skipped.
 - If story lock is expired, cron best-effort auto-clears lock and restores `PLAY`.
 - `MOMENT_POST` defaults to strict hourly mode: max 1 post per UTC hour per conversation.
+  - `MOMENT_POST_HARD_CADENCE=true` (default) enforces hourly posting checks even when conversation is not idle.
+  - Set `MOMENT_POST_HARD_CADENCE=false` to restore idle-gated behavior.
   - Can be switched to probabilistic mode with `MOMENT_POST_STRICT_HOURLY=false`.
   - In probabilistic mode, cadence is controlled by `MOMENT_POST_MINUTES` + `MOMENT_POST_PROB`.
 - Idle detection for schedule generation now uses this anchor priority:
@@ -97,6 +99,7 @@ Use the included defaults unless traffic is very high:
 - Keep memory cron at `*/10 * * * *` for stable usage.
 - Keep schedule cron at `0 * * * *` (hourly posts/diary hooks).
 - Keep conversations bootstrap cron at `*/30 * * * *`.
+- Keep `MOMENT_POST_HARD_CADENCE=true` for guaranteed hourly moment checks.
 - Keep `MOMENT_POST_STRICT_HOURLY=true` for "朋友圈每小时一条" behavior.
 
 ### Backlog catch-up playbook

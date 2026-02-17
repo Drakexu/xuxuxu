@@ -2181,3 +2181,21 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: schedule cadence hardening pass
+- Files changed:
+  - app/api/cron/schedule/route.ts
+  - .env.example
+  - docs/cron.md
+  - README.md
+- Completed:
+  - Hardened moment generation cadence in schedule cron:
+    - added `MOMENT_POST_HARD_CADENCE` (default true)
+    - with hard cadence enabled, MOMENT_POST checks run every cron hour regardless of idle state
+    - still enforces max one MOMENT_POST per UTC hour per conversation
+  - Kept idle-gated behavior available via `MOMENT_POST_HARD_CADENCE=false`.
+  - Updated docs/env templates accordingly.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

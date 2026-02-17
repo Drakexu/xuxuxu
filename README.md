@@ -32,6 +32,7 @@ npm install
 - Run `supabase/schema_feed_reactions.sql` (enables cross-device persistence for feed like/save)
 - Run `supabase/schema_feed_comments.sql` (enables feed comment persistence)
 - Run `supabase/schema_square_unlocks.sql` (enables wallet + paid unlock + idempotent unlock receipts)
+- Run `supabase/schema_square_social.sql` (enables direct square like/save/comment persistence)
 
 4. Start dev server:
 

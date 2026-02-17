@@ -454,6 +454,7 @@ export async function POST(req: Request) {
     const momentStrictHourly = envFlag(process.env.MOMENT_POST_STRICT_HOURLY, true)
     const momentMinMinutes = clamp(Number(process.env.MOMENT_POST_MINUTES ?? 60), 10, 24 * 60)
     const momentProb = clamp(Number(process.env.MOMENT_POST_PROB ?? 1), 0, 1)
+    const momentHardCadence = envFlag(process.env.MOMENT_POST_HARD_CADENCE, true)
 
     const convs = await sb.from('conversations').select('id,user_id,character_id,created_at,title').order('created_at', { ascending: false }).limit(300)
     if (convs.error) return NextResponse.json({ error: convs.error.message }, { status: 500 })
@@ -537,19 +538,32 @@ export async function POST(req: Request) {
       const scheduleWindowOpen = isIdle && (!lastTickAt || lastTickAt <= minutesAgo(now, idleMins))
       const canRunScheduledContent = scheduleWindowOpen && !scheduleControl.blocked
 
-      if (canRunScheduledContent) {
-        const chst = await sb.from('character_states').select('state').eq('character_id', characterId).maybeSingle()
+      let recentMessagesCache: Array<{ role: string; content: string }> | null = null
+      let characterStateCache: unknown | undefined
+      const loadRecentMessages = async () => {
+        if (recentMessagesCache) return recentMessagesCache
         const msg = await sb
           .from('messages')
           .select('role,content,created_at')
           .eq('conversation_id', convId)
           .order('created_at', { ascending: false })
           .limit(40)
-
-        const recent = ((msg.data ?? []) as MsgRow[])
+        recentMessagesCache = ((msg.data ?? []) as MsgRow[])
           .slice()
           .reverse()
           .map((m) => ({ role: String(m.role || ''), content: String(m.content || '') }))
+        return recentMessagesCache
+      }
+      const loadCharacterState = async () => {
+        if (typeof characterStateCache !== 'undefined') return characterStateCache
+        const chst = await sb.from('character_states').select('state').eq('character_id', characterId).maybeSingle()
+        characterStateCache = chst.data?.state ?? {}
+        return characterStateCache
+      }
+
+      if (canRunScheduledContent) {
+        const recent = await loadRecentMessages()
+        const chstState = await loadCharacterState()
 
         const snippetRaw = await genScheduleSnippet({
           mmBase,
@@ -579,17 +593,19 @@ export async function POST(req: Request) {
             userInput: '',
             assistantText: snippet,
             conversationState: stState,
-            characterState: chst.data?.state ?? {},
+            characterState: chstState,
             recentMessages: recent,
           })
         }
+      }
 
-        // Moments: default to strict hourly posting (one post per UTC hour per conversation).
-        // Can be switched back to probabilistic mode via MOMENT_POST_STRICT_HOURLY=false.
-        try {
+      // Moments: default to hard hourly cadence by UTC hour even if user is active.
+      // Set MOMENT_POST_HARD_CADENCE=false to fall back to idle-gated behavior.
+      try {
+        let shouldPost = false
+        if (!scheduleControl.blocked) {
           const now2 = new Date()
-          let shouldPost = false
-          if (momentStrictHourly) {
+          if (momentHardCadence) {
             const hourStart = hourStartUtc(now2)
             const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000)
             const momentThisHour = await sb
@@ -603,56 +619,74 @@ export async function POST(req: Request) {
               .limit(1)
               .maybeSingle()
             shouldPost = !momentThisHour.data?.id
-          } else {
-            const momentCutoff = minutesAgo(now2, momentMinMinutes)
-            const momentRecent = await sb
-              .from('messages')
-              .select('id')
-              .eq('conversation_id', convId)
-              .eq('role', 'assistant')
-              .eq('input_event', 'MOMENT_POST')
-              .gte('created_at', momentCutoff.toISOString())
-              .limit(1)
-              .maybeSingle()
-            shouldPost = !momentRecent.data?.id && Math.random() < momentProb
-          }
-
-          if (shouldPost) {
-            const postTextRaw = await genMomentPost({
-              mmBase,
-              mmKey,
-              characterName,
-              characterSystemPrompt: sysPrompt,
-              conversationState: stState,
-              recentMessages: recent,
-            })
-            const postText = normalizeMomentPost(postTextRaw)
-            const insM = await sb.from('messages').insert({
-              user_id: userId,
-              conversation_id: convId,
-              role: 'assistant',
-              content: postText,
-              input_event: 'MOMENT_POST',
-            })
-            if (!insM.error) {
-              momentOk++
-              await enqueuePatchJobBestEffort({
-                sb,
-                userId,
-                conversationId: convId,
-                characterId,
-                inputEvent: 'MOMENT_POST',
-                userInput: '',
-                assistantText: postText,
-                conversationState: stState,
-                characterState: chst.data?.state ?? {},
-                recentMessages: recent,
-              })
+          } else if (canRunScheduledContent) {
+            if (momentStrictHourly) {
+              const hourStart = hourStartUtc(now2)
+              const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000)
+              const momentThisHour = await sb
+                .from('messages')
+                .select('id')
+                .eq('conversation_id', convId)
+                .eq('role', 'assistant')
+                .eq('input_event', 'MOMENT_POST')
+                .gte('created_at', hourStart.toISOString())
+                .lt('created_at', hourEnd.toISOString())
+                .limit(1)
+                .maybeSingle()
+              shouldPost = !momentThisHour.data?.id
+            } else {
+              const momentCutoff = minutesAgo(now2, momentMinMinutes)
+              const momentRecent = await sb
+                .from('messages')
+                .select('id')
+                .eq('conversation_id', convId)
+                .eq('role', 'assistant')
+                .eq('input_event', 'MOMENT_POST')
+                .gte('created_at', momentCutoff.toISOString())
+                .limit(1)
+                .maybeSingle()
+              shouldPost = !momentRecent.data?.id && Math.random() < momentProb
             }
           }
-        } catch {
-          // ignore
         }
+
+        if (shouldPost) {
+          const recent = await loadRecentMessages()
+          const chstState = await loadCharacterState()
+          const postTextRaw = await genMomentPost({
+            mmBase,
+            mmKey,
+            characterName,
+            characterSystemPrompt: sysPrompt,
+            conversationState: stState,
+            recentMessages: recent,
+          })
+          const postText = normalizeMomentPost(postTextRaw)
+          const insM = await sb.from('messages').insert({
+            user_id: userId,
+            conversation_id: convId,
+            role: 'assistant',
+            content: postText,
+            input_event: 'MOMENT_POST',
+          })
+          if (!insM.error) {
+            momentOk++
+            await enqueuePatchJobBestEffort({
+              sb,
+              userId,
+              conversationId: convId,
+              characterId,
+              inputEvent: 'MOMENT_POST',
+              userInput: '',
+              assistantText: postText,
+              conversationState: stState,
+              characterState: chstState,
+              recentMessages: recent,
+            })
+          }
+        }
+      } catch {
+        // ignore
       }
 
       const day = dayKeyUtc(now)
