@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { fetchFeedReactions, mergeFeedReactionMap, saveFeedReaction, type FeedReactionMap } from '@/lib/feedReactions'
+import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import AppShell from '@/app/_components/AppShell'
 
 type CharacterRow = { id: string; name: string; created_at?: string; settings?: Record<string, unknown> }
@@ -288,6 +289,30 @@ export default function HomeFeedPage() {
               const cid = String(row.character_id || '').trim()
               if (!cid || latestConvByCharacter[cid]) continue
               latestConvByCharacter[cid] = row
+            }
+          }
+
+          // Backfill one default conversation for old unlocked roles without conversations.
+          // This enables autonomous schedule ticks even if role was unlocked before this logic existed.
+          const nameById: Record<string, string> = {}
+          for (const c of nextUnlocked) {
+            if (c.id) nameById[c.id] = String(c.name || '对话')
+          }
+          const missingConvCharacterIds = ids.filter((cid) => !latestConvByCharacter[cid]).slice(0, 24)
+          for (const cid of missingConvCharacterIds) {
+            try {
+              const out = await ensureLatestConversationForCharacter({
+                userId,
+                characterId: cid,
+                title: nameById[cid] || '对话',
+              })
+              latestConvByCharacter[cid] = {
+                id: out.conversationId,
+                character_id: cid,
+                created_at: new Date().toISOString(),
+              }
+            } catch {
+              // ignore bootstrap errors
             }
           }
 

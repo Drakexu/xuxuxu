@@ -1479,3 +1479,21 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v27 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/home/page.tsx
+- Completed:
+  - Added Home-side conversation backfill for historical unlocked roles:
+    - when loading unlocked queue, roles without any conversation now get a best-effort default conversation bootstrap
+    - this closes old-data gap so autonomous schedule generation can start without requiring manual re-unlock
+  - Backfill runs with capped scope and graceful failure handling to avoid blocking Home rendering.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass
