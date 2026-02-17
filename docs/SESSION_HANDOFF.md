@@ -1889,3 +1889,25 @@ pm run -s build -> pass
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run -s build` -> pass
+
+## 2026-02-17 checkpoint: wardrobe asset hub pass #8
+- Files changed:
+  - `app/wardrobe/page.tsx` (new)
+  - `app/_components/AppShell.tsx`
+  - `app/globals.css`
+- Completed:
+  - Added new top-level page `/wardrobe` as a cross-role wardrobe/asset center.
+  - Added global navigation entry `衣柜资产` (desktop + mobile) in AppShell.
+  - New wardrobe hub capabilities:
+    - scope filters (`全部 / 已解锁 / 我的创作`)
+    - sort modes (`最近更新 / 账本完整度 / 角色名`)
+    - per-role stage card with static layered preview (`cover + role layer`)
+    - per-role ledger digest badges (`账本、穿搭、衣柜、物品、NPC、高光`)
+    - quick actions (`聊天 / 资产页 / 动态中心`)
+  - Data aggregation used in the hub:
+    - characters + latest conversation + conversation state digest
+    - character assets (cover/full_body/head) signed and composed in cards
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npm run -s build` -> pass
+  - `npx tsc --noEmit` -> pass
