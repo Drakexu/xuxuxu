@@ -94,6 +94,8 @@ npm run start
   - `GET /api/wallet/history`
   - `GET /api/wallet/creator-metrics`
   - `GET /api/square/metrics?ids=...`
+  - `GET/POST /api/square/social/reactions`
+  - `GET/POST/DELETE /api/square/social/comments`
   - `POST /api/square/unlock`
 - Behavior:
   - Unlock now uses server-side idempotent flow (same user/source will not double charge).
@@ -101,5 +103,8 @@ npm run start
   - Supports creator revenue split via `settings.unlock_creator_share_bp` (or `settings.creation_form.publish.unlock_creator_share_bp`), default `7000` (=70%).
   - Square metrics API returns growth signals per source role:
     - `unlocked`, `active`, `likes`, `saves`, `reactions`, `comments`, `sales`, `revenue`, `hot`
+  - Optional square social schema (`supabase/schema_square_social.sql`) enables direct social actions on square:
+    - role-level like/save (`square_reactions`)
+    - role-level comments (`square_comments`)
   - Creator metrics API returns both `topRoles` and full `roleMetrics` for studio ranking/filtering.
   - If wallet schema is missing, unlock API gracefully falls back to legacy free unlock path.

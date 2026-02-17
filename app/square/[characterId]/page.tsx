@@ -6,6 +6,15 @@ import { supabase } from '@/lib/supabaseClient'
 import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import { unlockSquareCharacter } from '@/lib/squareUnlock'
 import { fetchWalletSummary } from '@/lib/wallet'
+import {
+  createSquareComment,
+  deleteSquareComment,
+  fetchSquareComments,
+  fetchSquareReactions,
+  saveSquareReaction,
+  type SquareComment,
+  type SquareReaction,
+} from '@/lib/squareSocial'
 import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
@@ -125,6 +134,14 @@ export default function SquareDetailPage() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [walletSpent, setWalletSpent] = useState(0)
   const [walletUnlocked, setWalletUnlocked] = useState(0)
+  const [squareReactionTableReady, setSquareReactionTableReady] = useState(true)
+  const [squareCommentTableReady, setSquareCommentTableReady] = useState(true)
+  const [mySquareReaction, setMySquareReaction] = useState<SquareReaction>({})
+  const [squareComments, setSquareComments] = useState<SquareComment[]>([])
+  const [reactionBusy, setReactionBusy] = useState(false)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [commentSaving, setCommentSaving] = useState(false)
+  const [commentDeletingId, setCommentDeletingId] = useState('')
   const currentSquareMetrics = useMemo(() => (item ? squareMetricsBySourceId[item.id] : undefined), [item, squareMetricsBySourceId])
   const insufficientCoins = useMemo(() => {
     if (!item || !!unlockedCharId || !isLoggedIn || !walletReady) return false
@@ -196,15 +213,25 @@ export default function SquareDetailPage() {
       setWalletBalance(0)
       setWalletSpent(0)
       setWalletUnlocked(0)
+      setSquareReactionTableReady(true)
+      setSquareCommentTableReady(true)
+      setMySquareReaction({})
+      setSquareComments([])
+      setReactionBusy(false)
+      setCommentDraft('')
+      setCommentSaving(false)
+      setCommentDeletingId('')
 
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData.user?.id
       setIsLoggedIn(!!userId)
+      let sessionToken = ''
 
       if (userId) {
         try {
           const { data: sess } = await supabase.auth.getSession()
           const token = sess.session?.access_token || ''
+          sessionToken = token
           if (token) {
             const wallet = await fetchWalletSummary(token)
             setWalletReady(wallet.walletReady)
@@ -238,6 +265,27 @@ export default function SquareDetailPage() {
 
       setItem(c)
       const metricIds = new Set<string>([id])
+
+      try {
+        const reactionOut = sessionToken
+          ? await fetchSquareReactions({ token: sessionToken, sourceCharacterIds: [id] })
+          : { tableReady: true, reactions: {} as Record<string, SquareReaction> }
+        setSquareReactionTableReady(reactionOut.tableReady)
+        setMySquareReaction(reactionOut.reactions[id] || {})
+      } catch {
+        // ignore
+      }
+      try {
+        const commentsOut = await fetchSquareComments({
+          sourceCharacterId: id,
+          limit: 24,
+          token: sessionToken || undefined,
+        })
+        setSquareCommentTableReady(commentsOut.tableReady)
+        setSquareComments(commentsOut.comments)
+      } catch {
+        // ignore
+      }
 
       // Already unlocked?
       if (userId) {
@@ -536,6 +584,125 @@ export default function SquareDetailPage() {
     }
   }
 
+  const toggleSquareReaction = async (key: 'liked' | 'saved') => {
+    if (!item?.id || reactionBusy) return
+    if (!isLoggedIn) {
+      router.push('/login')
+      return
+    }
+    setReactionBusy(true)
+    const prev = mySquareReaction || {}
+    const nextLiked = key === 'liked' ? !prev.liked : !!prev.liked
+    const nextSaved = key === 'saved' ? !prev.saved : !!prev.saved
+    const nextReaction = nextLiked || nextSaved ? { liked: nextLiked, saved: nextSaved } : {}
+    setMySquareReaction(nextReaction)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
+        throw new Error('未登录')
+      }
+      const out = await saveSquareReaction({
+        token,
+        sourceCharacterId: item.id,
+        liked: nextLiked,
+        saved: nextSaved,
+      })
+      if (!out.tableReady) setSquareReactionTableReady(false)
+      setSquareMetricsBySourceId((prevMap) => {
+        const m = prevMap[item.id]
+        if (!m) return prevMap
+        const oldLiked = prev.liked === true ? 1 : 0
+        const oldSaved = prev.saved === true ? 1 : 0
+        const newLiked = nextLiked ? 1 : 0
+        const newSaved = nextSaved ? 1 : 0
+        const next = {
+          ...m,
+          likes: Math.max(0, m.likes - oldLiked + newLiked),
+          saves: Math.max(0, m.saves - oldSaved + newSaved),
+        }
+        next.reactions = next.likes + next.saves * 2
+        next.hot = next.unlocked * 2 + next.active * 3 + next.likes + next.saves * 2 + next.comments * 2 + next.sales * 2 + Math.floor(next.revenue / 50)
+        return { ...prevMap, [item.id]: next }
+      })
+    } catch (e: unknown) {
+      setMySquareReaction(prev)
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg !== '未登录') setAlert({ type: 'err', text: `互动失败：${msg}` })
+    } finally {
+      setReactionBusy(false)
+    }
+  }
+
+  const submitSquareComment = async () => {
+    if (!item?.id || !isLoggedIn || commentSaving) return
+    const content = String(commentDraft || '').trim()
+    if (!content) return
+    setCommentSaving(true)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
+        return
+      }
+      const out = await createSquareComment({
+        token,
+        sourceCharacterId: item.id,
+        content,
+      })
+      if (!out.tableReady) setSquareCommentTableReady(false)
+      if (out.comment) {
+        setSquareComments((prev) => [out.comment!, ...prev.filter((x) => x.id !== out.comment!.id)].slice(0, 40))
+        setCommentDraft('')
+        setSquareMetricsBySourceId((prevMap) => {
+          const m = prevMap[item.id]
+          if (!m) return prevMap
+          const next = { ...m, comments: m.comments + 1 }
+          next.hot = next.unlocked * 2 + next.active * 3 + next.likes + next.saves * 2 + next.comments * 2 + next.sales * 2 + Math.floor(next.revenue / 50)
+          return { ...prevMap, [item.id]: next }
+        })
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setAlert({ type: 'err', text: `评论失败：${msg}` })
+    } finally {
+      setCommentSaving(false)
+    }
+  }
+
+  const removeSquareComment = async (commentId: string) => {
+    if (!commentId || commentDeletingId) return
+    setCommentDeletingId(commentId)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
+        return
+      }
+      const out = await deleteSquareComment({ token, commentId })
+      if (!out.tableReady) setSquareCommentTableReady(false)
+      const removed = squareComments.some((c) => c.id === commentId)
+      setSquareComments((prev) => prev.filter((c) => c.id !== commentId))
+      if (removed && item?.id) {
+        setSquareMetricsBySourceId((prevMap) => {
+          const m = prevMap[item.id]
+          if (!m) return prevMap
+          const next = { ...m, comments: Math.max(0, m.comments - 1) }
+          next.hot = next.unlocked * 2 + next.active * 3 + next.likes + next.saves * 2 + next.comments * 2 + next.sales * 2 + Math.floor(next.revenue / 50)
+          return { ...prevMap, [item.id]: next }
+        })
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setAlert({ type: 'err', text: `删除评论失败：${msg}` })
+    } finally {
+      setCommentDeletingId('')
+    }
+  }
+
   return (
     <div className="uiPage">
       <AppShell
@@ -802,6 +969,67 @@ export default function SquareDetailPage() {
                     {isLoggedIn ? <span className="uiBadge">累计消费 {walletSpent}</span> : null}
                     {isLoggedIn ? <span className="uiBadge">累计解锁 {walletUnlocked}</span> : null}
                     {isLoggedIn && !walletReady ? <span className="uiBadge">钱包未初始化（可继续免费解锁）</span> : null}
+                  </div>
+                </div>
+
+                <div className="uiPanel" style={{ marginTop: 0 }}>
+                  <div className="uiPanelHeader">
+                    <div>
+                      <div className="uiPanelTitle">广场互动</div>
+                      <div className="uiPanelSub">可直接点赞、收藏和评论，影响推荐与热度。</div>
+                    </div>
+                  </div>
+                  <div className="uiForm" style={{ paddingTop: 14 }}>
+                    {!squareReactionTableReady ? <div className="uiHint">互动表未启用（请执行 `schema_square_social.sql`）。</div> : null}
+                    {!squareCommentTableReady ? <div className="uiHint">评论表未启用（请执行 `schema_square_social.sql`）。</div> : null}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className={`uiBtn uiBtnGhost ${mySquareReaction.liked ? 'uiPillActive' : ''}`} disabled={reactionBusy} onClick={() => void toggleSquareReaction('liked')}>
+                        {reactionBusy ? '处理中...' : mySquareReaction.liked ? '取消喜欢' : '喜欢'}
+                      </button>
+                      <button className={`uiBtn uiBtnGhost ${mySquareReaction.saved ? 'uiPillActive' : ''}`} disabled={reactionBusy} onClick={() => void toggleSquareReaction('saved')}>
+                        {reactionBusy ? '处理中...' : mySquareReaction.saved ? '取消收藏' : '收藏'}
+                      </button>
+                      {!isLoggedIn ? (
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
+                          登录后互动
+                        </button>
+                      ) : null}
+                    </div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div className="uiHint">最新评论</div>
+                      {squareComments.length === 0 ? <div className="uiHint">还没有评论。</div> : null}
+                      {squareComments.map((c) => (
+                        <div key={c.id} className="uiRow" style={{ alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{c.content}</div>
+                            <div className="uiHint" style={{ marginTop: 4 }}>
+                              {c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}
+                              {c.mine ? ' · 我' : ''}
+                            </div>
+                          </div>
+                          {c.mine ? (
+                            <button className="uiBtn uiBtnGhost" disabled={commentDeletingId === c.id} onClick={() => void removeSquareComment(c.id)}>
+                              {commentDeletingId === c.id ? '删除中...' : '删除'}
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                    {isLoggedIn ? (
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        <textarea
+                          className="uiTextarea"
+                          placeholder="写下你的看法（最多 300 字）"
+                          value={commentDraft}
+                          onChange={(e) => setCommentDraft(e.target.value)}
+                          maxLength={300}
+                          rows={3}
+                        />
+                        <button className="uiBtn uiBtnPrimary" disabled={commentSaving} onClick={() => void submitSquareComment()}>
+                          {commentSaving ? '发送中...' : '发表评论'}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 

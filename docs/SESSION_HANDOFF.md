@@ -2126,3 +2126,40 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: square social loop pass (interaction + feedback)
+- Files changed:
+  - supabase/schema_square_social.sql (new)
+  - lib/squareSocial.ts (new)
+  - app/api/square/social/reactions/route.ts (new)
+  - app/api/square/social/comments/route.ts (new)
+  - app/api/square/metrics/route.ts
+  - app/square/page.tsx
+  - app/square/[characterId]/page.tsx
+  - README.md
+- Completed:
+  - Added optional square social schema:
+    - square_reactions (like/save by source role)
+    - square_comments (role-level comments)
+  - Added square social APIs:
+    - GET/POST /api/square/social/reactions
+    - GET/POST/DELETE /api/square/social/comments
+  - Added frontend square social SDK (`lib/squareSocial.ts`).
+  - Upgraded square metrics aggregation:
+    - prefers square_reactions/square_comments when available
+    - falls back to feed_reactions/feed_comments for backward compatibility
+    - signals now include source tags (`reactionsFrom`, `commentsFrom`)
+  - Square list page:
+    - supports direct like/save actions per role card
+    - recommendation scoring now directly consumes square reaction signals
+    - keeps fallback to legacy chat-derived reaction signal when table is not ready
+  - Square detail page:
+    - added social panel for like/save/comment
+    - supports add/delete own comments
+    - updates local hot/comment/like counters in real time
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
+- Ops note:
+  - run `supabase/schema_square_social.sql` to enable square social persistence.

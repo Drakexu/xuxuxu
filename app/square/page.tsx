@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import { unlockSquareCharacter } from '@/lib/squareUnlock'
 import { fetchWalletSummary } from '@/lib/wallet'
+import { fetchSquareReactions, saveSquareReaction, type SquareReactionMap } from '@/lib/squareSocial'
 import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
@@ -126,6 +127,11 @@ function unlockCreatorShareBp(settings: unknown) {
   return 7000
 }
 
+function squareReactionScore(v: { liked?: boolean; saved?: boolean } | undefined) {
+  if (!v) return 0
+  return (v.saved ? 2 : 0) + (v.liked ? 1 : 0)
+}
+
 export default function SquarePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -149,6 +155,9 @@ export default function SquarePage() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [walletSpent, setWalletSpent] = useState(0)
   const [walletUnlocked, setWalletUnlocked] = useState(0)
+  const [squareReactions, setSquareReactions] = useState<SquareReactionMap>({})
+  const [squareReactionTableReady, setSquareReactionTableReady] = useState(true)
+  const [reactionBusyKey, setReactionBusyKey] = useState('')
 
   const canRefresh = useMemo(() => !loading, [loading])
 
@@ -157,6 +166,10 @@ export default function SquarePage() {
     const t = setTimeout(() => setAlert(null), 2800)
     return () => clearTimeout(t)
   }, [alert])
+
+  useEffect(() => {
+    setHasPreferenceSignal(Object.keys(reactionScoreBySourceId).length > 0)
+  }, [reactionScoreBySourceId])
 
   const load = async () => {
     setLoading(true)
@@ -171,6 +184,9 @@ export default function SquarePage() {
     setWalletBalance(0)
     setWalletSpent(0)
     setWalletUnlocked(0)
+    setSquareReactions({})
+    setSquareReactionTableReady(true)
+    setReactionBusyKey('')
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
@@ -271,43 +287,63 @@ export default function SquarePage() {
           }
           setUnlockedInfoBySourceId(map)
 
+          const sourceIds = nextItems.map((x) => x.id).filter(Boolean).slice(0, 120)
+          const scoreBySourceId: Record<string, number> = {}
+          let squareTableReady = true
           try {
-            const rr = await supabase
-              .from('feed_reactions')
-              .select('character_id,liked,saved')
-              .eq('user_id', userId)
-              .order('updated_at', { ascending: false })
-              .limit(1200)
-
-            if (!rr.error) {
-              const scoreBySourceId: Record<string, number> = {}
-              for (const row of rr.data ?? []) {
-                const r = asRecord(row)
-                const localCharId = String(r.character_id || '').trim()
-                const sourceId = localToSource[localCharId] || ''
-                if (!sourceId) continue
-                const w = (r.saved === true ? 2 : 0) + (r.liked === true ? 1 : 0)
-                if (w <= 0) continue
-                scoreBySourceId[sourceId] = Number(scoreBySourceId[sourceId] || 0) + w
+            const { data: sess } = await supabase.auth.getSession()
+            const token = sess.session?.access_token || ''
+            if (token && sourceIds.length) {
+              const out = await fetchSquareReactions({ token, sourceCharacterIds: sourceIds })
+              squareTableReady = out.tableReady
+              setSquareReactionTableReady(out.tableReady)
+              setSquareReactions(out.reactions)
+              for (const [sourceId, reaction] of Object.entries(out.reactions)) {
+                const w = squareReactionScore(reaction)
+                if (w > 0) scoreBySourceId[sourceId] = Number(scoreBySourceId[sourceId] || 0) + w
               }
-
-              const nextAffinity: Record<AudienceTab, number> = { ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 }
-              for (const [sourceId, score] of Object.entries(scoreBySourceId)) {
-                const it = itemById[sourceId]
-                if (!it) continue
-                const a = getAudienceTab(it)
-                if (a !== 'ALL') nextAffinity[a] = Number(nextAffinity[a] || 0) + score
-              }
-
-              setReactionScoreBySourceId(scoreBySourceId)
-              setAudienceAffinity(nextAffinity)
-              setHasPreferenceSignal(Object.keys(scoreBySourceId).length > 0)
-            } else if (!isMissingFeedReactionsTableError(rr.error.message || '')) {
-              throw new Error(rr.error.message)
             }
           } catch {
-            // ignore
+            // ignore; fallback below
           }
+
+          if (!squareTableReady || Object.keys(scoreBySourceId).length === 0) {
+            try {
+              const rr = await supabase
+                .from('feed_reactions')
+                .select('character_id,liked,saved')
+                .eq('user_id', userId)
+                .order('updated_at', { ascending: false })
+                .limit(1200)
+              if (!rr.error) {
+                for (const row of rr.data ?? []) {
+                  const r = asRecord(row)
+                  const localCharId = String(r.character_id || '').trim()
+                  const sourceId = localToSource[localCharId] || ''
+                  if (!sourceId) continue
+                  const w = (r.saved === true ? 2 : 0) + (r.liked === true ? 1 : 0)
+                  if (w <= 0) continue
+                  scoreBySourceId[sourceId] = Number(scoreBySourceId[sourceId] || 0) + w
+                }
+              } else if (!isMissingFeedReactionsTableError(rr.error.message || '')) {
+                throw new Error(rr.error.message)
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          const nextAffinity: Record<AudienceTab, number> = { ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 }
+          for (const [sourceId, score] of Object.entries(scoreBySourceId)) {
+            const it = itemById[sourceId]
+            if (!it) continue
+            const a = getAudienceTab(it)
+            if (a !== 'ALL') nextAffinity[a] = Number(nextAffinity[a] || 0) + score
+          }
+
+          setReactionScoreBySourceId(scoreBySourceId)
+          setAudienceAffinity(nextAffinity)
+          setHasPreferenceSignal(Object.keys(scoreBySourceId).length > 0)
         }
       } catch {
         // ignore
@@ -487,6 +523,70 @@ export default function SquarePage() {
     }
   }
 
+  const toggleSquareReaction = async (sourceCharacterId: string, key: 'liked' | 'saved') => {
+    const sourceId = String(sourceCharacterId || '').trim()
+    if (!sourceId || reactionBusyKey) return
+    if (!isLoggedIn) {
+      router.push('/login')
+      return
+    }
+
+    const prev = squareReactions[sourceId] || {}
+    const nextLiked = key === 'liked' ? !prev.liked : !!prev.liked
+    const nextSaved = key === 'saved' ? !prev.saved : !!prev.saved
+    const nextWeight = (nextSaved ? 2 : 0) + (nextLiked ? 1 : 0)
+    const prevWeight = squareReactionScore(prev)
+    const busyKey = `${sourceId}:${key}`
+    setReactionBusyKey(busyKey)
+
+    setSquareReactions((old) => {
+      const out = { ...old }
+      if (!nextLiked && !nextSaved) delete out[sourceId]
+      else out[sourceId] = { liked: nextLiked, saved: nextSaved }
+      return out
+    })
+    setReactionScoreBySourceId((old) => {
+      const out = { ...old }
+      if (nextWeight <= 0) delete out[sourceId]
+      else out[sourceId] = nextWeight
+      return out
+    })
+
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
+        throw new Error('未登录')
+      }
+      const out = await saveSquareReaction({
+        token,
+        sourceCharacterId: sourceId,
+        liked: nextLiked,
+        saved: nextSaved,
+      })
+      if (!out.tableReady) setSquareReactionTableReady(false)
+    } catch (e: unknown) {
+      // rollback optimistic state on failure.
+      setSquareReactions((old) => {
+        const out = { ...old }
+        if (!prev.liked && !prev.saved) delete out[sourceId]
+        else out[sourceId] = { liked: !!prev.liked, saved: !!prev.saved }
+        return out
+      })
+      setReactionScoreBySourceId((old) => {
+        const out = { ...old }
+        if (prevWeight <= 0) delete out[sourceId]
+        else out[sourceId] = prevWeight
+        return out
+      })
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg !== '未登录') setAlert({ type: 'err', text: `互动失败：${msg}` })
+    } finally {
+      setReactionBusyKey('')
+    }
+  }
+
   useEffect(() => {
     load()
   }, [])
@@ -650,6 +750,8 @@ export default function SquarePage() {
     const insufficientCoins = !info && isLoggedIn && walletReady && paidRole && walletBalance < priceCoins
     const recScore = Number(reactionScoreBySourceId[c.id] || 0)
     const metrics = squareMetricsBySourceId[c.id]
+    const myReaction = squareReactions[c.id] || {}
+    const reactionBusy = reactionBusyKey.startsWith(`${c.id}:`)
 
     return (
       <div key={c.id} className="uiCard" style={{ cursor: 'pointer', borderColor: featured ? 'rgba(249,217,142,.32)' : undefined }} onClick={() => router.push(`/square/${c.id}`)}>
@@ -679,6 +781,8 @@ export default function SquarePage() {
           <span className="uiBadge">{paidRole ? `${priceCoins} 币` : '免费'}</span>
           {paidRole ? <span className="uiBadge">创作者 {Math.floor(shareBp / 100)}%</span> : null}
           {recScore > 0 ? <span className="uiBadge">偏好命中 {recScore}</span> : null}
+          {myReaction.liked ? <span className="uiBadge">我已喜欢</span> : null}
+          {myReaction.saved ? <span className="uiBadge">我已收藏</span> : null}
           {metrics && (metrics.unlocked > 0 || metrics.active > 0) ? (
             <span className="uiBadge">
               解锁 {metrics.unlocked} · 激活 {metrics.active}
@@ -753,6 +857,26 @@ export default function SquarePage() {
             >
               衍生创建
             </button>
+            <button
+              className={`uiBtn uiBtnGhost ${myReaction.liked ? 'uiPillActive' : ''}`}
+              disabled={reactionBusy}
+              onClick={(e) => {
+                e.stopPropagation()
+                void toggleSquareReaction(c.id, 'liked')
+              }}
+            >
+              {reactionBusy ? '处理中...' : myReaction.liked ? '取消喜欢' : '喜欢'}
+            </button>
+            <button
+              className={`uiBtn uiBtnGhost ${myReaction.saved ? 'uiPillActive' : ''}`}
+              disabled={reactionBusy}
+              onClick={(e) => {
+                e.stopPropagation()
+                void toggleSquareReaction(c.id, 'saved')
+              }}
+            >
+              {reactionBusy ? '处理中...' : myReaction.saved ? '取消收藏' : '收藏'}
+            </button>
           </div>
         )}
         {!info && (
@@ -810,6 +934,26 @@ export default function SquarePage() {
               }}
             >
               衍生创建
+            </button>
+            <button
+              className={`uiBtn uiBtnGhost ${myReaction.liked ? 'uiPillActive' : ''}`}
+              disabled={reactionBusy}
+              onClick={(e) => {
+                e.stopPropagation()
+                void toggleSquareReaction(c.id, 'liked')
+              }}
+            >
+              {reactionBusy ? '处理中...' : myReaction.liked ? '取消喜欢' : '喜欢'}
+            </button>
+            <button
+              className={`uiBtn uiBtnGhost ${myReaction.saved ? 'uiPillActive' : ''}`}
+              disabled={reactionBusy}
+              onClick={(e) => {
+                e.stopPropagation()
+                void toggleSquareReaction(c.id, 'saved')
+              }}
+            >
+              {reactionBusy ? '处理中...' : myReaction.saved ? '取消收藏' : '收藏'}
             </button>
             {!isLoggedIn ? (
               <button
@@ -962,6 +1106,9 @@ export default function SquarePage() {
         {loading && <div className="uiSkeleton">加载中...</div>}
         {!loading && !isLoggedIn && (
           <div className="uiAlert uiAlertOk">当前为游客浏览模式。登录后可解锁角色并激活到首页。</div>
+        )}
+        {!loading && !squareReactionTableReady && (
+          <div className="uiAlert uiAlertOk">广场互动表尚未启用，偏好学习暂使用聊天互动回退信号。</div>
         )}
 
         {!loading && (

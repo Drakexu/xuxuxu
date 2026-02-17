@@ -104,20 +104,19 @@ export async function GET(req: Request) {
     }
 
     let reactionsReady = false
+    let reactionsFrom = 'none'
     try {
-      const rr = await sb
-        .from('feed_reactions')
-        .select('character_id,liked,saved')
+      const rrSquare = await sb
+        .from('square_reactions')
+        .select('source_character_id,liked,saved')
         .order('updated_at', { ascending: false })
         .limit(reactionScanLimit)
-      if (rr.error) {
-        if (!isMissingTableError(rr.error.message || '', 'feed_reactions')) throw rr.error
-      } else {
+      if (!rrSquare.error) {
         reactionsReady = true
-        for (const row of rr.data ?? []) {
+        reactionsFrom = 'square_reactions'
+        for (const row of rrSquare.data ?? []) {
           const rrow = asRecord(row)
-          const localId = String(rrow.character_id || '').trim()
-          const sourceId = localToSourceId[localId] || ''
+          const sourceId = String(rrow.source_character_id || '').trim()
           if (!sourceId || !metrics[sourceId]) continue
           const liked = rrow.liked === true
           const saved = rrow.saved === true
@@ -125,32 +124,77 @@ export async function GET(req: Request) {
           if (saved) metrics[sourceId].saves += 1
           metrics[sourceId].reactions += (liked ? 1 : 0) + (saved ? 2 : 0)
         }
+      } else {
+        if (!isMissingTableError(rrSquare.error.message || '', 'square_reactions')) throw rrSquare.error
+        const rr = await sb
+          .from('feed_reactions')
+          .select('character_id,liked,saved')
+          .order('updated_at', { ascending: false })
+          .limit(reactionScanLimit)
+        if (rr.error) {
+          if (!isMissingTableError(rr.error.message || '', 'feed_reactions')) throw rr.error
+        } else {
+          reactionsReady = true
+          reactionsFrom = 'feed_reactions'
+          for (const row of rr.data ?? []) {
+            const rrow = asRecord(row)
+            const localId = String(rrow.character_id || '').trim()
+            const sourceId = localToSourceId[localId] || ''
+            if (!sourceId || !metrics[sourceId]) continue
+            const liked = rrow.liked === true
+            const saved = rrow.saved === true
+            if (liked) metrics[sourceId].likes += 1
+            if (saved) metrics[sourceId].saves += 1
+            metrics[sourceId].reactions += (liked ? 1 : 0) + (saved ? 2 : 0)
+          }
+        }
       }
     } catch {
       reactionsReady = false
+      reactionsFrom = 'none'
     }
 
     let commentsReady = false
+    let commentsFrom = 'none'
     try {
-      const cr = await sb
-        .from('feed_comments')
-        .select('character_id')
+      const crSquare = await sb
+        .from('square_comments')
+        .select('source_character_id')
         .order('created_at', { ascending: false })
         .limit(commentScanLimit)
-      if (cr.error) {
-        if (!isMissingTableError(cr.error.message || '', 'feed_comments')) throw cr.error
-      } else {
+      if (!crSquare.error) {
         commentsReady = true
-        for (const row of cr.data ?? []) {
+        commentsFrom = 'square_comments'
+        for (const row of crSquare.data ?? []) {
           const crow = asRecord(row)
-          const localId = String(crow.character_id || '').trim()
-          const sourceId = localToSourceId[localId] || ''
+          const sourceId = String(crow.source_character_id || '').trim()
           if (!sourceId || !metrics[sourceId]) continue
           metrics[sourceId].comments += 1
+        }
+      } else {
+        if (!isMissingTableError(crSquare.error.message || '', 'square_comments')) throw crSquare.error
+        const cr = await sb
+          .from('feed_comments')
+          .select('character_id')
+          .order('created_at', { ascending: false })
+          .limit(commentScanLimit)
+        if (cr.error) {
+          if (!isMissingTableError(cr.error.message || '', 'feed_comments')) throw cr.error
+        } else {
+          commentsReady = true
+          commentsFrom = 'feed_comments'
+          for (const row of cr.data ?? []) {
+            const crow = asRecord(row)
+            const localId = String(crow.character_id || '').trim()
+            const sourceId = localToSourceId[localId] || ''
+            if (!sourceId || !metrics[sourceId]) continue
+            metrics[sourceId].comments += 1
+          }
         }
       }
     } catch {
       commentsReady = false
+      commentsFrom = 'none'
     }
 
     let revenueReady = false
@@ -200,6 +244,8 @@ export async function GET(req: Request) {
         reactionsReady,
         commentsReady,
         revenueReady,
+        reactionsFrom,
+        commentsFrom,
       },
       metrics,
     })
