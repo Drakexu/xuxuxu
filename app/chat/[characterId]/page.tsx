@@ -70,6 +70,19 @@ function formatMessageTime(ts?: string) {
   })
 }
 
+function hasAssistantUserSpeech(text: string) {
+  const t = String(text || '')
+  if (!t.trim()) return false
+  return /(^|\n)\s*(\{?user\}?|USER|User|user|用户|你)\s*[:：]/.test(t)
+}
+
+function stripAssistantUserSpeech(text: string) {
+  const lines = String(text || '')
+    .split('\n')
+    .filter((line) => !/^\s*(\{?user\}?|USER|User|user|用户|你)\s*[:：]/.test(line))
+  return lines.join('\n').trim()
+}
+
 export default function ChatPage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -78,6 +91,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [guardWarn, setGuardWarn] = useState('')
   const [title, setTitle] = useState('')
 
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -851,6 +865,7 @@ export default function ChatPage() {
   const post = async (text: string, inputEvent?: InputEvent) => {
     setSending(true)
     setError('')
+    setGuardWarn('')
     setPatchOk(null)
     setPatchError('')
 
@@ -891,7 +906,18 @@ export default function ChatPage() {
       }
     }
     if (data.assistantMessage) {
-      const assistantText = String(data.assistantMessage)
+      let assistantText = String(data.assistantMessage)
+      const uiGuardHit = hasAssistantUserSpeech(assistantText)
+      if (uiGuardHit) {
+        assistantText = stripAssistantUserSpeech(assistantText) || '我只会从角色视角回复，不会代替你发言。'
+      }
+      const guardTriggered = data?.guardTriggered === true || uiGuardHit
+      if (guardTriggered) {
+        const notes: string[] = []
+        if (data?.guardRewriteUsed === true) notes.push('已自动重写一次')
+        if (data?.guardFallbackUsed === true || uiGuardHit) notes.push('已启用防代用户护栏')
+        setGuardWarn(`主语护栏触发：${notes.join('，') || '已修正输出'}`)
+      }
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }])
       if (bgAutoEnabled && assetUrls.length > 0) {
         const cue = inferPresentationCue(assistantText)
@@ -1046,6 +1072,7 @@ export default function ChatPage() {
         </section>
 
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
+        {guardWarn && <div className="uiAlert uiAlertWarn">{guardWarn}</div>}
         {patchOk === false && patchError && <div className="uiAlert uiAlertErr">状态补丁错误：{patchError}</div>}
 
         <div className="uiPanel uiPanelCompactTop">

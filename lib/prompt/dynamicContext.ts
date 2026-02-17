@@ -203,6 +203,8 @@ export function buildDynamicContextText(args: DynamicContextBuildArgs) {
   s.push(`scene: ${String(run.scene || '')}`)
   s.push(`current_main_role: ${String(run.current_main_role || args.characterName || '{role}')}`)
   s.push(`present_characters: ${JSON.stringify(run.present_characters || [])}`)
+  s.push(`multi_cast_order: ${JSON.stringify(run.multi_cast_order || [])}`)
+  s.push(`multi_cast_next_speaker: ${String(run.multi_cast_next_speaker || '')}`)
   s.push(`relationship_stage: ${String(run.relationship_stage || '')}`)
   s.push(`romance_mode: ${String(run.romance_mode || '')}`)
   s.push(`user_drive: ${String(run.user_drive || '')}`)

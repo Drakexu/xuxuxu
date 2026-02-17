@@ -208,6 +208,8 @@ export function buildPromptOsSections(policyInput?: Partial<PromptOsPolicy>): Pr
         `- relationship_stage: ${policy.relationshipStage}`,
         '- Only characters in present_characters may speak.',
         '- In strict multi-cast, use `Name: line + action` format with visible turn rotation.',
+        '- Never write user speaker lines (`User:` / `用户:` / `你:`).',
+        '- If multi_cast_next_speaker exists, start this turn from that speaker.',
         '- Exit multi-cast immediately when user asks to return to single-role mode.',
       ],
     },

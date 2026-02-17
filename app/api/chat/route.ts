@@ -227,7 +227,17 @@ function isBracketSnippet(text: string) {
   return line.slice(1, -1).trim().length >= 2
 }
 
-function shouldRewriteAssistantOutput(args: {
+type GuardIssue =
+  | 'EMPTY'
+  | 'PROMPT_LEAK'
+  | 'JSON_LEAK'
+  | 'USER_SPEECH'
+  | 'FUNC_DBL_DIALOGUE'
+  | 'SCHEDULE_FORMAT'
+  | 'SPEAKER_OUTSIDE_SET'
+  | 'STRICT_MULTICAST_FORMAT'
+
+function getAssistantOutputGuardIssues(args: {
   text: string
   inputEvent: InputEvent | null
   userMessageForModel?: string
@@ -236,25 +246,32 @@ function shouldRewriteAssistantOutput(args: {
 }) {
   const { text, inputEvent, userMessageForModel, allowedSpeakers = [], enforceSpeakerSet = false } = args
   const s = String(text || '').trim()
-  if (!s) return true
-
-  if (s.includes('<STATE_PATCH>') || s.includes('PATCH_INPUT') || s.includes('PatchScribe') || s.includes('DYNAMIC_CONTEXT')) return true
-  if (s.includes('focus_panel_next') && s.includes('run_state_patch')) return true
-  if (/^\s*[\{\[]/.test(s)) {
-    const j = safeExtractJsonObject(s)
-    if (j && typeof j === 'object') return true
+  const issues: GuardIssue[] = []
+  const push = (issue: GuardIssue) => {
+    if (!issues.includes(issue)) issues.push(issue)
+  }
+  if (!s) {
+    push('EMPTY')
+    return issues
   }
 
-  if (hasUserSpeechMarker(s)) return true
+  if (s.includes('<STATE_PATCH>') || s.includes('PATCH_INPUT') || s.includes('PatchScribe') || s.includes('DYNAMIC_CONTEXT')) push('PROMPT_LEAK')
+  if (s.includes('focus_panel_next') && s.includes('run_state_patch')) push('PROMPT_LEAK')
+  if (/^\s*[\{\[]/.test(s)) {
+    const j = safeExtractJsonObject(s)
+    if (j && typeof j === 'object') push('JSON_LEAK')
+  }
+
+  if (hasUserSpeechMarker(s)) push('USER_SPEECH')
 
   if (inputEvent === 'FUNC_DBL') {
     const lines = s.split('\n').map((x) => x.trim())
-    if (lines.some((line) => isDialogueLine(line))) return true
+    if (lines.some((line) => isDialogueLine(line))) push('FUNC_DBL_DIALOGUE')
   }
   if (inputEvent === 'SCHEDULE_TICK') {
-    if (!isBracketSnippet(s)) return true
+    if (!isBracketSnippet(s)) push('SCHEDULE_FORMAT')
     const lines = s.split('\n').map((x) => x.trim())
-    if (lines.some((line) => isDialogueLine(line))) return true
+    if (lines.some((line) => isDialogueLine(line))) push('SCHEDULE_FORMAT')
   }
 
   if (enforceSpeakerSet) {
@@ -272,18 +289,18 @@ function shouldRewriteAssistantOutput(args: {
         if (speaker === 'user' || speaker === '{user}') return true
         return allowed.size > 0 && !allowed.has(speaker)
       })
-      if (unknownSpeaker) return true
+      if (unknownSpeaker) push('SPEAKER_OUTSIDE_SET')
     }
   }
 
   if (typeof userMessageForModel === 'string' && isStrictMultiCast(userMessageForModel)) {
     const lines = s.split('\n').map((x) => x.trim()).filter(Boolean)
     const roleLines = lines.filter((line) => isDialogueLine(line))
-    if (roleLines.length < 2) return true
-    if (roleLines.some((line) => hasUserSpeechMarker(line))) return true
+    if (roleLines.length < 2) push('STRICT_MULTICAST_FORMAT')
+    if (roleLines.some((line) => hasUserSpeechMarker(line))) push('STRICT_MULTICAST_FORMAT')
   }
 
-  return false
+  return issues
 }
 
 function normInputEvent(v: unknown): InputEvent | undefined {
@@ -351,6 +368,37 @@ function extractPresentCharacters(text: string) {
   }
 
   return out.slice(0, 6)
+}
+
+function buildGuardRewriteConstraints(args: {
+  issues: GuardIssue[]
+  inputEvent: InputEvent | null
+  allowedSpeakers?: string[]
+  enforceSpeakerSet?: boolean
+}) {
+  const { issues, inputEvent, allowedSpeakers = [], enforceSpeakerSet = false } = args
+  const lines: string[] = [
+    '- Output plain user-facing character text only. No JSON, no meta explanations, no policy text.',
+    '- Never write lines for the user (forbidden patterns include `User:`, `用户:`, `你:` speaker lines).',
+  ]
+  if (inputEvent === 'FUNC_DBL') {
+    lines.push('- FUNC_DBL: camera-style visual narration only, no dialogue lines.')
+  }
+  if (inputEvent === 'SCHEDULE_TICK') {
+    lines.push('- SCHEDULE_TICK: output exactly one bracketed life snippet, no dialogue lines.')
+  }
+  if (enforceSpeakerSet) {
+    const allowed = allowedSpeakers
+      .map((x) => String(x || '').trim())
+      .filter(Boolean)
+      .filter((x) => normalizeSpeakerName(x) !== 'user')
+    if (allowed.length) lines.push(`- Speaker whitelist: ${allowed.join(', ')}.`)
+    lines.push('- If using `Name:` dialogue lines, speakers must be from the whitelist only.')
+  }
+  if (issues.includes('STRICT_MULTICAST_FORMAT')) {
+    lines.push('- In strict multi-cast, output at least two dialogue lines with visible turn rotation.')
+  }
+  return lines.join('\n')
 }
 
 function stableKey(x: unknown) {
@@ -628,6 +676,7 @@ function buildDynamicContext(args: {
     run.output_mode = ev === 'FUNC_DBL' ? 'CG' : ev === 'SCHEDULE_TICK' ? 'SCHEDULE' : 'CHAT'
   }
   // User drive-state hint (used by the prompt OS for plot granularity)
+  const exitMultiCast = typeof userMessageForModel === 'string' ? isExitMultiCast(userMessageForModel) : false
   if (typeof userMessageForModel === 'string') {
     const t = userMessageForModel.trim()
     run.user_drive = inputEvent === 'TALK_DBL' ? 'PERMIT_CONTINUE' : t.length <= 2 ? 'PASSIVE' : 'ACTIVE'
@@ -641,7 +690,6 @@ function buildDynamicContext(args: {
   {
     const ev = inputEvent || 'TALK_HOLD'
     const strictMultiCast = run.multi_cast_hint === 'MULTI_CAST'
-    const exitMultiCast = typeof userMessageForModel === 'string' ? isExitMultiCast(userMessageForModel) : false
     run.narration_mode =
       ev === 'FUNC_DBL'
         ? 'CG'
@@ -656,21 +704,56 @@ function buildDynamicContext(args: {
                 : 'DIALOG'
   }
 
-  // If the user explicitly asked for strict multi-cast, try to enrich present_characters.
-  // We only *add* characters; never remove existing ones.
-  if (run.narration_mode === 'MULTI_CAST' && typeof userMessageForModel === 'string') {
-    const names = extractPresentCharacters(userMessageForModel)
+  // Exit cleanup: avoid residual multi-cast stage state when user switches back to single-role chat.
+  if (exitMultiCast) {
+    run.narration_mode = 'DIALOG'
+    run.multi_cast_hint = ''
+    run.current_main_role = characterName || String(run.current_main_role || '{role}')
+    run.present_characters = ['{user}', run.current_main_role]
+    delete run.multi_cast_order
+    delete run.multi_cast_turn_index
+    delete run.multi_cast_next_speaker
+  } else if (run.narration_mode === 'MULTI_CAST') {
+    const names = typeof userMessageForModel === 'string' ? extractPresentCharacters(userMessageForModel) : []
+    const presentRaw = Array.isArray(run['present_characters']) ? (run['present_characters'] as unknown[]) : []
+    const present = Array.from(new Set(presentRaw.map((x) => String(x || '').trim()).filter(Boolean))).slice(0, 8)
+    const mainRole = characterName || String(run.current_main_role || '{role}')
+
+    if (!present.includes('{user}')) present.unshift('{user}')
+    if (mainRole && !present.includes(mainRole)) present.push(mainRole)
+
+    const stageRoles = present.filter((x) => x !== '{user}')
+    const existingOrder = asArray(run.multi_cast_order).map((x) => String(x || '').trim()).filter((x) => !!x && stageRoles.includes(x))
+    let order = existingOrder.length ? existingOrder : stageRoles
+
     if (names.length) {
-      const present = Array.isArray(run['present_characters']) ? (run['present_characters'] as unknown[]) : []
-      const next = [...present]
-      for (const n of names) {
-        if (!next.some((x) => String(x) === n)) next.push(n)
-      }
-      // Always keep {user} and the current main role visible in the stage list.
-      if (!next.some((x) => String(x) === '{user}')) next.unshift('{user}')
-      if (characterName && !next.some((x) => String(x) === characterName)) next.push(characterName)
-      run['present_characters'] = next.slice(0, 8)
+      const picked = names.filter((x) => stageRoles.includes(x))
+      order = [...picked, ...order.filter((x) => !picked.includes(x))]
     }
+    for (const role of stageRoles) {
+      if (!order.includes(role)) order.push(role)
+    }
+    order = order.slice(0, 8)
+
+    if (order.length >= 2) {
+      const idxRaw = Number(run.multi_cast_turn_index ?? 0)
+      const idxBase = Number.isFinite(idxRaw) ? Math.floor(idxRaw) : 0
+      const idx = ((idxBase % order.length) + order.length) % order.length
+      run.multi_cast_order = order
+      run.multi_cast_next_speaker = order[idx]
+      run.multi_cast_turn_index = (idx + 1) % order.length
+      run.present_characters = ['{user}', ...order]
+      if (!run.current_main_role || !order.includes(String(run.current_main_role))) run.current_main_role = order[0]
+    } else {
+      run.narration_mode = 'DIALOG'
+      run.present_characters = ['{user}', mainRole]
+      run.current_main_role = mainRole
+      delete run.multi_cast_order
+      delete run.multi_cast_turn_index
+      delete run.multi_cast_next_speaker
+    }
+  } else {
+    delete run.multi_cast_next_speaker
   }
 
   return buildDynamicContextText({
@@ -1091,16 +1174,25 @@ export async function POST(req: Request) {
     if (!assistantMessage) return NextResponse.json({ error: 'MiniMax returned empty content', raw: mmJson }, { status: 502 })
 
     // Guardrail: rare cases where the model violates output constraints (JSON leak / wrong mode).
-    if (
-      shouldRewriteAssistantOutput({
-        text: assistantMessage,
-        inputEvent: inputEvent || null,
-        userMessageForModel,
-        allowedSpeakers: guardAllowedSpeakers,
-        enforceSpeakerSet: guardEnforceSpeakerSet,
-      })
-    ) {
+    let guardIssues = getAssistantOutputGuardIssues({
+      text: assistantMessage,
+      inputEvent: inputEvent || null,
+      userMessageForModel,
+      allowedSpeakers: guardAllowedSpeakers,
+      enforceSpeakerSet: guardEnforceSpeakerSet,
+    })
+    const guardTriggered = guardIssues.length > 0
+    let guardRewriteUsed = false
+    let guardFallbackUsed = false
+
+    if (guardIssues.length > 0) {
       try {
+        const rewriteConstraints = buildGuardRewriteConstraints({
+          issues: guardIssues,
+          inputEvent: inputEvent || null,
+          allowedSpeakers: guardAllowedSpeakers,
+          enforceSpeakerSet: guardEnforceSpeakerSet,
+        })
         const rewrite = (await callMiniMax(mmBase, mmKey, {
           model: 'M2-her',
           messages: [
@@ -1110,9 +1202,7 @@ export async function POST(req: Request) {
               content:
                 `${promptOs}\n\n` +
                 `Your previous output broke the hard output constraints. Rewrite now and output only the final user-facing character text.\n` +
-                `Do not explain rules. Do not output JSON. Do not output meta text.\n` +
-                `- If INPUT_EVENT=FUNC_DBL: camera-style visual narration only, no dialogue lines.\n` +
-                `- If INPUT_EVENT=SCHEDULE_TICK: output exactly one bracketed life snippet, no dialogue lines.\n`,
+                `${rewriteConstraints}\n`,
             },
             { role: 'user', name: 'User', content: `INPUT_EVENT=${inputEvent || 'TALK_HOLD'}\nUSER_INPUT=${userMessageForModel}\nORIGINAL_OUTPUT:\n${assistantMessage}` },
           ],
@@ -1122,20 +1212,32 @@ export async function POST(req: Request) {
         })) as MiniMaxResponse
 
         const fixed = (rewrite?.choices?.[0]?.message?.content ?? rewrite?.reply ?? rewrite?.output_text ?? '').trim()
-        if (
-          fixed &&
-          !shouldRewriteAssistantOutput({
+        if (fixed) {
+          const fixedIssues = getAssistantOutputGuardIssues({
             text: fixed,
             inputEvent: inputEvent || null,
             userMessageForModel,
             allowedSpeakers: guardAllowedSpeakers,
             enforceSpeakerSet: guardEnforceSpeakerSet,
           })
-        )
-          assistantMessage = fixed
+          if (fixedIssues.length === 0) {
+            guardRewriteUsed = true
+            guardIssues = []
+            assistantMessage = fixed
+          } else {
+            guardIssues = fixedIssues
+          }
+        }
       } catch {
         // ignore: fall back to original output
       }
+    }
+
+    // Safety-first fallback: never allow "assistant speaking for user" or off-stage speakers to pass through.
+    if (guardIssues.includes('USER_SPEECH') || guardIssues.includes('SPEAKER_OUTSIDE_SET')) {
+      guardFallbackUsed = true
+      assistantMessage = '我听到了。你来决定下一步，我会按你的指令继续。'
+      guardIssues = []
     }
 
     // Save assistant message (legacy-safe input_event).
@@ -1388,6 +1490,9 @@ export async function POST(req: Request) {
       assistantMessage,
       patchOk,
       patchError: patchOk ? '' : patchError,
+      guardTriggered,
+      guardRewriteUsed,
+      guardFallbackUsed,
     })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })

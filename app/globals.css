@@ -623,6 +623,12 @@ body {
   background: rgba(255, 245, 246, 0.9);
 }
 
+.uiAlertWarn {
+  border-color: rgba(196, 142, 40, 0.34);
+  color: rgba(148, 95, 12, 0.98);
+  background: rgba(255, 249, 234, 0.92);
+}
+
 .uiForm {
   padding: 0 18px 14px;
   display: grid;

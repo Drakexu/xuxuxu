@@ -1747,3 +1747,26 @@ pm run -s build -> pass
 - Validation:
   - `npm run -s lint` passed
   - `npm run -s build` passed
+
+## 2026-02-17 checkpoint: subject-control hardening (module 3)
+- Files changed:
+  - `app/api/chat/route.ts`
+  - `lib/prompt/promptOs.ts`
+  - `lib/prompt/dynamicContext.ts`
+  - `app/chat/[characterId]/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Upgraded assistant output guard to issue-based detection (`USER_SPEECH`, off-stage speakers, strict multi-cast format drift, etc.) and targeted rewrite constraints.
+  - Added safety fallback for critical violations:
+    - if output still contains user-speaker lines or off-stage speakers, server now replaces it with a safe role-view response.
+  - Added dual-guard loop (backend + UI):
+    - backend returns `guardTriggered/guardRewriteUsed/guardFallbackUsed`
+    - chat UI surfaces guard warning and applies a final local strip for accidental `User:/ÓÃ»§:/Äã:` speaker lines.
+  - Strengthened multi-cast state control:
+    - explicit exit cleanup to single-chat mode without residue (`present_characters`, turn/order hints reset)
+    - maintained turn-rotation state (`multi_cast_order`, `multi_cast_next_speaker`, `multi_cast_turn_index`)
+    - prompt context now exposes rotation fields for deterministic multi-role handoff.
+- Validation:
+  - `npm run -s lint` passed
+  - `npx tsc --noEmit` passed
+  - `npm run -s build` passed
