@@ -1814,3 +1814,31 @@ pm run -s build -> pass
   - `npm run -s lint` passed
   - `npx tsc --noEmit` passed
   - `npm run -s build` passed
+
+## 2026-02-17 checkpoint: Home life-hub IA pass #5
+- Files changed:
+  - `app/home/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Added a dedicated "生活中枢" section on `/home` with 3 actionable entry cards:
+    - 朋友圈 (`MOMENT_POST`)
+    - 日记 (`DIARY_DAILY`)
+    - 日程片段 (`SCHEDULE_TICK`)
+  - Each card now shows:
+    - total count (within current focus scope)
+    - recent 24h count
+    - latest activity recency and preview text
+    - click-to-switch feed tab behavior
+  - Added focus-aware data scope:
+    - when a role is selected, life-hub stats are scoped to that role
+    - otherwise scoped to all visible feed data
+  - Upgraded right-side quick panel from generic shortcuts to type-based life entry actions:
+    - 看朋友圈 / 看日记 / 看日程片段
+    - actions reset sort to newest for clearer timeline reading
+  - Added responsive styling for the new home module:
+    - new classes: `uiHomeLifeHub*` and `uiHomeLifeCard*`
+    - desktop 3-column cards, tablet 2-column, mobile single-column
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass

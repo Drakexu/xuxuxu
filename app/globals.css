@@ -848,6 +848,95 @@ body {
   align-content: start;
 }
 
+.uiHomeLifeHub {
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(26, 26, 26, 0.82);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.uiHomeLifeHubHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.uiHomeLifeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.uiHomeLifeCard {
+  appearance: none;
+  text-align: left;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(160deg, rgba(26, 26, 26, 0.92) 0%, rgba(37, 24, 30, 0.88) 100%);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 12px;
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  transition: all 160ms ease;
+}
+
+.uiHomeLifeCard:hover {
+  transform: translateY(-1px);
+  border-color: rgba(249, 217, 142, 0.35);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
+}
+
+.uiHomeLifeCardActive {
+  border-color: rgba(249, 217, 142, 0.44);
+  box-shadow:
+    0 20px 46px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(249, 217, 142, 0.16) inset;
+}
+
+.uiHomeLifeCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.uiHomeLifeCardCadence {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.uiHomeLifeCardMain {
+  display: grid;
+  gap: 2px;
+}
+
+.uiHomeLifeCardMain b {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.uiHomeLifeCardMain span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.uiHomeLifeCardMeta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.uiHomeLifeCardPreview {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.62);
+}
+
 .uiRoleRail {
   display: grid;
   gap: 8px;
@@ -990,6 +1079,10 @@ body {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
+  .uiHomeLifeGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .uiHomeCol:last-child {
     grid-column: 1 / -1;
   }
@@ -1057,6 +1150,14 @@ body {
   }
 
   .uiHomeWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .uiHomeLifeHubHead {
+    flex-direction: column;
+  }
+
+  .uiHomeLifeGrid {
     grid-template-columns: 1fr;
   }
 

@@ -40,8 +40,16 @@ type CharacterDigest = {
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
 type FeedSort = 'NEWEST' | 'LIKED_FIRST' | 'SAVED_FIRST'
 type RoleSort = 'QUEUE' | 'RECENT' | 'LEDGER'
+type LifeEvent = 'MOMENT_POST' | 'DIARY_DAILY' | 'SCHEDULE_TICK'
 const FEED_PAGE_SIZE = 80
 const FEED_REACTION_STORAGE_KEY = 'xuxuxu:feed:reactions:v1'
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
+
+const LIFE_EVENT_CONFIG: Array<{ event: LifeEvent; tab: FeedTab; title: string; cadence: string; emptyHint: string }> = [
+  { event: 'MOMENT_POST', tab: 'MOMENT', title: '朋友圈', cadence: '每小时', emptyHint: '还没有朋友圈动态' },
+  { event: 'DIARY_DAILY', tab: 'DIARY', title: '日记', cadence: '每天', emptyHint: '还没有日记' },
+  { event: 'SCHEDULE_TICK', tab: 'SCHEDULE', title: '日程片段', cadence: '每小时', emptyHint: '还没有日程片段' },
+]
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -100,6 +108,15 @@ function pickAssetPath(rows: CharacterAssetRow[]) {
     if (list?.length) return list[0].storage_path
   }
   return ''
+}
+
+function compactPreview(s: string, max = 86) {
+  const text = String(s || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return ''
+  if (text.length <= max) return text
+  return `${text.slice(0, max)}...`
 }
 
 export default function HomeFeedPage() {
@@ -637,6 +654,28 @@ export default function HomeFeedPage() {
       ledgerComplete: Number(digest?.complete || 0),
     }
   }, [items, selectedCharacter, characterDigestById, feedComments])
+  const focusItems = useMemo(() => {
+    if (!activeCharId) return items
+    return items.filter((it) => String(it.conversations?.character_id || '') === activeCharId)
+  }, [items, activeCharId])
+  const lifeHubCards = useMemo(() => {
+    const now = Date.now()
+    return LIFE_EVENT_CONFIG.map((cfg) => {
+      const scoped = focusItems.filter((it) => it.input_event === cfg.event)
+      const latest = scoped[0] || null
+      const recent24h = scoped.filter((it) => {
+        const ts = Date.parse(String(it.created_at || ''))
+        return Number.isFinite(ts) && now - ts <= ONE_DAY_MS
+      }).length
+      return {
+        ...cfg,
+        total: scoped.length,
+        recent24h,
+        latestAt: String(latest?.created_at || ''),
+        latestPreview: compactPreview(String(latest?.content || ''), 92),
+      }
+    })
+  }, [focusItems])
 
   const moveActivated = async (idx: number, direction: 'UP' | 'DOWN') => {
     if (idx < 0 || idx >= activated.length) return
@@ -840,6 +879,58 @@ export default function HomeFeedPage() {
               <b>{digestStats.withConversation}</b>
               <span>已建会话角色</span>
             </div>
+          </div>
+        </section>
+
+        <section className="uiHomeLifeHub">
+          <div className="uiHomeLifeHubHead">
+            <div>
+              <h3 className="uiSectionTitle">生活中枢</h3>
+              <p className="uiHint" style={{ marginTop: 6 }}>
+                {selectedCharacter ? `当前焦点：${selectedCharacter.name}` : '当前焦点：全部角色'}。点击卡片可切换动态流类型。
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className={`uiPill ${feedTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('ALL')}>
+                查看全部
+              </button>
+              <button className="uiPill" onClick={() => setFeedQuery('')}>
+                清空搜索
+              </button>
+            </div>
+          </div>
+          <div className="uiHomeLifeGrid">
+            {lifeHubCards.map((card) => {
+              const active = feedTab === card.tab
+              return (
+                <button
+                  key={card.event}
+                  className={`uiHomeLifeCard ${active ? 'uiHomeLifeCardActive' : ''}`}
+                  onClick={() => {
+                    setFeedTab(card.tab)
+                    setFeedSort('NEWEST')
+                    setLikedOnly(false)
+                    setSavedOnly(false)
+                  }}
+                >
+                  <div className="uiHomeLifeCardTop">
+                    <span className="uiBadge" style={eventBadgeStyle(card.event)}>
+                      {card.title}
+                    </span>
+                    <span className="uiHomeLifeCardCadence">{card.cadence}</span>
+                  </div>
+                  <div className="uiHomeLifeCardMain">
+                    <b>{card.total}</b>
+                    <span>累计动态</span>
+                  </div>
+                  <div className="uiHomeLifeCardMeta">24 小时内 {card.recent24h} 条</div>
+                  <div className="uiHomeLifeCardMeta">
+                    {card.latestAt ? `最近：${relativeTimeLabel(card.latestAt)}` : card.emptyHint}
+                  </div>
+                  {card.latestPreview ? <div className="uiHomeLifeCardPreview">{card.latestPreview}</div> : null}
+                </button>
+              )
+            })}
           </div>
         </section>
 
@@ -1131,12 +1222,39 @@ export default function HomeFeedPage() {
               <div className="uiPanel" style={{ marginTop: 0 }}>
                 <div className="uiPanelHeader">
                   <div>
-                    <div className="uiPanelTitle">快捷入口</div>
-                    <div className="uiPanelSub">聊天、动态中心与队列管理入口</div>
+                    <div className="uiPanelTitle">生活入口</div>
+                    <div className="uiPanelSub">按类型查看动态，快速进入聊天与角色中心</div>
                   </div>
                 </div>
                 <div className="uiForm" style={{ paddingTop: 14 }}>
                   <div style={{ display: 'grid', gap: 8 }}>
+                    <button
+                      className={`uiBtn ${feedTab === 'MOMENT' ? 'uiBtnPrimary' : 'uiBtnGhost'}`}
+                      onClick={() => {
+                        setFeedTab('MOMENT')
+                        setFeedSort('NEWEST')
+                      }}
+                    >
+                      看朋友圈
+                    </button>
+                    <button
+                      className={`uiBtn ${feedTab === 'DIARY' ? 'uiBtnPrimary' : 'uiBtnGhost'}`}
+                      onClick={() => {
+                        setFeedTab('DIARY')
+                        setFeedSort('NEWEST')
+                      }}
+                    >
+                      看日记
+                    </button>
+                    <button
+                      className={`uiBtn ${feedTab === 'SCHEDULE' ? 'uiBtnPrimary' : 'uiBtnGhost'}`}
+                      onClick={() => {
+                        setFeedTab('SCHEDULE')
+                        setFeedSort('NEWEST')
+                      }}
+                    >
+                      看日程片段
+                    </button>
                     <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/characters')}>
                       管理角色
                     </button>
