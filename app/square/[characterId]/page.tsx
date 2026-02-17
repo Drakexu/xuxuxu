@@ -781,6 +781,7 @@ export default function SquareDetailPage() {
           return { ...prevMap, [item.id]: next }
         })
       }
+      setAlert({ type: 'ok', text: out.deletedBy === 'creator' ? '已删除该评论（创作者管理）。' : '评论已删除。' })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       setAlert({ type: 'err', text: `删除评论失败：${msg}` })
@@ -1093,11 +1094,13 @@ export default function SquareDetailPage() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{c.content}</div>
                             <div className="uiHint" style={{ marginTop: 4 }}>
+                              {c.authorLabel || (c.creator ? '创作者' : c.mine ? '我' : '用户')}
+                              {' · '}
                               {c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}
-                              {c.mine ? ' · 我' : ''}
+                              {c.creator && !c.mine ? ' · 角色发布者' : ''}
                             </div>
                           </div>
-                          {c.mine ? (
+                          {c.canDelete ? (
                             <button className="uiBtn uiBtnGhost" disabled={commentDeletingId === c.id} onClick={() => void removeSquareComment(c.id)}>
                               {commentDeletingId === c.id ? '删除中...' : '删除'}
                             </button>

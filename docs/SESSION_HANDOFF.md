@@ -2270,3 +2270,25 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: square comment moderation + author labeling
+- Files changed:
+  - app/api/square/social/comments/route.ts
+  - lib/squareSocial.ts
+  - app/square/[characterId]/page.tsx
+- Completed:
+  - Upgraded square comment API payload to include author metadata:
+    - `author_label`, `author_role`, `creator`, `can_delete` (while preserving `mine`)
+  - Added creator-side moderation in `DELETE /api/square/social/comments`:
+    - comment owner can delete own comment (existing behavior)
+    - source role creator can now delete any comment under their role detail page
+    - response returns `deletedBy` (`self` or `creator`)
+  - Updated square social client types/parsing for new comment fields.
+  - Updated square detail UI:
+    - displays comment author identity (`我/创作者/用户xxxx`)
+    - delete button now follows `canDelete` (owner or creator)
+    - clearer success feedback after deletion.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

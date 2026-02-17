@@ -7,6 +7,10 @@ export type SquareComment = {
   content: string
   createdAt: string
   mine?: boolean
+  creator?: boolean
+  canDelete?: boolean
+  authorRole?: 'me' | 'creator' | 'user'
+  authorLabel?: string
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -27,8 +31,13 @@ function normalizeComment(v: unknown): SquareComment | null {
   const content = String(r.content || '').trim()
   const createdAt = String(r.created_at || r.createdAt || '').trim()
   const mine = r.mine === true
+  const creator = r.creator === true
+  const canDelete = r.can_delete === true || r.canDelete === true
+  const authorRole = String(r.author_role || r.authorRole || '').trim().toLowerCase()
+  const authorLabel = String(r.author_label || r.authorLabel || '').trim()
   if (!id || !sourceCharacterId || !content) return null
-  return { id, sourceCharacterId, content, createdAt, mine }
+  const safeRole = authorRole === 'me' || authorRole === 'creator' || authorRole === 'user' ? authorRole : undefined
+  return { id, sourceCharacterId, content, createdAt, mine, creator, canDelete, authorRole: safeRole, authorLabel }
 }
 
 export function mergeSquareReactionMap(base: SquareReactionMap, incoming: SquareReactionMap): SquareReactionMap {
@@ -159,10 +168,10 @@ export async function createSquareComment(args: {
 export async function deleteSquareComment(args: {
   token: string
   commentId: string
-}): Promise<{ tableReady: boolean }> {
+}): Promise<{ tableReady: boolean; deletedBy?: 'self' | 'creator' }> {
   const token = String(args.token || '').trim()
   const commentId = String(args.commentId || '').trim()
-  if (!token || !commentId) return { tableReady: true }
+  if (!token || !commentId) return { tableReady: true, deletedBy: undefined }
 
   const resp = await fetch('/api/square/social/comments', {
     method: 'DELETE',
@@ -173,6 +182,6 @@ export async function deleteSquareComment(args: {
     body: JSON.stringify({ commentId }),
   })
   if (!resp.ok) throw new Error(`delete square comment failed: ${resp.status}`)
-  const data = (await resp.json().catch(() => ({}))) as { tableReady?: boolean }
-  return { tableReady: data.tableReady !== false }
+  const data = (await resp.json().catch(() => ({}))) as { tableReady?: boolean; deletedBy?: 'self' | 'creator' }
+  return { tableReady: data.tableReady !== false, deletedBy: data.deletedBy }
 }
