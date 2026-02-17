@@ -1819,6 +1819,54 @@ body {
   gap: 12px;
 }
 
+.uiVisualPresetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.uiVisualPresetCard {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(22, 22, 22, 0.8);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+}
+
+.uiVisualPresetCardActive {
+  border-color: rgba(249, 217, 142, 0.44);
+  background: rgba(77, 29, 40, 0.72);
+}
+
+.uiVisualPresetTitle {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.uiVisualPresetMeta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.uiVisualPresetMeta span {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.78);
+}
+
 .uiModalOverlay {
   position: fixed;
   inset: 0;
@@ -1853,6 +1901,10 @@ body {
   }
 
   .uiSceneRangeRow {
+    grid-template-columns: 1fr;
+  }
+
+  .uiVisualPresetGrid {
     grid-template-columns: 1fr;
   }
 

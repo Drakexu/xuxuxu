@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AppShell from '@/app/_components/AppShell'
 import { supabase } from '@/lib/supabaseClient'
+import { buildVisualPresets } from '@/lib/presentation/visualPresets'
 
 type ConversationRow = { id: string; created_at?: string | null; title?: string | null }
 type CharacterAssetRow = { kind: string; storage_path: string; created_at?: string | null }
@@ -108,6 +109,16 @@ export default function CharacterAssetsPage() {
     ].filter((x) => x.bg || x.role)
   }, [backgrounds, roleLayers])
 
+  const visualPresets = useMemo(
+    () =>
+      buildVisualPresets({
+        backgrounds: backgrounds.map((a) => ({ path: a.path, kind: a.kind })),
+        roleAssets: roleLayers.map((a) => ({ path: a.path, kind: a.kind })),
+        wardrobeItems: (details?.wardrobeItems || []).map((x) => stableName(x)).filter(Boolean),
+      }),
+    [backgrounds, roleLayers, details?.wardrobeItems],
+  )
+
   const applyScenePreset = (presetId: string) => {
     const p = scenePresets.find((x) => x.id === presetId)
     if (!p) return
@@ -115,6 +126,19 @@ export default function CharacterAssetsPage() {
     if (p.role?.path) setComposerRolePath(p.role.path)
     setRoleScale(p.scale)
     setRoleYOffset(p.y)
+  }
+
+  const applyVisualPreset = (presetId: string) => {
+    const p = visualPresets.find((x) => x.id === presetId)
+    if (!p) return
+    if (p.bgPath) setComposerBgPath(p.bgPath)
+    if (p.rolePath) setComposerRolePath(p.rolePath)
+    setRoleScale(p.scale)
+    setRoleYOffset(p.y)
+    if (p.outfit) {
+      setManualOutfit(p.outfit)
+      if (canSaveOutfit) void setOutfit(p.outfit)
+    }
   }
 
   const loadDetails = async (uid: string, convId: string) => {
@@ -481,6 +505,28 @@ export default function CharacterAssetsPage() {
                         Preset {p.label}
                       </button>
                     ))}
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div className="uiHint">Visual Presets</div>
+                    <div className="uiVisualPresetGrid">
+                      {visualPresets.map((p) => {
+                        const active =
+                          (!p.bgPath || p.bgPath === composerBgPath) &&
+                          (!p.rolePath || p.rolePath === composerRolePath) &&
+                          (!p.outfit || !details || p.outfit === details.currentOutfit)
+                        return (
+                          <button key={`visual:${p.id}`} className={`uiVisualPresetCard ${active ? 'uiVisualPresetCardActive' : ''}`} onClick={() => applyVisualPreset(p.id)}>
+                            <div className="uiVisualPresetTitle">{p.label}</div>
+                            <div className="uiVisualPresetMeta">
+                              <span>{p.mood}</span>
+                              <span>{p.pose}</span>
+                              <span>{p.outfit || 'auto outfit'}</span>
+                            </div>
+                          </button>
+                        )
+                      })}
+                      {visualPresets.length === 0 && <div className="uiHint">No visual presets available.</div>}
+                    </div>
                   </div>
                 </div>
 

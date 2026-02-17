@@ -1983,3 +1983,26 @@ pm run -s build -> pass
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run -s build` -> pass
+
+## 2026-02-18 checkpoint: visual preset engine pass (assets + chat)
+- Files changed:
+  - `lib/presentation/visualPresets.ts` (new)
+  - `app/chat/[characterId]/page.tsx`
+  - `app/characters/[characterId]/assets/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Added reusable visual preset engine for static composition:
+    - builds multi-factor presets from background/role asset paths + wardrobe names
+    - emits mood/pose/outfit-aware presets
+    - supports cue-based role auto-selection (`pickBestRolePathForCue`)
+  - Chat Scene Dock upgraded:
+    - new `Visual Presets` card grid with one-click apply (bg + role + pose + optional outfit)
+    - assistant response auto-cue now can switch role layer (not only background)
+  - Character assets workbench upgraded:
+    - new `Visual Presets` board in composer
+    - one-click preset applies background + role + transform + optional outfit write-through
+  - Added Candy-style preset UI classes in global styles.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AppShell from '@/app/_components/AppShell'
 import { inferPresentationCue, pickBestBackgroundPath } from '@/lib/presentation/cues'
+import { buildVisualPresets, pickBestRolePathForCue } from '@/lib/presentation/visualPresets'
 
 type InputEvent =
   | 'TALK_HOLD'
@@ -243,6 +244,16 @@ export default function ChatPage() {
       { id: 'closeup', label: 'Closeup', bgPath: pickBg(['room', 'home', 'indoor'])?.path || '', rolePath: pickRole(['head', 'portrait'])?.path || '', scale: 124, y: 10 },
     ]
   }, [backgroundAssets, roleAssets])
+
+  const visualPresets = useMemo(
+    () =>
+      buildVisualPresets({
+        backgrounds: backgroundAssets.map((a) => ({ path: a.path, kind: a.kind })),
+        roleAssets: roleAssets.map((a) => ({ path: a.path, kind: a.kind })),
+        wardrobeItems: details?.wardrobeItems || [],
+      }),
+    [backgroundAssets, roleAssets, details?.wardrobeItems],
+  )
 
   const storyLockLabel = useMemo(() => {
     if (!storyLockUntil) return ''
@@ -760,6 +771,18 @@ export default function ChatPage() {
     setChatRoleYOffset(preset.y)
   }
 
+  const applyVisualPreset = async (presetId: string) => {
+    const preset = visualPresets.find((x) => x.id === presetId)
+    if (!preset) return
+    if (preset.bgPath) await setChatBgPath(preset.bgPath, { manual: true })
+    if (preset.rolePath) await setRoleLayerPath(preset.rolePath)
+    setChatRoleScale(preset.scale)
+    setChatRoleYOffset(preset.y)
+    if (preset.outfit && (!details || preset.outfit !== details.outfit)) {
+      await setOutfit(preset.outfit)
+    }
+  }
+
   const updateScheduleControl = async (action: 'PLAY' | 'PAUSE' | 'LOCK' | 'UNLOCK', lockMinutes?: number) => {
     if (!conversationId || updatingSchedule) return
 
@@ -1028,6 +1051,15 @@ export default function ChatPage() {
         if (picked.path && picked.score > 0) {
           const cueLabel = `${cue.emotion}${cue.sceneTags.length ? `/${cue.sceneTags.join('-')}` : ''}`
           await setChatBgPath(picked.path, { cueLabel })
+        }
+        if (roleAssets.length > 0) {
+          const rolePick = pickBestRolePathForCue(
+            roleAssets.map((x) => ({ path: x.path, kind: x.kind })),
+            cue,
+          )
+          if (rolePick.path && rolePick.score > 0) {
+            await setRoleLayerPath(rolePick.path)
+          }
         }
       }
     }
@@ -1320,6 +1352,33 @@ export default function ChatPage() {
                   </button>
                 ))}
                 {scenePresets.length === 0 && <div className="uiHint">No scene presets available.</div>}
+              </div>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div className="uiHint">Visual Presets</div>
+                <div className="uiVisualPresetGrid">
+                  {visualPresets.map((p) => {
+                    const active =
+                      (!p.bgPath || p.bgPath === chatBgPath) &&
+                      (!p.rolePath || p.rolePath === chatRolePath) &&
+                      (!p.outfit || !details || p.outfit === details.outfit)
+                    return (
+                      <button
+                        key={`visual:${p.id}`}
+                        className={`uiVisualPresetCard ${active ? 'uiVisualPresetCardActive' : ''}`}
+                        onClick={() => void applyVisualPreset(p.id)}
+                      >
+                        <div className="uiVisualPresetTitle">{p.label}</div>
+                        <div className="uiVisualPresetMeta">
+                          <span>{p.mood}</span>
+                          <span>{p.pose}</span>
+                          <span>{p.outfit || 'auto outfit'}</span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                  {visualPresets.length === 0 && <div className="uiHint">No visual presets available.</div>}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gap: 8 }}>
