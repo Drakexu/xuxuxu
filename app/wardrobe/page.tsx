@@ -1,30 +1,37 @@
-'use client'
+﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import AppShell from '@/app/_components/AppShell'
+import { buildVisualPresets, type VisualPreset } from '@/lib/presentation/visualPresets'
 
-type CharacterRow = { id: string; name: string; created_at?: string | null; settings?: unknown }
-type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
-type ConversationRow = { id: string; character_id?: string | null; created_at?: string | null }
-type ConversationStateRow = { conversation_id: string; state?: unknown; updated_at?: string | null }
+type Character = { id: string; name: string; created_at?: string | null; settings?: unknown }
+type Asset = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
+type Conv = { id: string; character_id?: string | null; created_at?: string | null }
+type ConvState = { conversation_id: string; state?: unknown; updated_at?: string | null }
 
-type Scope = 'ALL' | 'UNLOCKED' | 'CREATED'
-type SortMode = 'UPDATED' | 'COMPLETE' | 'NAME'
-type HealthFilter = 'ALL' | 'COMPLETE' | 'MISSING_OUTFIT' | 'MISSING_ASSETS' | 'MISSING_NPC' | 'MISSING_HIGHLIGHTS'
-
-type WardrobeDigest = {
+type Digest = {
   conversationId: string
   outfit: string
-  wardrobePreview: string[]
-  wardrobeCount: number
+  wardrobe: string[]
   inventoryCount: number
   npcCount: number
   highlightsCount: number
-  eventCount: number
   completeness: number
   updatedAt: string
+}
+
+type Stage = { coverUrl?: string; roleUrl?: string; coverPath?: string; rolePath?: string }
+type Option = { path: string; kind: string; url: string }
+
+type Preview = {
+  bgPath: string
+  bgUrl: string
+  rolePath: string
+  roleUrl: string
+  scale: number
+  y: number
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -35,145 +42,87 @@ function asArray(v: unknown): unknown[] {
   return Array.isArray(v) ? v : []
 }
 
-function isUnlockedFromSquare(c: CharacterRow) {
+function isUnlocked(c: Character) {
   const s = asRecord(c.settings)
-  return (typeof s.source_character_id === 'string' && s.source_character_id.trim().length > 0) || s.unlocked_from_square === true
+  return (typeof s.source_character_id === 'string' && s.source_character_id.trim()) || s.unlocked_from_square === true
 }
 
-function pickByKind(rows: CharacterAssetRow[], kind: string) {
-  return rows.find((r) => r.kind === kind)?.storage_path || ''
-}
-
-function wardrobeNames(v: unknown) {
-  const src = asArray(v)
+function names(v: unknown) {
   const out: string[] = []
-  for (const it of src) {
-    if (typeof it === 'string') {
-      const n = it.trim()
-      if (n) out.push(n)
+  for (const x of asArray(v)) {
+    if (typeof x === 'string') {
+      const t = x.trim()
+      if (t) out.push(t)
       continue
     }
-    const r = asRecord(it)
-    const n = String(r.outfit || r.name || r.title || '').trim()
-    if (n) out.push(n)
+    const r = asRecord(x)
+    const t = String(r.outfit || r.name || r.title || '').trim()
+    if (t) out.push(t)
   }
   return Array.from(new Set(out))
 }
 
-function relativeTimeLabel(iso: string) {
+function relTime(iso: string) {
   const ts = Date.parse(String(iso || ''))
-  if (!Number.isFinite(ts)) return '暂无更新'
-  const delta = Date.now() - ts
-  if (delta < 0) return '刚刚'
-  const mins = Math.floor(delta / 60000)
-  if (mins < 1) return '刚刚'
-  if (mins < 60) return `${mins} 分钟前`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours} 小时前`
-  const days = Math.floor(hours / 24)
-  return `${days} 天前`
+  if (!Number.isFinite(ts)) return 'No update'
+  const m = Math.floor((Date.now() - ts) / 60000)
+  if (m < 1) return 'Just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+function isBg(a: Asset) {
+  const p = a.storage_path.toLowerCase()
+  return a.kind === 'cover' || /bg|background|scene|street|city|room|night|day/.test(p)
+}
+
+function isRole(a: Asset) {
+  const p = a.storage_path.toLowerCase()
+  return a.kind === 'full_body' || a.kind === 'head' || /body|head|portrait|avatar|role|character/.test(p)
+}
+
+function shortPath(path: string) {
+  const s = String(path || '').split('/').pop() || ''
+  return s.length > 20 ? `${s.slice(0, 10)}...${s.slice(-7)}` : s
 }
 
 export default function WardrobePage() {
   const router = useRouter()
-
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [characters, setCharacters] = useState<CharacterRow[]>([])
-  const [digestById, setDigestById] = useState<Record<string, WardrobeDigest>>({})
-  const [stageById, setStageById] = useState<Record<string, { cover?: string; role?: string }>>({})
-
-  const [scope, setScope] = useState<Scope>('ALL')
-  const [sortMode, setSortMode] = useState<SortMode>('UPDATED')
-  const [healthFilter, setHealthFilter] = useState<HealthFilter>('ALL')
+  const [characters, setCharacters] = useState<Character[]>([])
+  const [digestById, setDigestById] = useState<Record<string, Digest>>({})
+  const [stageById, setStageById] = useState<Record<string, Stage>>({})
   const [query, setQuery] = useState('')
-  const [savingOutfitCharacterId, setSavingOutfitCharacterId] = useState('')
+  const [selectedId, setSelectedId] = useState('')
+  const [savingOutfitId, setSavingOutfitId] = useState('')
+  const [bgOptions, setBgOptions] = useState<Option[]>([])
+  const [roleOptions, setRoleOptions] = useState<Option[]>([])
+  const [presets, setPresets] = useState<VisualPreset[]>([])
+  const [preview, setPreview] = useState<Preview>({ bgPath: '', bgUrl: '', rolePath: '', roleUrl: '', scale: 108, y: 0 })
+
+  const selected = useMemo(() => characters.find((c) => c.id === selectedId) || null, [characters, selectedId])
 
   const stats = useMemo(() => {
     let unlocked = 0
-    let created = 0
-    let withOutfit = 0
-    let withWardrobe = 0
     let complete = 0
-    let withAssets = 0
-    let missingOutfit = 0
-    let missingNpc = 0
-    let missingHighlights = 0
-    let missingAssets = 0
-
     for (const c of characters) {
-      if (isUnlockedFromSquare(c)) unlocked += 1
-      else created += 1
-      const d = digestById[c.id]
-      if (d?.outfit) withOutfit += 1
-      else missingOutfit += 1
-      if ((d?.wardrobeCount || 0) > 0) withWardrobe += 1
-      if ((d?.npcCount || 0) <= 0) missingNpc += 1
-      if ((d?.highlightsCount || 0) <= 0) missingHighlights += 1
-      if ((d?.completeness || 0) >= 4) complete += 1
-      const s = stageById[c.id]
-      if (s?.cover || s?.role) withAssets += 1
-      else missingAssets += 1
+      if (isUnlocked(c)) unlocked += 1
+      if ((digestById[c.id]?.completeness || 0) >= 4) complete += 1
     }
-
-    return {
-      total: characters.length,
-      unlocked,
-      created,
-      withOutfit,
-      withWardrobe,
-      complete,
-      withAssets,
-      missingOutfit,
-      missingNpc,
-      missingHighlights,
-      missingAssets,
-    }
-  }, [characters, digestById, stageById])
+    return { total: characters.length, unlocked, complete }
+  }, [characters, digestById])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const arr = characters.filter((c) => {
-      const d = digestById[c.id]
-      const stage = stageById[c.id] || {}
-      const unlocked = isUnlockedFromSquare(c)
-      if (scope === 'UNLOCKED' && !unlocked) return false
-      if (scope === 'CREATED' && unlocked) return false
-      if (healthFilter === 'COMPLETE' && Number(d?.completeness || 0) < 4) return false
-      if (healthFilter === 'MISSING_OUTFIT' && !!String(d?.outfit || '').trim()) return false
-      if (healthFilter === 'MISSING_ASSETS' && !!(stage.cover || stage.role)) return false
-      if (healthFilter === 'MISSING_NPC' && Number(d?.npcCount || 0) > 0) return false
-      if (healthFilter === 'MISSING_HIGHLIGHTS' && Number(d?.highlightsCount || 0) > 0) return false
-      if (!q) return true
-      return String(c.name || '').toLowerCase().includes(q)
-    })
+    return characters.filter((c) => (q ? c.name.toLowerCase().includes(q) : true))
+  }, [characters, query])
 
-    const ts = (iso?: string | null) => Date.parse(String(iso || '')) || 0
-    arr.sort((a, b) => {
-      const da = digestById[a.id]
-      const db = digestById[b.id]
-      if (sortMode === 'COMPLETE') {
-        const ca = Number(da?.completeness || 0)
-        const cb = Number(db?.completeness || 0)
-        if (cb !== ca) return cb - ca
-      }
-      if (sortMode === 'NAME') return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hans-CN')
-      const ta = ts(da?.updatedAt || a.created_at)
-      const tb = ts(db?.updatedAt || b.created_at)
-      if (tb !== ta) return tb - ta
-      if (sortMode === 'UPDATED') return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hans-CN')
-      return Number(db?.completeness || 0) - Number(da?.completeness || 0)
-    })
-
-    return arr
-  }, [characters, digestById, stageById, healthFilter, query, scope, sortMode])
-
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    setDigestById({})
-    setStageById({})
-
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
     if (!userId) {
@@ -181,295 +130,271 @@ export default function WardrobePage() {
       return
     }
 
-    const rChars = await supabase
-      .from('characters')
-      .select('id,name,created_at,settings')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(500)
-
-    if (rChars.error) {
-      setError(rChars.error.message || '加载角色失败')
-      setCharacters([])
+    const chars = await supabase.from('characters').select('id,name,created_at,settings').eq('user_id', userId).order('created_at', { ascending: false }).limit(400)
+    if (chars.error) {
+      setError(chars.error.message || 'Failed to load characters')
       setLoading(false)
       return
     }
 
-    const rows = (rChars.data ?? []) as CharacterRow[]
+    const rows = (chars.data ?? []) as Character[]
     setCharacters(rows)
-    const ids = rows.map((x) => x.id).filter(Boolean)
+    setSelectedId((prev) => (prev && rows.some((x) => x.id === prev) ? prev : rows[0]?.id || ''))
 
-    try {
-      if (ids.length) {
-        const assets = await supabase
-          .from('character_assets')
-          .select('character_id,kind,storage_path,created_at')
-          .in('character_id', ids)
-          .in('kind', ['cover', 'full_body', 'head'])
-          .order('created_at', { ascending: false })
-          .limit(1500)
+    const ids = rows.map((x) => x.id)
+    const assetsRes = await supabase
+      .from('character_assets')
+      .select('character_id,kind,storage_path,created_at')
+      .in('character_id', ids)
+      .in('kind', ['cover', 'full_body', 'head'])
+      .order('created_at', { ascending: false })
+      .limit(1500)
 
-        if (!assets.error) {
-          const grouped: Record<string, CharacterAssetRow[]> = {}
-          for (const row of (assets.data ?? []) as CharacterAssetRow[]) {
-            if (!row.character_id) continue
-            if (!grouped[row.character_id]) grouped[row.character_id] = []
-            grouped[row.character_id].push(row)
-          }
-
-          const signJobs: Array<Promise<[string, 'cover' | 'role', string]>> = []
-          for (const [characterId, rs] of Object.entries(grouped)) {
-            const coverPath = pickByKind(rs, 'cover')
-            const rolePath = pickByKind(rs, 'full_body') || pickByKind(rs, 'head')
-            if (coverPath) {
-              signJobs.push(
-                supabase.storage
-                  .from('character-assets')
-                  .createSignedUrl(coverPath, 60 * 60)
-                  .then((x) => [characterId, 'cover', x.data?.signedUrl || ''] as [string, 'cover', string]),
-              )
-            }
-            if (rolePath) {
-              signJobs.push(
-                supabase.storage
-                  .from('character-assets')
-                  .createSignedUrl(rolePath, 60 * 60)
-                  .then((x) => [characterId, 'role', x.data?.signedUrl || ''] as [string, 'role', string]),
-              )
-            }
-          }
-
-          const signed = await Promise.all(signJobs)
-          const nextStage: Record<string, { cover?: string; role?: string }> = {}
-          for (const [characterId, kind, url] of signed) {
-            if (!url) continue
-            if (!nextStage[characterId]) nextStage[characterId] = {}
-            if (kind === 'cover') nextStage[characterId].cover = url
-            else nextStage[characterId].role = url
-          }
-          setStageById(nextStage)
+    if (!assetsRes.error) {
+      const grouped: Record<string, Asset[]> = {}
+      for (const a of (assetsRes.data ?? []) as Asset[]) {
+        if (!grouped[a.character_id]) grouped[a.character_id] = []
+        grouped[a.character_id].push(a)
+      }
+      const jobs: Array<Promise<[string, 'cover' | 'role', string, string]>> = []
+      for (const [id, arr] of Object.entries(grouped)) {
+        const cover = arr.find((x) => x.kind === 'cover')?.storage_path || ''
+        const role = arr.find((x) => x.kind === 'full_body')?.storage_path || arr.find((x) => x.kind === 'head')?.storage_path || ''
+        if (cover) {
+          jobs.push(
+            supabase.storage
+              .from('character-assets')
+              .createSignedUrl(cover, 3600)
+              .then((r) => [id, 'cover', cover, r.data?.signedUrl || ''] as [string, 'cover', string, string]),
+          )
+        }
+        if (role) {
+          jobs.push(
+            supabase.storage
+              .from('character-assets')
+              .createSignedUrl(role, 3600)
+              .then((r) => [id, 'role', role, r.data?.signedUrl || ''] as [string, 'role', string, string]),
+          )
         }
       }
-    } catch {
-      // ignore optional media failures
+      const signed = await Promise.all(jobs)
+      const next: Record<string, Stage> = {}
+      for (const [id, kind, path, url] of signed) {
+        if (!url) continue
+        if (!next[id]) next[id] = {}
+        if (kind === 'cover') {
+          next[id].coverPath = path
+          next[id].coverUrl = url
+        } else {
+          next[id].rolePath = path
+          next[id].roleUrl = url
+        }
+      }
+      setStageById(next)
     }
 
-    try {
-      const latestConversationByCharacter: Record<string, ConversationRow> = {}
-      if (ids.length) {
-        const convs = await supabase
-          .from('conversations')
-          .select('id,character_id,created_at')
-          .eq('user_id', userId)
-          .in('character_id', ids)
-          .order('created_at', { ascending: false })
-          .limit(1600)
+    const convs = await supabase
+      .from('conversations')
+      .select('id,character_id,created_at')
+      .eq('user_id', userId)
+      .in('character_id', ids)
+      .order('created_at', { ascending: false })
+      .limit(1600)
 
-        if (!convs.error) {
-          for (const row of (convs.data ?? []) as ConversationRow[]) {
-            const cid = String(row.character_id || '').trim()
-            if (!cid || latestConversationByCharacter[cid]) continue
-            latestConversationByCharacter[cid] = row
-          }
-        }
+    const latestByChar: Record<string, Conv> = {}
+    if (!convs.error) {
+      for (const c of (convs.data ?? []) as Conv[]) {
+        const cid = String(c.character_id || '')
+        if (!cid || latestByChar[cid]) continue
+        latestByChar[cid] = c
       }
-
-      const convIds = Object.values(latestConversationByCharacter)
-        .map((x) => String(x.id || '').trim())
-        .filter(Boolean)
-
-      const stateByConversationId: Record<string, ConversationStateRow> = {}
-      if (convIds.length) {
-        const states = await supabase
-          .from('conversation_states')
-          .select('conversation_id,state,updated_at')
-          .eq('user_id', userId)
-          .in('conversation_id', convIds)
-          .limit(1600)
-
-        if (!states.error) {
-          for (const row of (states.data ?? []) as ConversationStateRow[]) {
-            const convId = String(row.conversation_id || '').trim()
-            if (!convId) continue
-            stateByConversationId[convId] = row
-          }
-        }
-      }
-
-      const nextDigest: Record<string, WardrobeDigest> = {}
-      for (const c of rows) {
-        const conv = latestConversationByCharacter[c.id]
-        const convId = String(conv?.id || '').trim()
-        const st = asRecord(stateByConversationId[convId]?.state)
-        const ledger = asRecord(st.ledger)
-        const memory = asRecord(st.memory)
-        const wardrobe = asRecord(ledger.wardrobe)
-
-        const outfit = String(wardrobe.current_outfit || '').trim()
-        const wardrobePreview = wardrobeNames(wardrobe.items)
-        const wardrobeCount = wardrobePreview.length
-        const inventoryCount = asArray(ledger.inventory).length
-        const npcCount = asArray(ledger.npc_database).length
-        const highlightsCount = asArray(memory.highlights).length
-        const eventCount = asArray(ledger.event_log).length
-        const completeness = [!!outfit, inventoryCount > 0, npcCount > 0, highlightsCount > 0].filter(Boolean).length
-        const updatedAt = String(stateByConversationId[convId]?.updated_at || conv?.created_at || '')
-
-        nextDigest[c.id] = {
-          conversationId: convId,
-          outfit,
-          wardrobePreview,
-          wardrobeCount,
-          inventoryCount,
-          npcCount,
-          highlightsCount,
-          eventCount,
-          completeness,
-          updatedAt,
-        }
-      }
-      setDigestById(nextDigest)
-    } catch {
-      // ignore optional digest failures
     }
 
+    const convIds = Object.values(latestByChar)
+      .map((x) => String(x.id || ''))
+      .filter(Boolean)
+
+    const states = await supabase
+      .from('conversation_states')
+      .select('conversation_id,state,updated_at')
+      .eq('user_id', userId)
+      .in('conversation_id', convIds)
+      .limit(1600)
+
+    const byConvId: Record<string, ConvState> = {}
+    if (!states.error) {
+      for (const s of (states.data ?? []) as ConvState[]) {
+        byConvId[String(s.conversation_id || '')] = s
+      }
+    }
+
+    const nextDigest: Record<string, Digest> = {}
+    for (const c of rows) {
+      const conv = latestByChar[c.id]
+      const convId = String(conv?.id || '')
+      const st = asRecord(byConvId[convId]?.state)
+      const ledger = asRecord(st.ledger)
+      const memory = asRecord(st.memory)
+      const wardrobe = asRecord(ledger.wardrobe)
+      const outfit = String(wardrobe.current_outfit || '').trim()
+      const wardrobeItems = names(wardrobe.items)
+      const inventoryCount = asArray(ledger.inventory).length
+      const npcCount = asArray(ledger.npc_database).length
+      const highlightsCount = asArray(memory.highlights).length
+      const completeness = [!!outfit, inventoryCount > 0, npcCount > 0, highlightsCount > 0].filter(Boolean).length
+      nextDigest[c.id] = {
+        conversationId: convId,
+        outfit,
+        wardrobe: wardrobeItems,
+        inventoryCount,
+        npcCount,
+        highlightsCount,
+        completeness,
+        updatedAt: String(byConvId[convId]?.updated_at || conv?.created_at || ''),
+      }
+    }
+    setDigestById(nextDigest)
     setLoading(false)
-  }
+  }, [router])
 
-  const quickSetOutfit = async (characterId: string, outfit: string) => {
-    const nextOutfit = String(outfit || '').trim()
-    if (!characterId || !nextOutfit) return
-    if (savingOutfitCharacterId) return
-
-    const digest = digestById[characterId]
-    const conversationId = String(digest?.conversationId || '').trim()
-    if (!conversationId) {
-      router.push(`/chat/${characterId}`)
-      return
-    }
-
-    setSavingOutfitCharacterId(characterId)
-    setError('')
-    try {
-      const { data: sess } = await supabase.auth.getSession()
-      const token = sess.session?.access_token || ''
-      if (!token) throw new Error('登录状态失效，请重新登录。')
-
-      const resp = await fetch('/api/state/wardrobe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ conversationId, currentOutfit: nextOutfit, confirmed: true }),
-      })
-      if (!resp.ok) {
-        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-        throw new Error(String(data.error || `请求失败(${resp.status})`))
+  const quickSetOutfit = useCallback(
+    async (characterId: string, outfit: string) => {
+      const convId = String(digestById[characterId]?.conversationId || '')
+      if (!convId || !outfit || savingOutfitId) return
+      setSavingOutfitId(characterId)
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (!token) throw new Error('Session expired')
+        const resp = await fetch('/api/state/wardrobe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ conversationId: convId, currentOutfit: outfit, confirmed: true }),
+        })
+        if (!resp.ok) throw new Error(`Request failed (${resp.status})`)
+        setDigestById((prev) => {
+          const d = prev[characterId]
+          if (!d) return prev
+          return { ...prev, [characterId]: { ...d, outfit, updatedAt: new Date().toISOString() } }
+        })
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setSavingOutfitId('')
       }
+    },
+    [digestById, savingOutfitId],
+  )
 
-      setDigestById((prev) => {
-        const curr = prev[characterId]
-        if (!curr) return prev
-        const completeness = [true, curr.inventoryCount > 0, curr.npcCount > 0, curr.highlightsCount > 0].filter(Boolean).length
-        return {
-          ...prev,
-          [characterId]: {
-            ...curr,
-            outfit: nextOutfit,
-            updatedAt: new Date().toISOString(),
-            completeness,
-          },
-        }
-      })
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setSavingOutfitCharacterId('')
+  const loadStageForSelected = useCallback(async () => {
+    if (!selectedId) return
+    const res = await supabase
+      .from('character_assets')
+      .select('character_id,kind,storage_path,created_at')
+      .eq('character_id', selectedId)
+      .in('kind', ['cover', 'full_body', 'head'])
+      .order('created_at', { ascending: false })
+      .limit(120)
+
+    if (res.error) return
+    const uniq = Array.from(new Map(((res.data ?? []) as Asset[]).map((x) => [x.storage_path, x])).values())
+    const sign = await Promise.all(
+      uniq.map(async (a) => {
+        const s = await supabase.storage.from('character-assets').createSignedUrl(a.storage_path, 3600)
+        return { a, url: s.data?.signedUrl || '' }
+      }),
+    )
+
+    const bgs: Option[] = []
+    const roles: Option[] = []
+    for (const x of sign) {
+      if (!x.url) continue
+      if (isBg(x.a)) bgs.push({ kind: x.a.kind, path: x.a.storage_path, url: x.url })
+      if (isRole(x.a)) roles.push({ kind: x.a.kind, path: x.a.storage_path, url: x.url })
     }
-  }
+    setBgOptions(bgs.slice(0, 16))
+    setRoleOptions(roles.slice(0, 16))
+
+    const ps = buildVisualPresets({
+      backgrounds: bgs.map((x) => ({ path: x.path, kind: x.kind })),
+      roleAssets: roles.map((x) => ({ path: x.path, kind: x.kind })),
+      wardrobeItems: digestById[selectedId]?.wardrobe || [],
+    })
+    setPresets(ps.slice(0, 8))
+
+    const current = stageById[selectedId] || {}
+    setPreview({
+      bgPath: current.coverPath || bgs[0]?.path || '',
+      bgUrl: current.coverUrl || bgs[0]?.url || '',
+      rolePath: current.rolePath || roles[0]?.path || '',
+      roleUrl: current.roleUrl || roles[0]?.url || '',
+      scale: 108,
+      y: 0,
+    })
+  }, [digestById, selectedId, stageById])
+  const applyPreset = useCallback(
+    async (p: VisualPreset) => {
+      setPreview((prev) => ({
+        ...prev,
+        bgPath: p.bgPath || prev.bgPath,
+        bgUrl: bgOptions.find((x) => x.path === p.bgPath)?.url || prev.bgUrl,
+        rolePath: p.rolePath || prev.rolePath,
+        roleUrl: roleOptions.find((x) => x.path === p.rolePath)?.url || prev.roleUrl,
+        scale: p.scale || prev.scale,
+        y: p.y || 0,
+      }))
+      if (selectedId && p.outfit && p.outfit !== (digestById[selectedId]?.outfit || '')) {
+        await quickSetOutfit(selectedId, p.outfit)
+      }
+    },
+    [bgOptions, digestById, quickSetOutfit, roleOptions, selectedId],
+  )
 
   useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router])
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    if (!selectedId) return
+    void loadStageForSelected()
+  }, [selectedId, loadStageForSelected])
 
   return (
     <div className="uiPage">
       <AppShell
-        title="衣柜资产"
+        title="Wardrobe Studio"
         badge="wardrobe"
-        subtitle="跨角色查看服装、资产图层和账本完整度"
+        subtitle="Outfit + static visual layer operations across all characters."
         actions={
           <button className="uiBtn uiBtnGhost" onClick={() => void load()} disabled={loading}>
-            刷新
+            Refresh
           </button>
         }
       >
         <section className="uiHero">
           <div>
             <span className="uiBadge">Asset Hub</span>
-            <h2 className="uiHeroTitle">统一管理角色穿搭与资产状态</h2>
-            <p className="uiHeroSub">这里聚合所有角色的当前穿搭、衣柜条目和账本状态，你可以快速跳转到聊天、单角色资产页和动态中心。</p>
+            <h2 className="uiHeroTitle">Compose static scenes and keep ledger clean</h2>
+            <p className="uiHeroSub">Select a character card, switch layers, apply presets, and sync outfit state with one click.</p>
           </div>
           <div className="uiKpiGrid">
             <div className="uiKpi">
               <b>{stats.total}</b>
-              <span>角色总数</span>
+              <span>Total</span>
             </div>
             <div className="uiKpi">
               <b>{stats.unlocked}</b>
-              <span>已解锁</span>
-            </div>
-            <div className="uiKpi">
-              <b>{stats.created}</b>
-              <span>我的创作</span>
-            </div>
-            <div className="uiKpi">
-              <b>{stats.withAssets}</b>
-              <span>有图层资产</span>
-            </div>
-            <div className="uiKpi">
-              <b>{stats.withOutfit}</b>
-              <span>有当前穿搭</span>
-            </div>
-            <div className="uiKpi">
-              <b>{stats.withWardrobe}</b>
-              <span>有衣柜条目</span>
+              <span>Unlocked</span>
             </div>
             <div className="uiKpi">
               <b>{stats.complete}</b>
-              <span>账本完整角色</span>
+              <span>Complete</span>
             </div>
           </div>
         </section>
 
-        <section className="uiWardrobeGapBoard">
-          <button className={`uiWardrobeGapCard ${healthFilter === 'MISSING_OUTFIT' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('MISSING_OUTFIT')}>
-            <b>{stats.missingOutfit}</b>
-            <span>缺少当前穿搭</span>
-          </button>
-          <button className={`uiWardrobeGapCard ${healthFilter === 'MISSING_ASSETS' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('MISSING_ASSETS')}>
-            <b>{stats.missingAssets}</b>
-            <span>缺少图层资产</span>
-          </button>
-          <button className={`uiWardrobeGapCard ${healthFilter === 'MISSING_NPC' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('MISSING_NPC')}>
-            <b>{stats.missingNpc}</b>
-            <span>缺少 NPC</span>
-          </button>
-          <button className={`uiWardrobeGapCard ${healthFilter === 'MISSING_HIGHLIGHTS' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('MISSING_HIGHLIGHTS')}>
-            <b>{stats.missingHighlights}</b>
-            <span>缺少高光</span>
-          </button>
-          <button className={`uiWardrobeGapCard ${healthFilter === 'COMPLETE' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('COMPLETE')}>
-            <b>{stats.complete}</b>
-            <span>账本完整</span>
-          </button>
-          <button className={`uiWardrobeGapCard ${healthFilter === 'ALL' ? 'uiWardrobeGapCardActive' : ''}`} onClick={() => setHealthFilter('ALL')}>
-            <b>{stats.total}</b>
-            <span>全部角色</span>
-          </button>
-        </section>
-
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
-        {loading && <div className="uiSkeleton">加载中...</div>}
+        {loading && <div className="uiSkeleton">Loading...</div>}
 
         {!loading && (
           <div className="uiWardrobeWorkspace">
@@ -477,150 +402,171 @@ export default function WardrobePage() {
               <div className="uiPanel" style={{ marginTop: 0 }}>
                 <div className="uiPanelHeader">
                   <div>
-                    <div className="uiPanelTitle">筛选与排序</div>
-                    <div className="uiPanelSub">聚焦不同来源角色与资产状态</div>
+                    <div className="uiPanelTitle">Search</div>
+                    <div className="uiPanelSub">Pick a character to enter stage composer</div>
                   </div>
                 </div>
                 <div className="uiForm" style={{ paddingTop: 14 }}>
-                  <input className="uiInput" placeholder="搜索角色名..." value={query} onChange={(e) => setQuery(e.target.value)} />
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button className={`uiPill ${scope === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setScope('ALL')}>
-                      全部
-                    </button>
-                    <button className={`uiPill ${scope === 'UNLOCKED' ? 'uiPillActive' : ''}`} onClick={() => setScope('UNLOCKED')}>
-                      已解锁
-                    </button>
-                    <button className={`uiPill ${scope === 'CREATED' ? 'uiPillActive' : ''}`} onClick={() => setScope('CREATED')}>
-                      我的创作
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button className={`uiPill ${healthFilter === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setHealthFilter('ALL')}>
-                      账本：全部
-                    </button>
-                    <button className={`uiPill ${healthFilter === 'COMPLETE' ? 'uiPillActive' : ''}`} onClick={() => setHealthFilter('COMPLETE')}>
-                      账本：完整
-                    </button>
-                    <button className={`uiPill ${healthFilter === 'MISSING_OUTFIT' ? 'uiPillActive' : ''}`} onClick={() => setHealthFilter('MISSING_OUTFIT')}>
-                      缺穿搭
-                    </button>
-                    <button className={`uiPill ${healthFilter === 'MISSING_ASSETS' ? 'uiPillActive' : ''}`} onClick={() => setHealthFilter('MISSING_ASSETS')}>
-                      缺资产
-                    </button>
-                  </div>
-                  <select className="uiInput" value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)}>
-                    <option value="UPDATED">排序：最近更新</option>
-                    <option value="COMPLETE">排序：账本完整度</option>
-                    <option value="NAME">排序：角色名</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="uiPanel" style={{ marginTop: 0 }}>
-                <div className="uiPanelHeader">
-                  <div>
-                    <div className="uiPanelTitle">快捷入口</div>
-                    <div className="uiPanelSub">进入角色管理、创建和广场</div>
-                  </div>
-                </div>
-                <div className="uiForm" style={{ paddingTop: 14 }}>
+                  <input className="uiInput" placeholder="Search by name..." value={query} onChange={(e) => setQuery(e.target.value)} />
                   <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/characters')}>
-                    管理角色
-                  </button>
-                  <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters/new')}>
-                    创建角色
+                    Character Manager
                   </button>
                   <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
-                    去广场
+                    Open Square
+                  </button>
+                  <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
+                    Open Home
                   </button>
                 </div>
               </div>
             </aside>
 
             <div className="uiWardrobeMain">
-              {filtered.length === 0 && (
-                <div className="uiEmpty" style={{ marginTop: 0 }}>
-                  <div className="uiEmptyTitle">没有匹配角色</div>
-                  <div className="uiEmptyDesc">试试清空关键词或切换筛选条件。</div>
-                </div>
-              )}
+              {selected ? (
+                <div className="uiPanel" style={{ marginTop: 0 }}>
+                  <div className="uiPanelHeader">
+                    <div>
+                      <div className="uiPanelTitle">Stage Composer: {selected.name}</div>
+                      <div className="uiPanelSub">Background + role layers + preset outfit sync</div>
+                    </div>
+                  </div>
+                  <div className="uiForm" style={{ paddingTop: 14 }}>
+                    <div
+                      style={{
+                        position: 'relative',
+                        height: 300,
+                        borderRadius: 14,
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255,255,255,.14)',
+                        background: 'linear-gradient(180deg, rgba(19,19,19,.95), rgba(58,21,30,.92))',
+                      }}
+                    >
+                      {preview.bgUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={preview.bgUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.86 }} />
+                      ) : null}
+                      {preview.roleUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={preview.roleUrl}
+                          alt=""
+                          style={{
+                            position: 'absolute',
+                            left: '50%',
+                            bottom: 0,
+                            height: '92%',
+                            width: 'auto',
+                            transform: `translateX(-50%) translateY(${preview.y}px) scale(${preview.scale / 100})`,
+                            transformOrigin: 'center bottom',
+                            filter: 'drop-shadow(0 16px 28px rgba(0,0,0,.5))',
+                          }}
+                        />
+                      ) : null}
+                      {!preview.bgUrl && !preview.roleUrl ? <div className="uiCardMediaFallback">No stage assets</div> : null}
+                    </div>
 
-              {filtered.length > 0 && (
-                <div className="uiGrid" style={{ marginTop: 0 }}>
-                  {filtered.map((c) => {
-                    const d = digestById[c.id]
-                    const stage = stageById[c.id] || {}
-                    const unlocked = isUnlockedFromSquare(c)
-                    const completeness = Number(d?.completeness || 0)
-                    return (
-                      <div key={c.id} className="uiCard" style={{ marginTop: 0 }}>
-                        <div className="uiWardrobeCardStage">
-                          {stage.cover ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img className="uiWardrobeStageBg" src={stage.cover} alt="" />
-                          ) : null}
-                          {stage.role ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img className="uiWardrobeStageRole" src={stage.role} alt="" />
-                          ) : null}
-                          {!stage.cover && !stage.role ? <div className="uiCardMediaFallback">暂无图层资产</div> : null}
-                        </div>
-
-                        <div className="uiCardTitle">{c.name}</div>
-                        <div className="uiCardMeta">
-                          {unlocked ? '已解锁角色' : '我的创作'} · {d?.updatedAt ? `最近更新 ${relativeTimeLabel(d.updatedAt)}` : '暂无状态'}
-                        </div>
-
-                        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <span className={`uiBadge ${completeness >= 4 ? 'uiBadgeHealthOk' : 'uiBadgeHealthWarn'}`}>账本 {completeness}/4</span>
-                          <span className="uiBadge">穿搭 {d?.outfit ? '已设置' : '未设置'}</span>
-                          <span className="uiBadge">衣柜 {d?.wardrobeCount || 0}</span>
-                          <span className="uiBadge">物品 {d?.inventoryCount || 0}</span>
-                          <span className="uiBadge">NPC {d?.npcCount || 0}</span>
-                          <span className="uiBadge">高光 {d?.highlightsCount || 0}</span>
-                        </div>
-
-                        <div className="uiHint" style={{ marginTop: 8 }}>
-                          当前穿搭：{d?.outfit || '未记录'}
-                        </div>
-
-                        {(d?.wardrobePreview || []).length > 0 && (
-                          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            {d?.wardrobePreview.slice(0, 8).map((name) => (
-                              <button
-                                key={`${c.id}:${name}`}
-                                className={`uiPill ${name === d?.outfit ? 'uiPillActive' : ''}`}
-                                disabled={savingOutfitCharacterId === c.id}
-                                onClick={() => void quickSetOutfit(c.id, name)}
-                                title="快速设为当前穿搭"
-                              >
-                                {name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="uiCardActions">
-                          <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${c.id}`)}>
-                            聊天
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span className="uiBadge">Outfit: {digestById[selected.id]?.outfit || 'not set'}</span>
+                      <span className="uiBadge">Wardrobe: {digestById[selected.id]?.wardrobe.length || 0}</span>
+                      <span className="uiBadge">Ledger: {digestById[selected.id]?.completeness || 0}/4</span>
+                    </div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div className="uiHint">Presets</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {presets.map((p) => (
+                          <button key={p.id} className="uiPill" onClick={() => void applyPreset(p)} title={`${p.label}${p.outfit ? ` / ${p.outfit}` : ''}`}>
+                            {p.label}
                           </button>
-                          <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${c.id}/assets`)}>
-                            资产页
-                          </button>
-                          <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${c.id}`)}>
-                            动态中心
-                          </button>
-                          {!d?.outfit && d?.wardrobePreview?.[0] ? (
-                            <button className="uiBtn uiBtnGhost" disabled={savingOutfitCharacterId === c.id} onClick={() => void quickSetOutfit(c.id, d.wardrobePreview[0])}>
-                              {savingOutfitCharacterId === c.id ? '修复中...' : '一键修复穿搭'}
-                            </button>
-                          ) : null}
-                        </div>
+                        ))}
                       </div>
-                    )
-                  })}
+                    </div>
+
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div className="uiHint">Backgrounds</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {bgOptions.map((a) => (
+                          <button key={a.path} className={`uiPill ${a.path === preview.bgPath ? 'uiPillActive' : ''}`} onClick={() => setPreview((v) => ({ ...v, bgPath: a.path, bgUrl: a.url }))}>
+                            {shortPath(a.path)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div className="uiHint">Role Layers</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {roleOptions.map((a) => (
+                          <button key={a.path} className={`uiPill ${a.path === preview.rolePath ? 'uiPillActive' : ''}`} onClick={() => setPreview((v) => ({ ...v, rolePath: a.path, roleUrl: a.url }))}>
+                            {shortPath(a.path)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <label className="uiHint" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        Scale
+                        <input type="range" min={80} max={140} value={preview.scale} onChange={(e) => setPreview((v) => ({ ...v, scale: Number(e.target.value) }))} />
+                        {preview.scale}%
+                      </label>
+                      <label className="uiHint" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        Y
+                        <input type="range" min={-20} max={24} value={preview.y} onChange={(e) => setPreview((v) => ({ ...v, y: Number(e.target.value) }))} />
+                        {preview.y}
+                      </label>
+                    </div>
+                  </div>
                 </div>
-              )}
+              ) : null}
+
+              <div className="uiGrid" style={{ marginTop: 0 }}>
+                {filtered.map((c) => {
+                  const d = digestById[c.id]
+                  const s = stageById[c.id] || {}
+                  const selectedCard = c.id === selectedId
+                  return (
+                    <div key={c.id} className="uiCard" style={{ marginTop: 0, borderColor: selectedCard ? 'rgba(249,217,142,.42)' : undefined }}>
+                      <button type="button" onClick={() => setSelectedId(c.id)} style={{ all: 'unset', cursor: 'pointer', display: 'block' }}>
+                        <div className="uiWardrobeCardStage">
+                          {s.coverUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img className="uiWardrobeStageBg" src={s.coverUrl} alt="" />
+                          ) : null}
+                          {s.roleUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img className="uiWardrobeStageRole" src={s.roleUrl} alt="" />
+                          ) : null}
+                          {!s.coverUrl && !s.roleUrl ? <div className="uiCardMediaFallback">No stage assets</div> : null}
+                        </div>
+                      </button>
+
+                      <div className="uiCardTitle">{c.name}</div>
+                      <div className="uiCardMeta">{isUnlocked(c) ? 'Unlocked' : 'Created'} · {d?.updatedAt ? relTime(d.updatedAt) : 'No update'}</div>
+
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <span className="uiBadge">Ledger {d?.completeness || 0}/4</span>
+                        <span className="uiBadge">Outfit {d?.outfit || '-'}</span>
+                        <span className="uiBadge">NPC {d?.npcCount || 0}</span>
+                        <span className="uiBadge">Highlights {d?.highlightsCount || 0}</span>
+                      </div>
+
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {(d?.wardrobe || []).slice(0, 6).map((w) => (
+                          <button key={`${c.id}:${w}`} className={`uiPill ${w === d?.outfit ? 'uiPillActive' : ''}`} disabled={savingOutfitId === c.id} onClick={() => void quickSetOutfit(c.id, w)}>
+                            {w}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="uiCardActions">
+                        <button className="uiBtn uiBtnPrimary" onClick={() => router.push(`/chat/${c.id}`)}>Chat</button>
+                        <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${c.id}/assets`)}>Assets</button>
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${c.id}`)}>Home</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -628,3 +574,4 @@ export default function WardrobePage() {
     </div>
   )
 }
+

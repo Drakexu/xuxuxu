@@ -2292,3 +2292,24 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: wardrobe stage composer rebuild
+- Files changed:
+  - app/wardrobe/page.tsx
+- Completed:
+  - Rebuilt wardrobe page into a stage-composer workflow:
+    - select any character card to enter composer mode
+    - static layered preview (background + role) with scale/Y controls
+    - one-click visual presets from `buildVisualPresets`
+    - preset apply can sync `wardrobe.current_outfit` via `/api/state/wardrobe`
+  - Preserved cross-role digest and quick outfit operations:
+    - ledger completeness signals (outfit/inventory/NPC/highlights)
+    - wardrobe chips for quick current outfit switch
+    - chat/assets/home direct shortcuts per card
+  - Improved page stability/readability:
+    - UTF-8 source normalization to avoid parser failures
+    - streamlined english-first labels for operational clarity
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
