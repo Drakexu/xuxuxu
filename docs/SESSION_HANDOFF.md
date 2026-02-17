@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v29 - home feed pagination)
+Last updated: 2026-02-16 (checkpoint: high-target execution v30 - character home feed pagination)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -410,6 +410,20 @@ Repo: `d:/projects/xuxuxu`
     - tracks has-more state to avoid unnecessary queries
   - Home feed now stores allowed role IDs after initial load and applies same filter during pagination.
   - Added end-of-list hint when current visible dynamic set is fully loaded.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Character home feed pagination v30 checkpoint (latest)
+- File changed:
+  - `app/home/[characterId]/page.tsx`
+- Completed:
+  - Added cursor-based pagination for single-character dynamic stream:
+    - initial load stores feed cursor and has-more state
+    - added "加载更多动态" interaction with loading state and dedupe merge
+  - Added end-of-list hint for role dynamic stream when no more rows are available.
+  - Kept existing role runtime-control panel and ledger/asset modules unchanged.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

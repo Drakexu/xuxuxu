@@ -14,6 +14,7 @@ type FeedItem = {
 }
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
+const CHARACTER_FEED_PAGE_SIZE = 120
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 type ConversationRow = { id: string; created_at?: string | null; state?: unknown }
 type RelationshipStage = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7'
@@ -102,6 +103,9 @@ export default function CharacterHomePage() {
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
   const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
+  const [feedCursor, setFeedCursor] = useState('')
+  const [feedHasMore, setFeedHasMore] = useState(false)
+  const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
   const [coverUrl, setCoverUrl] = useState('')
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [snapshot, setSnapshot] = useState<LedgerSnapshot | null>(null)
@@ -256,6 +260,9 @@ export default function CharacterHomePage() {
     setCoverUrl('')
     setSnapshot(null)
     setItems([])
+    setFeedCursor('')
+    setFeedHasMore(false)
+    setLoadingMoreFeed(false)
     setLatestConversationId('')
     setScheduleState('PLAY')
     setLockMode('manual')
@@ -295,11 +302,14 @@ export default function CharacterHomePage() {
       .eq('character_id', characterId)
       .in('input_event', ['DIARY_DAILY', 'MOMENT_POST', 'SCHEDULE_TICK'])
       .order('created_at', { ascending: false })
-      .limit(120)
+      .limit(CHARACTER_FEED_PAGE_SIZE)
     if (rFeed.error) {
       setError(rFeed.error.message || '加载动态失败')
     } else {
-      setItems((rFeed.data ?? []) as FeedItem[])
+      const rows = (rFeed.data ?? []) as FeedItem[]
+      setItems(rows)
+      setFeedCursor(rows.length ? String(rows[rows.length - 1]?.created_at || '') : '')
+      setFeedHasMore(rows.length >= CHARACTER_FEED_PAGE_SIZE)
     }
 
     const rConv = await supabase
@@ -412,6 +422,51 @@ export default function CharacterHomePage() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, characterId])
+
+  const loadMoreFeed = async () => {
+    if (loading || loadingMoreFeed || !feedHasMore || !feedCursor) return
+    setLoadingMoreFeed(true)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        router.replace('/login')
+        return
+      }
+
+      const rFeed = await supabase
+        .from('messages')
+        .select('id,created_at,input_event,content,conversation_id')
+        .eq('user_id', userId)
+        .eq('character_id', characterId)
+        .in('input_event', ['DIARY_DAILY', 'MOMENT_POST', 'SCHEDULE_TICK'])
+        .lt('created_at', feedCursor)
+        .order('created_at', { ascending: false })
+        .limit(CHARACTER_FEED_PAGE_SIZE)
+
+      if (rFeed.error) {
+        setError(rFeed.error.message || '加载更多动态失败')
+        return
+      }
+
+      const rows = (rFeed.data ?? []) as FeedItem[]
+      if (rows.length) {
+        setItems((prev) => {
+          const seen = new Set(prev.map((x) => x.id))
+          const merged = [...prev]
+          for (const row of rows) {
+            if (seen.has(row.id)) continue
+            merged.push(row)
+          }
+          return merged
+        })
+      }
+      setFeedCursor(rows.length ? String(rows[rows.length - 1]?.created_at || '') : '')
+      if (rows.length < CHARACTER_FEED_PAGE_SIZE) setFeedHasMore(false)
+    } finally {
+      setLoadingMoreFeed(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     let next = items
@@ -692,6 +747,15 @@ export default function CharacterHomePage() {
                     </div>
                   </div>
                 ))}
+
+                {(feedHasMore || loadingMoreFeed) && (
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <button className="uiBtn uiBtnGhost" onClick={() => void loadMoreFeed()} disabled={loadingMoreFeed}>
+                      {loadingMoreFeed ? '加载更多中...' : '加载更多动态'}
+                    </button>
+                  </div>
+                )}
+                {!feedHasMore && !loadingMoreFeed && items.length > 0 && <div className="uiHint">已加载当前角色的全部动态。</div>}
               </div>
             </div>
 
