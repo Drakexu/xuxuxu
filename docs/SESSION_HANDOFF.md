@@ -1792,3 +1792,25 @@ pm run -s build -> pass
   - `npm run -s lint` passed
   - `npx tsc --noEmit` passed
   - `npm run -s build` passed
+
+## 2026-02-17 checkpoint: chat UX polish pass #4
+- Files changed:
+  - `app/chat/[characterId]/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Improved history loading rhythm:
+    - added top-load cooldown (`OLDER_LOAD_COOLDOWN_MS`) to avoid rapid repeated fetches when staying near top.
+    - switched top-load path to cached `currentUserId` (removed repeated auth fetches on each scroll tick).
+  - Improved session-switch UX:
+    - session selector now disabled during loading/sending to avoid accidental concurrent switches.
+    - switching conversation now clears transient scroll/new-message state and resets message tail trackers to avoid stale unread bumps.
+  - Increased in-page session switching depth:
+    - conversation list/query cap expanded to `CONVERSATION_LIST_LIMIT=20`.
+    - active conversation is now touched to top after successful message send.
+  - Improved chat stage status presentation:
+    - unified sticky top load hints (`uiChatLoadHint`) for initial/history loading.
+    - return-to-bottom button now includes unread count directly (`»Øµ½µ×²¿ ¡¤ N`), reducing duplicated hint noise.
+- Validation:
+  - `npm run -s lint` passed
+  - `npx tsc --noEmit` passed
+  - `npm run -s build` passed

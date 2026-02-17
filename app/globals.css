@@ -1349,6 +1349,19 @@ body {
   margin-top: 8px;
 }
 
+.uiChatLoadHint {
+  position: sticky;
+  top: 8px;
+  z-index: 2;
+  width: fit-content;
+  margin: 4px auto 10px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(14, 14, 14, 0.74);
+  backdrop-filter: blur(4px);
+}
+
 .uiChatJump {
   position: fixed;
   right: 24px;

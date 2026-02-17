@@ -24,6 +24,8 @@ type PlotGranularity = 'LINE' | 'BEAT' | 'SCENE'
 type EndingMode = 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'
 const RECENT_MESSAGES_LIMIT = 60
 const OLDER_MESSAGES_LIMIT = 20
+const OLDER_LOAD_COOLDOWN_MS = 700
+const CONVERSATION_LIST_LIMIT = 20
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -90,6 +92,7 @@ export default function ChatPage() {
 
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState('')
   const [error, setError] = useState('')
   const [guardWarn, setGuardWarn] = useState('')
   const [title, setTitle] = useState('')
@@ -146,6 +149,7 @@ export default function ChatPage() {
   const listRef = useRef<HTMLDivElement | null>(null)
   const messageTailRef = useRef('')
   const messageLenRef = useRef(0)
+  const olderLoadAtRef = useRef(0)
 
   const canSend = useMemo(() => input.trim().length > 0 && !sending, [input, sending])
   const convKey = useMemo(() => `xuxuxu:conversationId:${characterId}`, [characterId])
@@ -190,6 +194,17 @@ export default function ChatPage() {
     }
     return { total: messages.length, user, assistant }
   }, [messages])
+
+  const touchConversationList = (id: string) => {
+    if (!id) return
+    setConversationList((prev) => {
+      const hit = prev.find((x) => x.id === id)
+      const nowIso = new Date().toISOString()
+      const nextHead = hit ? { ...hit, created_at: nowIso } : { id, created_at: nowIso }
+      const rest = prev.filter((x) => x.id !== id)
+      return [nextHead, ...rest].slice(0, CONVERSATION_LIST_LIMIT)
+    })
+  }
 
   const backgroundPresets = useMemo(() => {
     const list = assetUrls.filter((a) => a.kind === 'cover' || /bg|background|scene|street|city|room|night|beach/i.test(a.path))
@@ -236,6 +251,7 @@ export default function ChatPage() {
     setLoadingHistory(true)
     setHasMore(true)
     setOldestTs('')
+    olderLoadAtRef.current = 0
     try {
       const r = await supabase
         .from('messages')
@@ -258,6 +274,8 @@ export default function ChatPage() {
           input_event: m.input_event ?? null,
         }))
 
+      messageTailRef.current = messageTailKey(next[next.length - 1])
+      messageLenRef.current = next.length
       setMessages(next)
       if (next.length) setOldestTs(next[0].created_at || '')
       setHasMore(rows.length >= RECENT_MESSAGES_LIMIT)
@@ -278,6 +296,9 @@ export default function ChatPage() {
     if (!conversationId) return
     if (loadingOlder || loadingHistory || !hasMore) return
     if (!oldestTs) return
+    const now = Date.now()
+    if (now - olderLoadAtRef.current < OLDER_LOAD_COOLDOWN_MS) return
+    olderLoadAtRef.current = now
 
     const el = listRef.current
     const prevScrollHeight = el?.scrollHeight ?? 0
@@ -338,9 +359,11 @@ export default function ChatPage() {
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData.user?.id
       if (!userId) {
+        setCurrentUserId('')
         router.replace('/login')
         return
       }
+      setCurrentUserId(userId)
 
       const { data: c, error: ce } = await supabase.from('characters').select('name').eq('id', characterId).eq('user_id', userId).single()
       if (ce || !c) {
@@ -376,7 +399,7 @@ export default function ChatPage() {
             .eq('character_id', characterId)
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
-            .limit(10)
+            .limit(CONVERSATION_LIST_LIMIT)
           if (!rr.error) setConversationList((rr.data ?? []) as Array<{ id: string; created_at?: string }>)
         } catch {
           // ignore
@@ -838,6 +861,8 @@ export default function ChatPage() {
       if (ins.error || !ins.data?.id) throw new Error(ins.error?.message || '创建会话失败')
       const id2 = String(ins.data.id)
       setConversationId(id2)
+      messageTailRef.current = ''
+      messageLenRef.current = 0
       setMessages([])
       setDetails(null)
       setOutfitHint('')
@@ -851,7 +876,9 @@ export default function ChatPage() {
       setPlotGranularity('BEAT')
       setEndingMode('MIXED')
       setEndingRepeatWindow(6)
-      setConversationList((prev) => [{ id: id2, created_at: ins.data.created_at }, ...prev].slice(0, 12))
+      setShowScrollDown(false)
+      setPendingDownCount(0)
+      setConversationList((prev) => [{ id: id2, created_at: ins.data.created_at }, ...prev].slice(0, CONVERSATION_LIST_LIMIT))
       try {
         localStorage.setItem(convKey, id2)
       } catch {
@@ -898,9 +925,11 @@ export default function ChatPage() {
 
     const data = await resp.json()
     if (data.conversationId) {
-      setConversationId(data.conversationId)
+      const nextConversationId = String(data.conversationId)
+      setConversationId(nextConversationId)
+      touchConversationList(nextConversationId)
       try {
-        localStorage.setItem(convKey, String(data.conversationId))
+        localStorage.setItem(convKey, nextConversationId)
       } catch {
         // ignore
       }
@@ -975,17 +1004,22 @@ export default function ChatPage() {
                 className="uiInput"
                 style={{ width: 220, padding: '10px 10px' }}
                 value={conversationId || ''}
+                disabled={loadingHistory || sending}
                 onChange={async (e) => {
                   const id2 = e.target.value
                   if (!id2) return
-                  const { data: userData } = await supabase.auth.getUser()
-                  const userId = userData.user?.id
+                  const userId = currentUserId
                   if (!userId) {
                     router.replace('/login')
                     return
                   }
 
                   setConversationId(id2)
+                  messageTailRef.current = ''
+                  messageLenRef.current = 0
+                  setMessages([])
+                  setShowScrollDown(false)
+                  setPendingDownCount(0)
                   try {
                     localStorage.setItem(convKey, id2)
                   } catch {
@@ -1182,11 +1216,7 @@ export default function ChatPage() {
             const el = listRef.current
             if (!el) return
             if (el.scrollTop < 80) {
-              ;(async () => {
-                const { data: userData } = await supabase.auth.getUser()
-                const userId = userData.user?.id
-                if (userId) await loadOlderMessages(userId)
-              })()
+              if (currentUserId) void loadOlderMessages(currentUserId)
             }
             const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 180
             setShowScrollDown(!nearBottom)
@@ -1202,9 +1232,9 @@ export default function ChatPage() {
               src={chatBgUrl}
             />
           )}
-          {loadingHistory && <div className="uiHint">正在加载聊天记录...</div>}
-          {!loadingHistory && hasMore && <div className="uiHint">上滑加载更早消息</div>}
-          {loadingOlder && <div className="uiHint">加载更早消息...</div>}
+          {loadingHistory && <div className="uiHint uiChatLoadHint">正在加载聊天记录...</div>}
+          {!loadingHistory && hasMore && messages.length > 0 && <div className="uiHint uiChatLoadHint">上滑加载更早消息</div>}
+          {loadingOlder && <div className="uiHint uiChatLoadHint">加载更早消息...</div>}
 
           {messages.length === 0 && (
             <div className="uiEmpty" style={{ marginTop: 0 }}>
@@ -1340,11 +1370,9 @@ export default function ChatPage() {
               setPendingDownCount(0)
             }}
           >
-            回到底部
+            {pendingDownCount > 0 ? `回到底部 · ${pendingDownCount}` : '回到底部'}
           </button>
         )}
-
-        {showScrollDown && pendingDownCount > 0 && <div className="uiHint uiChatPending">有 {pendingDownCount} 条新消息</div>}
 
         <div className="uiChatComposer">
           <input
