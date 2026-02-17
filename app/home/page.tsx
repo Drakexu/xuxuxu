@@ -16,6 +16,18 @@ type FeedItem = {
   conversation_id: string
   conversations?: { character_id?: string | null } | null
 }
+type ConversationRow = { id: string; character_id?: string | null; created_at?: string | null }
+type ConversationStateRow = { conversation_id: string; state?: unknown }
+type MessageEventRow = { character_id?: string | null; created_at?: string | null }
+type CharacterDigest = {
+  conversationId: string
+  latestAt: string
+  outfit: boolean
+  inventory: boolean
+  npc: boolean
+  highlights: boolean
+  complete: number
+}
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
 type FeedSort = 'NEWEST' | 'LIKED_FIRST' | 'SAVED_FIRST'
@@ -24,6 +36,24 @@ const FEED_REACTION_STORAGE_KEY = 'xuxuxu:feed:reactions:v1'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+}
+
+function asArray(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : []
+}
+
+function relativeTimeLabel(iso: string) {
+  const ts = Date.parse(String(iso || ''))
+  if (!Number.isFinite(ts)) return '暂无动态'
+  const delta = Date.now() - ts
+  if (delta < 0) return '刚刚'
+  const mins = Math.floor(delta / 60000)
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `${mins} 分钟前`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} 小时前`
+  const days = Math.floor(hours / 24)
+  return `${days} 天前`
 }
 
 function isUnlockedFromSquare(c: CharacterRow) {
@@ -74,6 +104,7 @@ export default function HomeFeedPage() {
   const [activated, setActivated] = useState<CharacterRow[]>([])
   const [unlocked, setUnlocked] = useState<CharacterRow[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
+  const [characterDigestById, setCharacterDigestById] = useState<Record<string, CharacterDigest>>({})
   const [activeCharId, setActiveCharId] = useState<string>('') // '' => all
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
   const [feedSort, setFeedSort] = useState<FeedSort>('NEWEST')
@@ -159,6 +190,7 @@ export default function HomeFeedPage() {
     setLoading(true)
     setError('')
     setImgById({})
+    setCharacterDigestById({})
     setFeedAllowedCharacterIds([])
     setFeedCursor('')
     setFeedHasMore(false)
@@ -236,6 +268,93 @@ export default function HomeFeedPage() {
         }
       } catch {
         // ignore: media is optional
+      }
+
+      // Best-effort role digest: latest feed time + ledger completeness per unlocked role.
+      try {
+        const ids = nextUnlocked.map((c) => c.id).filter(Boolean).slice(0, 240)
+        if (ids.length) {
+          const convs = await supabase
+            .from('conversations')
+            .select('id,character_id,created_at')
+            .eq('user_id', userId)
+            .in('character_id', ids)
+            .order('created_at', { ascending: false })
+            .limit(1000)
+
+          const latestConvByCharacter: Record<string, ConversationRow> = {}
+          if (!convs.error) {
+            for (const row of (convs.data ?? []) as ConversationRow[]) {
+              const cid = String(row.character_id || '').trim()
+              if (!cid || latestConvByCharacter[cid]) continue
+              latestConvByCharacter[cid] = row
+            }
+          }
+
+          const convIds = Object.values(latestConvByCharacter)
+            .map((x) => String(x.id || '').trim())
+            .filter(Boolean)
+
+          const stateByConversationId: Record<string, unknown> = {}
+          if (convIds.length) {
+            const states = await supabase
+              .from('conversation_states')
+              .select('conversation_id,state')
+              .in('conversation_id', convIds)
+              .limit(1000)
+            if (!states.error) {
+              for (const row of (states.data ?? []) as ConversationStateRow[]) {
+                const cid = String(row.conversation_id || '').trim()
+                if (!cid) continue
+                stateByConversationId[cid] = row.state ?? {}
+              }
+            }
+          }
+
+          const latestFeedAtByCharacter: Record<string, string> = {}
+          const latestFeed = await supabase
+            .from('messages')
+            .select('character_id,created_at')
+            .eq('user_id', userId)
+            .in('character_id', ids)
+            .in('input_event', ['DIARY_DAILY', 'MOMENT_POST', 'SCHEDULE_TICK'])
+            .order('created_at', { ascending: false })
+            .limit(2000)
+          if (!latestFeed.error) {
+            for (const row of (latestFeed.data ?? []) as MessageEventRow[]) {
+              const cid = String(row.character_id || '').trim()
+              if (!cid || latestFeedAtByCharacter[cid]) continue
+              latestFeedAtByCharacter[cid] = String(row.created_at || '')
+            }
+          }
+
+          const digestMap: Record<string, CharacterDigest> = {}
+          for (const id of ids) {
+            const conv = latestConvByCharacter[id]
+            const convId = String(conv?.id || '').trim()
+            const root = asRecord(stateByConversationId[convId])
+            const ledger = asRecord(root.ledger)
+            const memory = asRecord(root.memory)
+            const wardrobe = asRecord(ledger.wardrobe)
+            const outfit = !!String(wardrobe.current_outfit || '').trim()
+            const inventory = asArray(ledger.inventory).length > 0
+            const npc = asArray(ledger.npc_database).length > 0
+            const highlights = asArray(memory.highlights).length > 0
+            const complete = [outfit, inventory, npc, highlights].filter(Boolean).length
+            digestMap[id] = {
+              conversationId: convId,
+              latestAt: String(latestFeedAtByCharacter[id] || conv?.created_at || ''),
+              outfit,
+              inventory,
+              npc,
+              highlights,
+              complete,
+            }
+          }
+          setCharacterDigestById(digestMap)
+        }
+      } catch {
+        // ignore: digest is optional and should not block the page
       }
     }
 
@@ -382,9 +501,23 @@ export default function HomeFeedPage() {
       total: items.length,
     }
   }, [items, feedReactions])
+  const digestStats = useMemo(() => {
+    let full = 0
+    let withConversation = 0
+    let withRecentFeed = 0
+    for (const c of unlocked) {
+      const d = characterDigestById[c.id]
+      if (!d) continue
+      if (d.complete >= 4) full += 1
+      if (d.conversationId) withConversation += 1
+      if (d.latestAt) withRecentFeed += 1
+    }
+    return { full, withConversation, withRecentFeed }
+  }, [unlocked, characterDigestById])
   const selectedCharacterStats = useMemo(() => {
     if (!selectedCharacter) return null
     const targetId = selectedCharacter.id
+    const digest = characterDigestById[targetId]
     const ownItems = items.filter((it) => String(it.conversations?.character_id || '') === targetId)
     let moment = 0
     let diary = 0
@@ -400,10 +533,11 @@ export default function HomeFeedPage() {
       moment,
       diary,
       schedule,
-      latestAt: latest?.created_at || '',
+      latestAt: latest?.created_at || digest?.latestAt || '',
       latestContent: String(latest?.content || '').trim(),
+      ledgerComplete: Number(digest?.complete || 0),
     }
-  }, [items, selectedCharacter])
+  }, [items, selectedCharacter, characterDigestById])
 
   const moveActivated = async (idx: number, direction: 'UP' | 'DOWN') => {
     if (idx < 0 || idx >= activated.length) return
@@ -520,6 +654,10 @@ export default function HomeFeedPage() {
               <span>已激活角色</span>
             </div>
             <div className="uiKpi">
+              <b>{digestStats.full}</b>
+              <span>账本完整角色</span>
+            </div>
+            <div className="uiKpi">
               <b>{feedStats.total}</b>
               <span>动态总数</span>
             </div>
@@ -542,6 +680,14 @@ export default function HomeFeedPage() {
             <div className="uiKpi">
               <b>{feedStats.saved}</b>
               <span>收藏</span>
+            </div>
+            <div className="uiKpi">
+              <b>{digestStats.withRecentFeed}</b>
+              <span>有动态记录角色</span>
+            </div>
+            <div className="uiKpi">
+              <b>{digestStats.withConversation}</b>
+              <span>已建会话角色</span>
             </div>
           </div>
         </section>
@@ -566,6 +712,9 @@ export default function HomeFeedPage() {
                       <span className="uiBadge">朋友圈: {selectedCharacterStats.moment}</span>
                       <span className="uiBadge">日记: {selectedCharacterStats.diary}</span>
                       <span className="uiBadge">日程: {selectedCharacterStats.schedule}</span>
+                      <span className={`uiBadge ${selectedCharacterStats.ledgerComplete >= 4 ? 'uiBadgeHealthOk' : 'uiBadgeHealthWarn'}`}>
+                        账本完整度: {selectedCharacterStats.ledgerComplete}/4
+                      </span>
                     </div>
                     <div className="uiHint" style={{ marginTop: 0 }}>
                       最近更新时间：{selectedCharacterStats.latestAt ? new Date(selectedCharacterStats.latestAt).toLocaleString() : '暂无'}
@@ -615,25 +764,42 @@ export default function HomeFeedPage() {
 
                   {visibleCharacters.length > 0 && (
                     <div className="uiRoleRail">
-                      {visibleCharacters.slice(0, 40).map((c) => (
-                        <button key={c.id} className={`uiRoleRailItem ${activeCharId === c.id ? 'uiRoleRailItemActive' : ''}`} onClick={() => setActiveCharId(c.id)}>
-                          <div className="uiRoleRailMedia">
-                            {imgById[c.id] ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={imgById[c.id]} alt="" />
-                            ) : (
-                              <span>{c.name.slice(0, 1)}</span>
-                            )}
-                          </div>
-                          <div className="uiRoleRailBody">
-                            <div className="uiRoleRailName">{c.name}</div>
-                            <div className="uiRoleRailMeta">{activatedIdSet.has(c.id) ? '已激活' : '未激活'}</div>
-                          </div>
-                          <div className="uiRoleRailActions">
-                            <span className="uiBadge">动态</span>
-                          </div>
-                        </button>
-                      ))}
+                      {visibleCharacters.slice(0, 40).map((c) => {
+                        const digest = characterDigestById[c.id]
+                        const status = activatedIdSet.has(c.id) ? '已激活' : '未激活'
+                        const health = digest ? `${digest.complete}/4` : '0/4'
+                        return (
+                          <button key={c.id} className={`uiRoleRailItem ${activeCharId === c.id ? 'uiRoleRailItemActive' : ''}`} onClick={() => setActiveCharId(c.id)}>
+                            <div className="uiRoleRailMedia">
+                              {imgById[c.id] ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={imgById[c.id]} alt="" />
+                              ) : (
+                                <span>{c.name.slice(0, 1)}</span>
+                              )}
+                            </div>
+                            <div className="uiRoleRailBody">
+                              <div className="uiRoleRailName">{c.name}</div>
+                              <div className="uiRoleRailMeta">
+                                {status} · 账本 {health}
+                              </div>
+                              <div className="uiRoleRailMeta">{digest?.latestAt ? `最近动态 ${relativeTimeLabel(digest.latestAt)}` : '暂无动态'}</div>
+                            </div>
+                            <div className="uiRoleRailActions">
+                              <span
+                                className={`uiBadge ${digest && digest.complete >= 4 ? 'uiBadgeHealthOk' : 'uiBadgeHealthWarn'}`}
+                                title={
+                                  digest
+                                    ? `服装:${digest.outfit ? '✓' : '×'} 物品:${digest.inventory ? '✓' : '×'} NPC:${digest.npc ? '✓' : '×'} 高光:${digest.highlights ? '✓' : '×'}`
+                                    : '服装:× 物品:× NPC:× 高光:×'
+                                }
+                              >
+                                账本 {health}
+                              </span>
+                            </div>
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

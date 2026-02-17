@@ -1407,3 +1407,26 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v24 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/home/page.tsx
+- Completed:
+  - Upgraded Home role rail into a role digest dashboard:
+    - each unlocked role now shows ledger completeness (服装/物品/NPC/高光 => x/4)
+    - each role now shows latest activity recency (最近动态 x 小时前)
+    - digest badge includes per-dimension status via tooltip
+  - Added digest KPIs in Home hero:
+    - 账本完整角色
+    - 有动态记录角色
+    - 已建会话角色
+  - Added selected-role quick health indicator (账本完整度 x/4) in current-role panel.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass
