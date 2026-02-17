@@ -22,7 +22,7 @@ type FeedItem = {
 }
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
-type FeedSort = 'NEWEST' | 'LIKED_FIRST' | 'SAVED_FIRST'
+type FeedSort = 'NEWEST' | 'LIKED_FIRST' | 'SAVED_FIRST' | 'COMMENT_FIRST' | 'HOT_FIRST'
 const CHARACTER_FEED_PAGE_SIZE = 120
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 type ConversationRow = { id: string; created_at?: string | null; state?: unknown }
@@ -578,6 +578,13 @@ export default function CharacterHomePage() {
       const n = Date.parse(String(it.created_at || ''))
       return Number.isFinite(n) ? n : 0
     }
+    const commentsCount = (id: string) => Number(feedComments[id]?.length || 0)
+    const hotScore = (id: string) => {
+      const liked = feedReactions[id]?.liked ? 1 : 0
+      const saved = feedReactions[id]?.saved ? 2 : 0
+      const comments = commentsCount(id) * 2
+      return liked + saved + comments
+    }
     if (feedSort === 'LIKED_FIRST') {
       next = next.slice().sort((a, b) => {
         const la = feedReactions[a.id]?.liked ? 1 : 0
@@ -592,11 +599,25 @@ export default function CharacterHomePage() {
         if (sb !== sa) return sb - sa
         return ts(b) - ts(a)
       })
+    } else if (feedSort === 'COMMENT_FIRST') {
+      next = next.slice().sort((a, b) => {
+        const ca = commentsCount(a.id)
+        const cb = commentsCount(b.id)
+        if (cb !== ca) return cb - ca
+        return ts(b) - ts(a)
+      })
+    } else if (feedSort === 'HOT_FIRST') {
+      next = next.slice().sort((a, b) => {
+        const ha = hotScore(a.id)
+        const hb = hotScore(b.id)
+        if (hb !== ha) return hb - ha
+        return ts(b) - ts(a)
+      })
     } else {
       next = next.slice().sort((a, b) => ts(b) - ts(a))
     }
     return next
-  }, [items, feedTab, feedQuery, feedSort, likedOnly, savedOnly, feedReactions])
+  }, [items, feedTab, feedQuery, feedSort, likedOnly, savedOnly, feedReactions, feedComments])
 
   const stats = useMemo(() => {
     const moment = items.filter((x) => x.input_event === 'MOMENT_POST').length
@@ -947,6 +968,12 @@ export default function CharacterHomePage() {
                   </button>
                   <button className={`uiPill ${feedSort === 'SAVED_FIRST' ? 'uiPillActive' : ''}`} onClick={() => setFeedSort('SAVED_FIRST')}>
                     收藏优先
+                  </button>
+                  <button className={`uiPill ${feedSort === 'COMMENT_FIRST' ? 'uiPillActive' : ''}`} onClick={() => setFeedSort('COMMENT_FIRST')}>
+                    评论优先
+                  </button>
+                  <button className={`uiPill ${feedSort === 'HOT_FIRST' ? 'uiPillActive' : ''}`} onClick={() => setFeedSort('HOT_FIRST')}>
+                    热度优先
                   </button>
                 </div>
 

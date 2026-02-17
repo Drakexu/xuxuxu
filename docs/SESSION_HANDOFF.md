@@ -2111,3 +2111,18 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: home feed social ranking pass
+- Files changed:
+  - app/home/page.tsx
+  - app/home/[characterId]/page.tsx
+- Completed:
+  - Extended feed sort options on both aggregate and single-role home feeds:
+    - COMMENT_FIRST (comment priority)
+    - HOT_FIRST (likes + saves + comments weighted)
+  - Feed sorting now uses comment counts from feedComments in addition to reaction flags.
+  - Added new sort pills in both home UIs for quick switching.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
