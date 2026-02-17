@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
+import { unlockSquareCharacter } from '@/lib/squareUnlock'
+import { fetchWalletSummary } from '@/lib/wallet'
 import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
@@ -68,6 +70,17 @@ function pickAssetPath(rows: CharacterAssetRow[]) {
   return ''
 }
 
+function unlockPrice(settings: unknown) {
+  const s = asRecord(settings)
+  const raw = Number(s.unlock_price_coins)
+  if (Number.isFinite(raw) && raw > 0) return Math.max(0, Math.min(Math.floor(raw), 200000))
+  const cf = asRecord(s.creation_form)
+  const publish = asRecord(cf.publish)
+  const nested = Number(publish.unlock_price_coins)
+  if (Number.isFinite(nested) && nested > 0) return Math.max(0, Math.min(Math.floor(nested), 200000))
+  return 0
+}
+
 export default function SquareDetailPage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -86,9 +99,23 @@ export default function SquareDetailPage() {
   const [myUnlockedBySourceId, setMyUnlockedBySourceId] = useState<Record<string, { localId: string; active: boolean }>>({})
   const [busy, setBusy] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [walletReady, setWalletReady] = useState(false)
+  const [walletBalance, setWalletBalance] = useState(0)
+  const [walletSpent, setWalletSpent] = useState(0)
+  const [walletUnlocked, setWalletUnlocked] = useState(0)
   const currentSquareMetrics = useMemo(() => (item ? squareMetricsBySourceId[item.id] : undefined), [item, squareMetricsBySourceId])
+  const insufficientCoins = useMemo(() => {
+    if (!item || !!unlockedCharId || !isLoggedIn || !walletReady) return false
+    const price = unlockPrice(item.settings)
+    if (price <= 0) return false
+    return walletBalance < price
+  }, [item, unlockedCharId, isLoggedIn, walletReady, walletBalance])
 
-  const canUnlock = useMemo(() => !!item && !busy && !unlockedCharId && isLoggedIn, [item, busy, unlockedCharId, isLoggedIn])
+  const canUnlock = useMemo(() => {
+    if (!item || busy || !!unlockedCharId || !isLoggedIn) return false
+    if (!walletReady) return true
+    return !insufficientCoins
+  }, [item, busy, unlockedCharId, isLoggedIn, walletReady, insufficientCoins])
   const detailMeta = useMemo(() => {
     if (!item) {
       return {
@@ -97,6 +124,7 @@ export default function SquareDetailPage() {
         audience: 'ALL' as AudienceTab,
         romanceLabel: '',
         authorNote: '',
+        unlockPrice: 0,
       }
     }
     const p = asRecord(item.profile)
@@ -118,6 +146,7 @@ export default function SquareDetailPage() {
       audience: getAudienceTab(item),
       romanceLabel,
       authorNote,
+      unlockPrice: unlockPrice(item.settings),
     }
   }, [item])
 
@@ -139,10 +168,30 @@ export default function SquareDetailPage() {
       setRelatedImgById({})
       setSquareMetricsBySourceId({})
       setMyUnlockedBySourceId({})
+      setWalletReady(false)
+      setWalletBalance(0)
+      setWalletSpent(0)
+      setWalletUnlocked(0)
 
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData.user?.id
       setIsLoggedIn(!!userId)
+
+      if (userId) {
+        try {
+          const { data: sess } = await supabase.auth.getSession()
+          const token = sess.session?.access_token || ''
+          if (token) {
+            const wallet = await fetchWalletSummary(token)
+            setWalletReady(wallet.walletReady)
+            setWalletBalance(wallet.balance)
+            setWalletSpent(wallet.totalSpent)
+            setWalletUnlocked(wallet.totalUnlocked)
+          }
+        } catch {
+          // ignore wallet loading errors
+        }
+      }
 
       const r = await supabase
         .from('characters')
@@ -342,89 +391,74 @@ export default function SquareDetailPage() {
       router.push('/login')
       return
     }
-
-    const payloadV2: {
-      user_id: string
-      name: string
-      system_prompt: string
-      visibility: 'private'
-      profile: Record<string, unknown>
-      settings: Record<string, unknown>
-    } = {
-      // Teen-mode roles must keep romance disabled after unlock.
-      // We still keep the source role payload, but enforce safe overrides.
-      user_id: userId,
-      name: item.name,
-      system_prompt: item.system_prompt,
-      visibility: 'private',
-      profile: item.profile ?? {},
-      settings: {
-        ...(() => {
-          const src = asRecord(item.settings)
-          const teen = src.teen_mode === true || src.age_mode === 'teen'
-          return teen
-            ? { ...src, teen_mode: true, age_mode: 'teen', romance_mode: 'ROMANCE_OFF' }
-            : src
-        })(),
-        source_character_id: item.id,
-        unlocked_from_square: true,
-        activated: true,
-        home_hidden: false,
-        activated_at: new Date().toISOString(),
-        activated_order: Date.now(),
-      },
-    }
-
-    const r1 = await supabase.from('characters').insert(payloadV2).select('id').single()
-    if (r1.error) {
-      const msg = r1.error.message || ''
-      const looksLikeLegacy = msg.includes('column') && (msg.includes('profile') || msg.includes('settings') || msg.includes('visibility'))
-      if (!looksLikeLegacy) {
-        setAlert({ type: 'err', text: `解锁失败：${msg}` })
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
         setBusy(false)
         return
       }
 
-      const r2 = await supabase.from('characters').insert({ user_id: userId, name: item.name, system_prompt: item.system_prompt }).select('id').single()
-      if (r2.error || !r2.data?.id) {
-        setAlert({ type: 'err', text: `解锁失败：${r2.error?.message || 'unknown error'}` })
+      const result = await unlockSquareCharacter(token, item.id)
+      if (!result.ok) {
+        if (result.error === 'INSUFFICIENT_COINS') {
+          const need = Number(result.priceCoins || unlockPrice(item.settings))
+          const have = Number(result.balance ?? walletBalance)
+          setAlert({ type: 'err', text: `余额不足：需要 ${need} 币，当前 ${have} 币。` })
+          setBusy(false)
+          return
+        }
+        if (result.error === 'SOURCE_NOT_PUBLIC') {
+          setAlert({ type: 'err', text: '该角色不再公开，无法解锁。' })
+          setBusy(false)
+          return
+        }
+        setAlert({ type: 'err', text: `解锁失败：${result.error || 'unknown error'}` })
         setBusy(false)
         return
       }
 
-      setUnlockedCharId(r2.data.id)
+      const localId = String(result.localCharacterId || '').trim()
+      if (!localId) {
+        setAlert({ type: 'err', text: '解锁成功但未返回角色 ID，请刷新后重试。' })
+        setBusy(false)
+        return
+      }
+
+      setUnlockedCharId(localId)
       setUnlockedActive(true)
-      setMyUnlockedBySourceId((prev) => ({ ...prev, [item.id]: { localId: r2.data.id, active: true } }))
+      setMyUnlockedBySourceId((prev) => ({ ...prev, [item.id]: { localId, active: true } }))
+      if (result.balanceAfter != null) setWalletBalance(Math.max(0, Number(result.balanceAfter || 0)))
+      if (!result.alreadyUnlocked) setWalletUnlocked((prev) => prev + 1)
+      if (result.chargedCoins > 0) setWalletSpent((prev) => prev + result.chargedCoins)
+      if (result.walletReady) setWalletReady(true)
+
       try {
         await ensureLatestConversationForCharacter({
           userId,
-          characterId: String(r2.data.id),
+          characterId: localId,
           title: item.name || '对话',
         })
       } catch {
         // Best-effort only.
       }
-      setAlert({ type: 'ok', text: options?.startChat ? '已解锁，正在进入聊天。' : '已解锁。' })
-      if (options?.startChat) router.push(`/chat/${r2.data.id}`)
+
+      const chargedText = result.chargedCoins > 0 ? `（消耗 ${result.chargedCoins} 币）` : ''
+      setAlert({
+        type: 'ok',
+        text: options?.startChat
+          ? `${result.alreadyUnlocked ? '已在队列中，正在进入聊天。' : '已解锁，正在进入聊天。'}${chargedText}`
+          : `${result.alreadyUnlocked ? '角色已在你的队列中。' : '已解锁。'}${chargedText}`,
+      })
+      if (options?.startChat) router.push(`/chat/${localId}`)
+      setBusy(false)
+      return
+    } catch (e: unknown) {
+      setAlert({ type: 'err', text: e instanceof Error ? `解锁失败：${e.message}` : String(e) })
       setBusy(false)
       return
     }
-
-    setUnlockedCharId(r1.data.id)
-    setUnlockedActive(true)
-    setMyUnlockedBySourceId((prev) => ({ ...prev, [item.id]: { localId: r1.data.id, active: true } }))
-    try {
-      await ensureLatestConversationForCharacter({
-        userId,
-        characterId: String(r1.data.id),
-        title: item.name || '对话',
-      })
-    } catch {
-      // Best-effort only.
-    }
-    setAlert({ type: 'ok', text: options?.startChat ? '已解锁，正在进入聊天。' : '已解锁。' })
-    if (options?.startChat) router.push(`/chat/${r1.data.id}`)
-    setBusy(false)
   }
 
   const toggleActivation = async (nextActive: boolean) => {
@@ -492,7 +526,7 @@ export default function SquareDetailPage() {
               <div>
                 <span className="uiBadge">公开角色详情</span>
                 <h2 className="uiHeroTitle">{item.name}</h2>
-                <p className="uiHeroSub">先浏览设定和视觉资产，再决定是否解锁到你的角色队列。解锁后可继续激活到首页动态流。</p>
+                <p className="uiHeroSub">先浏览设定和视觉资产，再决定是否解锁到你的角色队列。若为付费角色，会在解锁时消耗星币。</p>
               </div>
               <div className="uiKpiGrid">
                 <div className="uiKpi">
@@ -520,6 +554,10 @@ export default function SquareDetailPage() {
                   <span>恋爱模式</span>
                 </div>
                 <div className="uiKpi">
+                  <b>{detailMeta.unlockPrice > 0 ? `${detailMeta.unlockPrice} 币` : '免费'}</b>
+                  <span>解锁价格</span>
+                </div>
+                <div className="uiKpi">
                   <b>{Number(currentSquareMetrics?.unlocked || 0)}</b>
                   <span>全站解锁</span>
                 </div>
@@ -530,6 +568,10 @@ export default function SquareDetailPage() {
                 <div className="uiKpi">
                   <b>{(item.system_prompt || '').length}</b>
                   <span>提示词长度</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{isLoggedIn ? walletBalance : '-'}</b>
+                  <span>我的星币</span>
                 </div>
               </div>
             </section>
@@ -578,8 +620,10 @@ export default function SquareDetailPage() {
                     <span className="uiBadge">{detailMeta.teen ? '未成年模式' : '成人模式'}</span>
                     <span className="uiBadge">{audienceLabel(detailMeta.audience)}</span>
                     <span className="uiBadge">{detailMeta.romanceLabel || '恋爱开启'}</span>
+                    <span className="uiBadge">{detailMeta.unlockPrice > 0 ? `${detailMeta.unlockPrice} 币` : '免费解锁'}</span>
                     {unlockedCharId ? <span className="uiBadge">已解锁</span> : null}
                     {unlockedCharId && unlockedActive ? <span className="uiBadge">已激活</span> : null}
+                    {!unlockedCharId && isLoggedIn && walletReady && detailMeta.unlockPrice > walletBalance ? <span className="uiBadge">余额不足</span> : null}
                     {currentSquareMetrics && (currentSquareMetrics.unlocked > 0 || currentSquareMetrics.active > 0) ? (
                       <span className="uiBadge">
                         解锁 {currentSquareMetrics.unlocked} · 激活 {currentSquareMetrics.active}
@@ -626,7 +670,7 @@ export default function SquareDetailPage() {
                   <div className="uiPanelHeader">
                     <div>
                       <div className="uiPanelTitle">操作台</div>
-                      <div className="uiPanelSub">解锁、激活、跳转聊天与动态中心</div>
+                      <div className="uiPanelSub">解锁、激活、跳转聊天与动态中心（支持星币解锁）</div>
                     </div>
                   </div>
                   <div className="uiForm" style={{ paddingTop: 14 }}>
@@ -651,11 +695,21 @@ export default function SquareDetailPage() {
                     ) : (
                       <>
                         <button className="uiBtn uiBtnPrimary" disabled={!canUnlock || busy} onClick={() => void unlock({ startChat: true })}>
-                          {busy ? '解锁中...' : isLoggedIn ? '解锁并开聊' : '登录后解锁'}
+                          {busy
+                            ? '解锁中...'
+                            : !isLoggedIn
+                              ? detailMeta.unlockPrice > 0
+                                ? `登录后解锁（${detailMeta.unlockPrice}币）`
+                                : '登录后解锁'
+                              : insufficientCoins
+                                ? `余额不足（${detailMeta.unlockPrice}币）`
+                                : detailMeta.unlockPrice > 0
+                                  ? `解锁并开聊（${detailMeta.unlockPrice}币）`
+                                  : '解锁并开聊'}
                         </button>
                         {isLoggedIn ? (
                           <button className="uiBtn uiBtnGhost" disabled={!canUnlock || busy} onClick={() => void unlock()}>
-                            仅解锁
+                            {detailMeta.unlockPrice > 0 ? `仅解锁（${detailMeta.unlockPrice}币）` : '仅解锁'}
                           </button>
                         ) : null}
                         <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/characters/new?from=${encodeURIComponent(item.id)}`)}>
@@ -682,8 +736,13 @@ export default function SquareDetailPage() {
                     <span className="uiBadge">{isLoggedIn ? '已登录' : '游客模式'}</span>
                     <span className="uiBadge">{unlockedCharId ? '已解锁' : '未解锁'}</span>
                     <span className="uiBadge">{unlockedCharId ? (unlockedActive ? '已激活' : '未激活') : '-'}</span>
+                    <span className="uiBadge">价格 {detailMeta.unlockPrice > 0 ? `${detailMeta.unlockPrice} 币` : '免费'}</span>
                     <span className="uiBadge">全站解锁 {Number(currentSquareMetrics?.unlocked || 0)}</span>
                     <span className="uiBadge">全站激活 {Number(currentSquareMetrics?.active || 0)}</span>
+                    {isLoggedIn ? <span className="uiBadge">我的星币 {walletBalance}</span> : null}
+                    {isLoggedIn ? <span className="uiBadge">累计消费 {walletSpent}</span> : null}
+                    {isLoggedIn ? <span className="uiBadge">累计解锁 {walletUnlocked}</span> : null}
+                    {isLoggedIn && !walletReady ? <span className="uiBadge">钱包未初始化（可继续免费解锁）</span> : null}
                   </div>
                 </div>
 
@@ -701,6 +760,7 @@ export default function SquareDetailPage() {
                       const brief = [String(p.occupation || '').trim(), String(p.organization || '').trim()].filter(Boolean).join(' · ')
                       const unlocked = myUnlockedBySourceId[r.id]
                       const metrics = squareMetricsBySourceId[r.id]
+                      const price = unlockPrice(r.settings)
                       return (
                         <div key={r.id} className="uiRow" style={{ alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -728,6 +788,7 @@ export default function SquareDetailPage() {
                               <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</div>
                               <div className="uiHint" style={{ marginTop: 2 }}>
                                 {brief || audienceLabel(getAudienceTab(r))}
+                                {price > 0 ? ` · ${price}币` : ' · 免费'}
                                 {metrics ? ` · 解锁${Number(metrics.unlocked || 0)} 激活${Number(metrics.active || 0)}` : ''}
                               </div>
                             </div>

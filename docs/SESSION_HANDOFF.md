@@ -1952,3 +1952,34 @@ pm run -s build -> pass
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run -s build` -> pass
+
+## 2026-02-18 checkpoint: Square paid-unlock closure (big module)
+- Files changed:
+  - `supabase/schema_square_unlocks.sql` (new)
+  - `app/api/square/unlock/route.ts` (new)
+  - `app/api/wallet/summary/route.ts` (new)
+  - `lib/squareUnlock.ts` (new)
+  - `lib/wallet.ts` (new)
+  - `app/square/page.tsx`
+  - `app/square/[characterId]/page.tsx`
+  - `app/characters/new/page.tsx`
+  - `app/characters/[characterId]/edit/page.tsx`
+  - `README.md`
+- Completed:
+  - Added wallet + paid unlock data model and SQL function layer:
+    - `user_wallets`, `wallet_transactions`, `square_unlocks`
+    - `get_wallet_summary()`
+    - `unlock_public_character(uuid)` with advisory lock + idempotent unlock receipt
+  - Added unlock/wallet APIs:
+    - `GET /api/wallet/summary`
+    - `POST /api/square/unlock`
+  - Added graceful fallback path when wallet schema/function is not yet deployed:
+    - unlock continues with legacy free mode instead of hard failure.
+  - Migrated Square list/detail unlock path from direct client insert to API unlock flow:
+    - supports paid unlock, balance display, insufficient-balance blocking, charged-coins feedback.
+  - Added creator-side unlock price inputs:
+    - create page + edit page both support `unlock_price_coins` persistence.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass

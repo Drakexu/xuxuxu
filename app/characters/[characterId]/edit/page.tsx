@@ -18,6 +18,14 @@ type CharacterRow = {
 type AgeMode = 'adult' | 'teen'
 type RomanceMode = 'ROMANCE_ON' | 'ROMANCE_OFF'
 
+function normalizePriceCoins(raw: string) {
+  const s = String(raw || '').trim()
+  if (!s) return 0
+  const n = Number(s)
+  if (!Number.isFinite(n)) return 0
+  return Math.max(0, Math.min(Math.floor(n), 200000))
+}
+
 export default function EditCharacterPage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -38,6 +46,7 @@ export default function EditCharacterPage() {
   const [plotGranularity, setPlotGranularity] = useState<'LINE' | 'BEAT' | 'SCENE'>('BEAT')
   const [endingMode, setEndingMode] = useState<'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'>('MIXED')
   const [endingRepeatWindow, setEndingRepeatWindow] = useState(6)
+  const [unlockPriceCoins, setUnlockPriceCoins] = useState('')
 
   const canSave = useMemo(() => !loading && !saving && !deleting && name.trim().length > 0 && prompt.trim().length > 0, [loading, saving, deleting, name, prompt])
 
@@ -73,6 +82,9 @@ export default function EditCharacterPage() {
       const settings = row.settings && typeof row.settings === 'object' ? (row.settings as Record<string, unknown>) : {}
       setSettingsRaw(settings)
       setUserCard(typeof settings.user_card === 'string' ? settings.user_card.slice(0, 300) : '')
+      const creation = settings.creation_form && typeof settings.creation_form === 'object' ? (settings.creation_form as Record<string, unknown>) : {}
+      const publish = creation.publish && typeof creation.publish === 'object' ? (creation.publish as Record<string, unknown>) : {}
+      setUnlockPriceCoins(String(settings.unlock_price_coins ?? publish.unlock_price_coins ?? '').replace(/[^\d]/g, '').slice(0, 6))
 
       const teenMode = settings.teen_mode === true || settings.age_mode === 'teen'
       setAgeMode(teenMode ? 'teen' : 'adult')
@@ -110,6 +122,7 @@ export default function EditCharacterPage() {
       teen_mode: ageMode === 'teen',
       age_mode: ageMode,
       romance_mode: resolvedRomanceMode,
+      unlock_price_coins: normalizePriceCoins(unlockPriceCoins),
       plot_granularity: plotGranularity,
       ending_mode: endingMode,
       ending_repeat_window: endingRepeatWindow,
@@ -126,6 +139,17 @@ export default function EditCharacterPage() {
         plot_granularity: plotGranularity,
         ending_mode: endingMode,
         ending_repeat_window: endingRepeatWindow,
+      },
+      creation_form: {
+        ...(settingsRaw.creation_form && typeof settingsRaw.creation_form === 'object' ? (settingsRaw.creation_form as Record<string, unknown>) : {}),
+        publish: {
+          ...(() => {
+            const creation = settingsRaw.creation_form && typeof settingsRaw.creation_form === 'object' ? (settingsRaw.creation_form as Record<string, unknown>) : {}
+            const publish = creation.publish && typeof creation.publish === 'object' ? (creation.publish as Record<string, unknown>) : {}
+            return publish
+          })(),
+          unlock_price_coins: normalizePriceCoins(unlockPriceCoins),
+        },
       },
     }
 
@@ -228,6 +252,21 @@ export default function EditCharacterPage() {
                   <option value="private">私密（仅自己可见）</option>
                   <option value="public">公开（可出现在广场）</option>
                 </select>
+                <div className="uiHint" style={{ marginTop: 6 }}>公开角色可在广场被解锁，私密角色仅自己可见。</div>
+              </label>
+
+              <label className="uiLabel">
+                广场解锁价格（星币）
+                <input
+                  className="uiInput"
+                  inputMode="numeric"
+                  placeholder="0 = 免费"
+                  value={unlockPriceCoins}
+                  onChange={(e) => setUnlockPriceCoins(e.target.value.replace(/[^\d]/g, '').slice(0, 6))}
+                />
+                <div className="uiHint" style={{ marginTop: 6 }}>
+                  当前：{visibility === 'public' ? (normalizePriceCoins(unlockPriceCoins) > 0 ? `${normalizePriceCoins(unlockPriceCoins)} 币` : '免费') : '私密角色不展示价格'}
+                </div>
               </label>
 
               <div className="uiSplit">

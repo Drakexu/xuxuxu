@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
+import { unlockSquareCharacter } from '@/lib/squareUnlock'
+import { fetchWalletSummary } from '@/lib/wallet'
 import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
@@ -21,6 +23,7 @@ type CharacterAssetRow = { character_id: string; kind: string; storage_path: str
 type Alert = { type: 'ok' | 'err'; text: string } | null
 type AudienceTab = 'ALL' | 'MALE' | 'FEMALE' | 'TEEN'
 type SquareSort = 'RECOMMENDED' | 'POPULAR' | 'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'
+type PriceFilter = 'ALL' | 'FREE' | 'PAID'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -36,20 +39,6 @@ function isActivatedBySettings(settings: unknown) {
 function getStr(r: Record<string, unknown>, k: string) {
   const v = r[k]
   return typeof v === 'string' ? v : ''
-}
-
-function normalizeUnlockedSettings(sourceSettings: unknown, sourceId: string) {
-  const src = asRecord(sourceSettings)
-  const teen = src.teen_mode === true || src.age_mode === 'teen'
-  return {
-    ...(teen ? { ...src, teen_mode: true, age_mode: 'teen', romance_mode: 'ROMANCE_OFF' } : src),
-    source_character_id: sourceId,
-    unlocked_from_square: true,
-    activated: true,
-    home_hidden: false,
-    activated_at: new Date().toISOString(),
-    activated_order: Date.now(),
-  }
 }
 
 function getAudienceTab(c: PubCharacter): AudienceTab {
@@ -104,6 +93,17 @@ function pickAssetPath(rows: CharacterAssetRow[]) {
   return ''
 }
 
+function unlockPrice(settings: unknown) {
+  const s = asRecord(settings)
+  const raw = Number(s.unlock_price_coins)
+  if (Number.isFinite(raw) && raw > 0) return Math.max(0, Math.min(Math.floor(raw), 200000))
+  const cf = asRecord(s.creation_form)
+  const publish = asRecord(cf.publish)
+  const nested = Number(publish.unlock_price_coins)
+  if (Number.isFinite(nested) && nested > 0) return Math.max(0, Math.min(Math.floor(nested), 200000))
+  return 0
+}
+
 export default function SquarePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -111,6 +111,7 @@ export default function SquarePage() {
   const [unlockingId, setUnlockingId] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'ALL' | 'LOCKED' | 'UNLOCKED' | 'ACTIVE'>('ALL')
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>('ALL')
   const [audienceTab, setAudienceTab] = useState<AudienceTab>('ALL')
   const [sortBy, setSortBy] = useState<SquareSort>('RECOMMENDED')
   const [items, setItems] = useState<PubCharacter[]>([])
@@ -122,6 +123,10 @@ export default function SquarePage() {
   const [hasPreferenceSignal, setHasPreferenceSignal] = useState(false)
   const [alert, setAlert] = useState<Alert>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [walletReady, setWalletReady] = useState(false)
+  const [walletBalance, setWalletBalance] = useState(0)
+  const [walletSpent, setWalletSpent] = useState(0)
+  const [walletUnlocked, setWalletUnlocked] = useState(0)
 
   const canRefresh = useMemo(() => !loading, [loading])
 
@@ -140,10 +145,30 @@ export default function SquarePage() {
     setReactionScoreBySourceId({})
     setAudienceAffinity({ ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 })
     setHasPreferenceSignal(false)
+    setWalletReady(false)
+    setWalletBalance(0)
+    setWalletSpent(0)
+    setWalletUnlocked(0)
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
     setIsLoggedIn(!!userId)
+
+    if (userId) {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (token) {
+          const wallet = await fetchWalletSummary(token)
+          setWalletReady(wallet.walletReady)
+          setWalletBalance(wallet.balance)
+          setWalletSpent(wallet.totalSpent)
+          setWalletUnlocked(wallet.totalUnlocked)
+        }
+      } catch {
+        // ignore wallet loading failures
+      }
+    }
 
     const r1 = await supabase
       .from('characters')
@@ -370,44 +395,59 @@ export default function SquarePage() {
         return
       }
 
-      const payloadV2 = {
-        user_id: userId,
-        name: source.name,
-        system_prompt: source.system_prompt,
-        visibility: 'private' as const,
-        profile: source.profile ?? {},
-        settings: normalizeUnlockedSettings(source.settings, source.id),
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
+        return
       }
 
-      let localId = ''
-      const r1 = await supabase.from('characters').insert(payloadV2).select('id').single()
-      if (r1.error) {
-        const msg = r1.error.message || ''
-        const looksLikeLegacy = msg.includes('column') && (msg.includes('profile') || msg.includes('settings') || msg.includes('visibility'))
-        if (!looksLikeLegacy) throw new Error(msg)
-        const r2 = await supabase.from('characters').insert({ user_id: userId, name: source.name, system_prompt: source.system_prompt }).select('id').single()
-        if (r2.error || !r2.data?.id) throw new Error(r2.error?.message || 'unlock failed')
-        localId = String(r2.data.id)
-        setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId: r2.data.id, active: true } }))
-      } else {
-        localId = String(r1.data.id)
-        setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId, active: true } }))
+      const unlock = await unlockSquareCharacter(token, source.id)
+      if (!unlock.ok) {
+        if (unlock.error === 'INSUFFICIENT_COINS') {
+          const need = Number(unlock.priceCoins || unlockPrice(source.settings))
+          const have = Number(unlock.balance ?? walletBalance)
+          setAlert({ type: 'err', text: `余额不足：需要 ${need} 币，当前 ${have} 币。` })
+          return
+        }
+        if (unlock.error === 'SOURCE_NOT_PUBLIC') {
+          setAlert({ type: 'err', text: '该角色不再公开，无法解锁。' })
+          return
+        }
+        setAlert({ type: 'err', text: `解锁失败：${unlock.error || 'unknown error'}` })
+        return
       }
+
+      const localId = String(unlock.localCharacterId || '').trim()
+      if (!localId) {
+        setAlert({ type: 'err', text: '解锁成功但未返回角色 ID，请刷新后重试。' })
+        return
+      }
+
+      setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId, active: true } }))
+      if (unlock.balanceAfter != null) setWalletBalance(Math.max(0, Number(unlock.balanceAfter || 0)))
+      if (!unlock.alreadyUnlocked) setWalletUnlocked((prev) => prev + 1)
+      if (unlock.chargedCoins > 0) setWalletSpent((prev) => prev + unlock.chargedCoins)
+      if (unlock.walletReady) setWalletReady(true)
 
       try {
-        if (localId) {
-          await ensureLatestConversationForCharacter({
-            userId,
-            characterId: localId,
-            title: source.name || '对话',
-          })
-        }
+        await ensureLatestConversationForCharacter({
+          userId,
+          characterId: localId,
+          title: source.name || '对话',
+        })
       } catch {
         // Best-effort: unlock should not fail if conversation bootstrap fails.
       }
 
-      setAlert({ type: 'ok', text: options?.startChat ? '已解锁并激活，正在跳转聊天。' : '已解锁并激活到首页队列。' })
-      if (options?.startChat && localId) {
+      const chargedText = unlock.chargedCoins > 0 ? `（消耗 ${unlock.chargedCoins} 币）` : ''
+      setAlert({
+        type: 'ok',
+        text: options?.startChat
+          ? `${unlock.alreadyUnlocked ? '已在队列中，正在跳转聊天。' : '已解锁并激活，正在跳转聊天。'}${chargedText}`
+          : `${unlock.alreadyUnlocked ? '角色已在你的队列中。' : '已解锁并激活到首页队列。'}${chargedText}`,
+      })
+      if (options?.startChat) {
         router.push(`/chat/${localId}`)
       }
     } catch (e: unknown) {
@@ -428,11 +468,14 @@ export default function SquarePage() {
       const unlocked = !!info
       const active = !!info?.active
       const audience = getAudienceTab(c)
+      const price = unlockPrice(c.settings)
 
       if (filter === 'LOCKED' && unlocked) return false
       if (filter === 'UNLOCKED' && !unlocked) return false
       if (filter === 'ACTIVE' && !active) return false
       if (audienceTab !== 'ALL' && audience !== audienceTab) return false
+      if (priceFilter === 'FREE' && price > 0) return false
+      if (priceFilter === 'PAID' && price <= 0) return false
 
       if (!q) return true
       const p = asRecord(c.profile)
@@ -488,7 +531,7 @@ export default function SquarePage() {
       return sb.ts - sa.ts
     })
     return arr
-  }, [items, unlockedInfoBySourceId, squareMetricsBySourceId, reactionScoreBySourceId, audienceAffinity, filter, query, sortBy, audienceTab])
+  }, [items, unlockedInfoBySourceId, squareMetricsBySourceId, reactionScoreBySourceId, audienceAffinity, filter, priceFilter, query, sortBy, audienceTab])
 
   const stats = useMemo(() => {
     let unlocked = 0
@@ -496,10 +539,14 @@ export default function SquarePage() {
     let male = 0
     let female = 0
     let teen = 0
+    let free = 0
+    let paid = 0
     for (const it of items) {
       const info = unlockedInfoBySourceId[it.id]
       if (info) unlocked += 1
       if (info?.active) active += 1
+      if (unlockPrice(it.settings) > 0) paid += 1
+      else free += 1
       const audience = getAudienceTab(it)
       if (audience === 'MALE') male += 1
       else if (audience === 'FEMALE') female += 1
@@ -513,6 +560,8 @@ export default function SquarePage() {
       male,
       female,
       teen,
+      free,
+      paid,
     }
   }, [items, unlockedInfoBySourceId])
   const spotlightItems = useMemo(() => filteredItems.slice(0, 3), [filteredItems])
@@ -530,6 +579,9 @@ export default function SquarePage() {
     const romanceLabel = ageMode === '未成年模式' ? '恋爱关闭' : romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
     const audience = getAudienceTab(c)
     const info = unlockedInfoBySourceId[c.id]
+    const priceCoins = unlockPrice(c.settings)
+    const paidRole = priceCoins > 0
+    const insufficientCoins = !info && isLoggedIn && walletReady && paidRole && walletBalance < priceCoins
     const recScore = Number(reactionScoreBySourceId[c.id] || 0)
     const metrics = squareMetricsBySourceId[c.id]
 
@@ -558,6 +610,7 @@ export default function SquarePage() {
           <span className="uiBadge">{ageMode}</span>
           <span className="uiBadge">{audienceLabel(audience)}</span>
           <span className="uiBadge">{romanceLabel}</span>
+          <span className="uiBadge">{paidRole ? `${priceCoins} 币` : '免费'}</span>
           {recScore > 0 ? <span className="uiBadge">偏好命中 {recScore}</span> : null}
           {metrics && (metrics.unlocked > 0 || metrics.active > 0) ? (
             <span className="uiBadge">
@@ -579,6 +632,7 @@ export default function SquarePage() {
               已激活
             </span>
           ) : null}
+          {insufficientCoins ? <span className="uiBadge">余额不足</span> : null}
         </div>
 
         {info && (
@@ -635,7 +689,7 @@ export default function SquarePage() {
           <div className="uiCardActions">
             <button
               className="uiBtn uiBtnPrimary"
-              disabled={unlockingId === c.id}
+              disabled={unlockingId === c.id || insufficientCoins}
               onClick={(e) => {
                 e.stopPropagation()
                 if (!isLoggedIn) {
@@ -645,18 +699,28 @@ export default function SquarePage() {
                 void unlockCharacterFromCard(c, { startChat: true })
               }}
             >
-              {!isLoggedIn ? '登录后解锁' : unlockingId === c.id ? '解锁中...' : '解锁并开聊'}
+              {!isLoggedIn
+                ? paidRole
+                  ? `登录后解锁（${priceCoins}币）`
+                  : '登录后解锁'
+                : insufficientCoins
+                  ? `余额不足（${priceCoins}币）`
+                  : unlockingId === c.id
+                    ? '解锁中...'
+                    : paidRole
+                      ? `解锁并开聊（${priceCoins}币）`
+                      : '解锁并开聊'}
             </button>
             {isLoggedIn ? (
               <button
                 className="uiBtn uiBtnGhost"
-                disabled={unlockingId === c.id}
+                disabled={unlockingId === c.id || insufficientCoins}
                 onClick={(e) => {
                   e.stopPropagation()
                   void unlockCharacterFromCard(c)
                 }}
               >
-                仅解锁
+                {paidRole ? `仅解锁（${priceCoins}币）` : '仅解锁'}
               </button>
             ) : null}
             <button
@@ -741,6 +805,18 @@ export default function SquarePage() {
               <b>{stats.teen}</b>
               <span>青少年</span>
             </div>
+            <div className="uiKpi">
+              <b>{stats.free}</b>
+              <span>免费角色</span>
+            </div>
+            <div className="uiKpi">
+              <b>{stats.paid}</b>
+              <span>付费角色</span>
+            </div>
+            <div className="uiKpi">
+              <b>{isLoggedIn ? walletBalance : '-'}</b>
+              <span>我的星币</span>
+            </div>
           </div>
         </section>
 
@@ -757,7 +833,7 @@ export default function SquarePage() {
             <div className="uiSquareFlowCard">
               <div className="uiSquareFlowStep">STEP 2</div>
               <div className="uiSquareFlowTitle">解锁到队列</div>
-              <div className="uiSquareFlowDesc">点击卡片即可解锁，角色会进入你的可聊天列表。</div>
+              <div className="uiSquareFlowDesc">免费角色可直接解锁，付费角色会消耗星币并进入你的可聊天列表。</div>
               <button className="uiPill" onClick={() => setFilter('LOCKED')}>
                 看未解锁
               </button>
@@ -843,6 +919,17 @@ export default function SquarePage() {
                       已激活
                     </button>
                   </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className={`uiPill ${priceFilter === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setPriceFilter('ALL')}>
+                      全部价格
+                    </button>
+                    <button className={`uiPill ${priceFilter === 'FREE' ? 'uiPillActive' : ''}`} onClick={() => setPriceFilter('FREE')}>
+                      仅免费
+                    </button>
+                    <button className={`uiPill ${priceFilter === 'PAID' ? 'uiPillActive' : ''}`} onClick={() => setPriceFilter('PAID')}>
+                      仅付费
+                    </button>
+                  </div>
                   <select className="uiInput" value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
                     <option value="RECOMMENDED">排序：为你推荐</option>
                     <option value="POPULAR">排序：热度优先</option>
@@ -877,10 +964,18 @@ export default function SquarePage() {
                 <div className="uiPanelHeader">
                   <div>
                     <div className="uiPanelTitle">操作入口</div>
-                    <div className="uiPanelSub">解锁后可进入首页与聊天</div>
+                    <div className="uiPanelSub">解锁后可进入首页与聊天，支持星币付费解锁</div>
                   </div>
                 </div>
                 <div className="uiForm" style={{ paddingTop: 14 }}>
+                  {isLoggedIn ? (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span className="uiBadge">星币余额: {walletBalance}</span>
+                      <span className="uiBadge">累计解锁: {walletUnlocked}</span>
+                      <span className="uiBadge">累计消费: {walletSpent}</span>
+                      {!walletReady ? <span className="uiBadge">钱包未初始化（可继续免费解锁）</span> : null}
+                    </div>
+                  ) : null}
                   <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/home')}>
                     打开首页
                   </button>

@@ -31,6 +31,7 @@ npm install
 - Run `supabase/schema_v1.sql`
 - Run `supabase/schema_feed_reactions.sql` (enables cross-device persistence for feed like/save)
 - Run `supabase/schema_feed_comments.sql` (enables feed comment persistence)
+- Run `supabase/schema_square_unlocks.sql` (enables wallet + paid unlock + idempotent unlock receipts)
 
 4. Start dev server:
 
@@ -84,3 +85,13 @@ npm run start
 - Frontend behavior:
   - If `feed_comments` table exists: comments are persisted per user and shown on Home / Character Home feeds
   - If table does not exist: comments UI degrades gracefully with setup hint
+
+## Square Wallet + Unlock
+
+- APIs:
+  - `GET /api/wallet/summary`
+  - `POST /api/square/unlock`
+- Behavior:
+  - Unlock now uses server-side idempotent flow (same user/source will not double charge).
+  - Supports optional paid unlock via `settings.unlock_price_coins` (or `settings.creation_form.publish.unlock_price_coins`).
+  - If wallet schema is missing, unlock API gracefully falls back to legacy free unlock path.
