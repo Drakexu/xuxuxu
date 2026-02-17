@@ -1644,3 +1644,19 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+## 2026-02-17 checkpoint: square popularity metrics
+- Added new API: `GET /api/square/metrics` (`app/api/square/metrics/route.ts`)
+- Metrics aggregates global counts by source character id:
+  - `unlocked`: number of copied roles from square
+  - `active`: copied roles currently activated (not hidden/home-off)
+- Square list page (`app/square/page.tsx`):
+  - Added `POPULAR` sort (weighted by unlocked/active)
+  - Added per-card popularity badge: `½âËø X ¡¤ ¼¤»î Y`
+- Square detail page (`app/square/[characterId]/page.tsx`):
+  - Fetches metrics for current role + related roles
+  - Added KPI + status badges for global unlock/active
+  - Added related-role popularity hint in list rows
+- Validation:
+  - `npm run lint` passed
+  - `npm run build` passed

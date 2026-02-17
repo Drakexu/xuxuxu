@@ -82,9 +82,11 @@ export default function SquareDetailPage() {
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [relatedItems, setRelatedItems] = useState<PubCharacter[]>([])
   const [relatedImgById, setRelatedImgById] = useState<Record<string, string>>({})
+  const [squareMetricsBySourceId, setSquareMetricsBySourceId] = useState<Record<string, { unlocked: number; active: number }>>({})
   const [myUnlockedBySourceId, setMyUnlockedBySourceId] = useState<Record<string, { localId: string; active: boolean }>>({})
   const [busy, setBusy] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const currentSquareMetrics = useMemo(() => (item ? squareMetricsBySourceId[item.id] : undefined), [item, squareMetricsBySourceId])
 
   const canUnlock = useMemo(() => !!item && !busy && !unlockedCharId && isLoggedIn, [item, busy, unlockedCharId, isLoggedIn])
   const detailMeta = useMemo(() => {
@@ -135,6 +137,7 @@ export default function SquareDetailPage() {
       setAssetUrls([])
       setRelatedItems([])
       setRelatedImgById({})
+      setSquareMetricsBySourceId({})
       setMyUnlockedBySourceId({})
 
       const { data: userData } = await supabase.auth.getUser()
@@ -161,6 +164,7 @@ export default function SquareDetailPage() {
       }
 
       setItem(c)
+      const metricIds = new Set<string>([id])
 
       // Already unlocked?
       if (userId) {
@@ -252,6 +256,7 @@ export default function SquareDetailPage() {
           setRelatedItems(picks)
 
           const relIds = picks.map((x) => x.id).filter(Boolean)
+          for (const relId of relIds) metricIds.add(relId)
           if (relIds.length) {
             const relAssets = await supabase
               .from('character_assets')
@@ -290,6 +295,29 @@ export default function SquareDetailPage() {
                 setRelatedImgById(map)
               }
             }
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // Best-effort: global popularity hints for current + related roles.
+      try {
+        const ids = Array.from(metricIds).filter(Boolean).slice(0, 80)
+        if (ids.length) {
+          const resp = await fetch(`/api/square/metrics?ids=${encodeURIComponent(ids.join(','))}`)
+          if (resp.ok) {
+            const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+            const m = asRecord(data.metrics)
+            const nextMetrics: Record<string, { unlocked: number; active: number }> = {}
+            for (const sourceId of ids) {
+              const row = asRecord(m[sourceId])
+              nextMetrics[sourceId] = {
+                unlocked: Number(row.unlocked || 0),
+                active: Number(row.active || 0),
+              }
+            }
+            setSquareMetricsBySourceId(nextMetrics)
           }
         }
       } catch {
@@ -492,6 +520,14 @@ export default function SquareDetailPage() {
                   <span>恋爱模式</span>
                 </div>
                 <div className="uiKpi">
+                  <b>{Number(currentSquareMetrics?.unlocked || 0)}</b>
+                  <span>全站解锁</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{Number(currentSquareMetrics?.active || 0)}</b>
+                  <span>全站激活</span>
+                </div>
+                <div className="uiKpi">
                   <b>{(item.system_prompt || '').length}</b>
                   <span>提示词长度</span>
                 </div>
@@ -544,6 +580,11 @@ export default function SquareDetailPage() {
                     <span className="uiBadge">{detailMeta.romanceLabel || '恋爱开启'}</span>
                     {unlockedCharId ? <span className="uiBadge">已解锁</span> : null}
                     {unlockedCharId && unlockedActive ? <span className="uiBadge">已激活</span> : null}
+                    {currentSquareMetrics && (currentSquareMetrics.unlocked > 0 || currentSquareMetrics.active > 0) ? (
+                      <span className="uiBadge">
+                        解锁 {currentSquareMetrics.unlocked} · 激活 {currentSquareMetrics.active}
+                      </span>
+                    ) : null}
                   </div>
 
                   {detailMeta.authorNote && (
@@ -635,6 +676,8 @@ export default function SquareDetailPage() {
                     <span className="uiBadge">{isLoggedIn ? '已登录' : '游客模式'}</span>
                     <span className="uiBadge">{unlockedCharId ? '已解锁' : '未解锁'}</span>
                     <span className="uiBadge">{unlockedCharId ? (unlockedActive ? '已激活' : '未激活') : '-'}</span>
+                    <span className="uiBadge">全站解锁 {Number(currentSquareMetrics?.unlocked || 0)}</span>
+                    <span className="uiBadge">全站激活 {Number(currentSquareMetrics?.active || 0)}</span>
                   </div>
                 </div>
 
@@ -651,6 +694,7 @@ export default function SquareDetailPage() {
                       const p = asRecord(r.profile)
                       const brief = [String(p.occupation || '').trim(), String(p.organization || '').trim()].filter(Boolean).join(' · ')
                       const unlocked = myUnlockedBySourceId[r.id]
+                      const metrics = squareMetricsBySourceId[r.id]
                       return (
                         <div key={r.id} className="uiRow" style={{ alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -678,6 +722,7 @@ export default function SquareDetailPage() {
                               <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</div>
                               <div className="uiHint" style={{ marginTop: 2 }}>
                                 {brief || audienceLabel(getAudienceTab(r))}
+                                {metrics ? ` · 解锁${Number(metrics.unlocked || 0)} 激活${Number(metrics.active || 0)}` : ''}
                               </div>
                             </div>
                           </div>

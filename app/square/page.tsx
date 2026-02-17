@@ -20,7 +20,7 @@ type CharacterAssetRow = { character_id: string; kind: string; storage_path: str
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
 type AudienceTab = 'ALL' | 'MALE' | 'FEMALE' | 'TEEN'
-type SquareSort = 'RECOMMENDED' | 'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'
+type SquareSort = 'RECOMMENDED' | 'POPULAR' | 'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -116,6 +116,7 @@ export default function SquarePage() {
   const [items, setItems] = useState<PubCharacter[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
   const [unlockedInfoBySourceId, setUnlockedInfoBySourceId] = useState<Record<string, { localId: string; active: boolean }>>({})
+  const [squareMetricsBySourceId, setSquareMetricsBySourceId] = useState<Record<string, { unlocked: number; active: number }>>({})
   const [reactionScoreBySourceId, setReactionScoreBySourceId] = useState<Record<string, number>>({})
   const [audienceAffinity, setAudienceAffinity] = useState<Record<AudienceTab, number>>({ ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 })
   const [hasPreferenceSignal, setHasPreferenceSignal] = useState(false)
@@ -135,6 +136,7 @@ export default function SquarePage() {
     setAlert(null)
     setImgById({})
     setUnlockedInfoBySourceId({})
+    setSquareMetricsBySourceId({})
     setReactionScoreBySourceId({})
     setAudienceAffinity({ ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 })
     setHasPreferenceSignal(false)
@@ -169,6 +171,29 @@ export default function SquarePage() {
     const itemById: Record<string, PubCharacter> = {}
     for (const it of nextItems) {
       if (it.id) itemById[it.id] = it
+    }
+
+    // Best-effort square metrics for popularity hints (global unlocked/active counts).
+    try {
+      const ids = nextItems.map((x) => x.id).filter(Boolean).slice(0, 80)
+      if (ids.length) {
+        const resp = await fetch(`/api/square/metrics?ids=${encodeURIComponent(ids.join(','))}`)
+        if (resp.ok) {
+          const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+          const m = asRecord(data.metrics)
+          const nextMetrics: Record<string, { unlocked: number; active: number }> = {}
+          for (const id of ids) {
+            const row = asRecord(m[id])
+            nextMetrics[id] = {
+              unlocked: Number(row.unlocked || 0),
+              active: Number(row.active || 0),
+            }
+          }
+          setSquareMetricsBySourceId(nextMetrics)
+        }
+      }
+    } catch {
+      // ignore
     }
 
     // Best-effort: show "已解锁" badges by checking user's copied characters.
@@ -431,7 +456,9 @@ export default function SquarePage() {
       const audience = getAudienceTab(c)
       const affinity = audience === 'ALL' ? 0 : Number(audienceAffinity[audience] || 0)
       const rec = reaction * 3 + affinity
-      return { active, unlocked, ts, name, rec }
+      const metrics = squareMetricsBySourceId[c.id]
+      const pop = Number(metrics?.unlocked || 0) * 2 + Number(metrics?.active || 0) * 3
+      return { active, unlocked, ts, name, rec, pop }
     }
     arr.sort((a, b) => {
       const sa = score(a)
@@ -440,6 +467,11 @@ export default function SquarePage() {
         if (sb.rec !== sa.rec) return sb.rec - sa.rec
         if (sb.active !== sa.active) return sb.active - sa.active
         if (sb.unlocked !== sa.unlocked) return sb.unlocked - sa.unlocked
+        return sb.ts - sa.ts
+      }
+      if (sortBy === 'POPULAR') {
+        if (sb.pop !== sa.pop) return sb.pop - sa.pop
+        if (sb.rec !== sa.rec) return sb.rec - sa.rec
         return sb.ts - sa.ts
       }
       if (sortBy === 'ACTIVE_FIRST') {
@@ -456,7 +488,7 @@ export default function SquarePage() {
       return sb.ts - sa.ts
     })
     return arr
-  }, [items, unlockedInfoBySourceId, reactionScoreBySourceId, audienceAffinity, filter, query, sortBy, audienceTab])
+  }, [items, unlockedInfoBySourceId, squareMetricsBySourceId, reactionScoreBySourceId, audienceAffinity, filter, query, sortBy, audienceTab])
 
   const stats = useMemo(() => {
     let unlocked = 0
@@ -499,6 +531,7 @@ export default function SquarePage() {
     const audience = getAudienceTab(c)
     const info = unlockedInfoBySourceId[c.id]
     const recScore = Number(reactionScoreBySourceId[c.id] || 0)
+    const metrics = squareMetricsBySourceId[c.id]
 
     return (
       <div key={c.id} className="uiCard" style={{ cursor: 'pointer', borderColor: featured ? 'rgba(249,217,142,.32)' : undefined }} onClick={() => router.push(`/square/${c.id}`)}>
@@ -526,6 +559,11 @@ export default function SquarePage() {
           <span className="uiBadge">{audienceLabel(audience)}</span>
           <span className="uiBadge">{romanceLabel}</span>
           {recScore > 0 ? <span className="uiBadge">偏好命中 {recScore}</span> : null}
+          {metrics && (metrics.unlocked > 0 || metrics.active > 0) ? (
+            <span className="uiBadge">
+              解锁 {metrics.unlocked} · 激活 {metrics.active}
+            </span>
+          ) : null}
           <span
             className="uiBadge"
             style={{
@@ -734,6 +772,7 @@ export default function SquarePage() {
                   </div>
                   <select className="uiInput" value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
                     <option value="RECOMMENDED">排序：为你推荐</option>
+                    <option value="POPULAR">排序：热度优先</option>
                     <option value="UNLOCKED_FIRST">排序：已解锁优先</option>
                     <option value="ACTIVE_FIRST">排序：已激活优先</option>
                     <option value="NEWEST">排序：最新发布</option>
