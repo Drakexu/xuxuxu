@@ -19,12 +19,25 @@ type CharacterAssetRow = { character_id: string; kind: string; storage_path: str
 type Alert = { type: 'ok' | 'err'; text: string } | null
 type StudioTab = 'CREATED' | 'UNLOCKED' | 'ALL'
 type VisibilityFilter = 'ALL' | 'PUBLIC' | 'PRIVATE'
+type CreatorSort = 'NEWEST' | 'REVENUE' | 'UNLOCKS' | 'NAME'
+type CreatorRoleMetric = {
+  sourceCharacterId: string
+  name: string
+  unlocks: number
+  revenue: number
+  avgUnlockPrice: number
+  unlockPrice: number
+  creatorShareBp: number
+  latestUnlockAt: string
+  createdAt: string
+}
 type CreatorMetrics = {
   walletReady: boolean
   publicRoleCount: number
   totalUnlocks: number
   totalRevenue: number
   topRoles: Array<{ sourceCharacterId: string; name: string; unlocks: number; revenue: number }>
+  roleMetrics: CreatorRoleMetric[]
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -81,6 +94,7 @@ export default function CharactersPage() {
   const [busyId, setBusyId] = useState<string>('')
   const [studioTab, setStudioTab] = useState<StudioTab>('CREATED')
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('ALL')
+  const [creatorSort, setCreatorSort] = useState<CreatorSort>('REVENUE')
   const [query, setQuery] = useState('')
   const [creatorMetrics, setCreatorMetrics] = useState<CreatorMetrics>({
     walletReady: false,
@@ -88,6 +102,7 @@ export default function CharactersPage() {
     totalUnlocks: 0,
     totalRevenue: 0,
     topRoles: [],
+    roleMetrics: [],
   })
 
   const canRefresh = useMemo(() => !loading && !deletingId, [loading, deletingId])
@@ -104,9 +119,18 @@ export default function CharactersPage() {
     const privateCount = Math.max(0, characters.length - publicCount)
     return { created, unlocked, all: characters.length, active, publicCount, privateCount }
   }, [characters])
+  const creatorMetricById = useMemo(() => {
+    const out: Record<string, CreatorRoleMetric> = {}
+    for (const row of creatorMetrics.roleMetrics) {
+      const id = String(row.sourceCharacterId || '').trim()
+      if (!id) continue
+      out[id] = row
+    }
+    return out
+  }, [creatorMetrics.roleMetrics])
   const filteredCharacters = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return characters.filter((c) => {
+    const next = characters.filter((c) => {
       const unlocked = isUnlockedFromSquare(c)
       if (studioTab === 'CREATED' && unlocked) return false
       if (studioTab === 'UNLOCKED' && !unlocked) return false
@@ -116,7 +140,37 @@ export default function CharactersPage() {
       if (!q) return true
       return String(c.name || '').toLowerCase().includes(q)
     })
-  }, [characters, studioTab, visibilityFilter, query])
+    next.sort((a, b) => {
+      const isCreatedA = !isUnlockedFromSquare(a)
+      const isCreatedB = !isUnlockedFromSquare(b)
+      if ((studioTab === 'CREATED' || studioTab === 'ALL') && (isCreatedA || isCreatedB)) {
+        const ma = isCreatedA ? creatorMetricById[a.id] : undefined
+        const mb = isCreatedB ? creatorMetricById[b.id] : undefined
+        if (creatorSort === 'REVENUE') {
+          const ra = Number(ma?.revenue || 0)
+          const rb = Number(mb?.revenue || 0)
+          if (rb !== ra) return rb - ra
+          const ua = Number(ma?.unlocks || 0)
+          const ub = Number(mb?.unlocks || 0)
+          if (ub !== ua) return ub - ua
+        } else if (creatorSort === 'UNLOCKS') {
+          const ua = Number(ma?.unlocks || 0)
+          const ub = Number(mb?.unlocks || 0)
+          if (ub !== ua) return ub - ua
+          const ra = Number(ma?.revenue || 0)
+          const rb = Number(mb?.revenue || 0)
+          if (rb !== ra) return rb - ra
+        } else if (creatorSort === 'NAME') {
+          return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hans-CN')
+        }
+      }
+      const ta = a.created_at ? Date.parse(a.created_at) : 0
+      const tb = b.created_at ? Date.parse(b.created_at) : 0
+      if (tb !== ta) return tb - ta
+      return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hans-CN')
+    })
+    return next
+  }, [characters, studioTab, visibilityFilter, query, creatorSort, creatorMetricById])
 
   useEffect(() => {
     if (!alert) return
@@ -134,6 +188,7 @@ export default function CharactersPage() {
       totalUnlocks: 0,
       totalRevenue: 0,
       topRoles: [],
+      roleMetrics: [],
     })
 
     const { data: userData } = await supabase.auth.getUser()
@@ -165,6 +220,9 @@ export default function CharactersPage() {
             totalRevenue: Number(data.totalRevenue || 0),
             topRoles: Array.isArray(data.topRoles)
               ? (data.topRoles as Array<{ sourceCharacterId: string; name: string; unlocks: number; revenue: number }>)
+              : [],
+            roleMetrics: Array.isArray(data.roleMetrics)
+              ? (data.roleMetrics as CreatorRoleMetric[])
               : [],
           })
         }
@@ -445,6 +503,12 @@ export default function CharactersPage() {
                       仅私密
                     </button>
                   </div>
+                  <select className="uiInput" value={creatorSort} onChange={(e) => setCreatorSort(e.target.value as CreatorSort)}>
+                    <option value="REVENUE">经营排序：收益优先</option>
+                    <option value="UNLOCKS">经营排序：解锁优先</option>
+                    <option value="NEWEST">经营排序：最新创建</option>
+                    <option value="NAME">经营排序：角色名</option>
+                  </select>
                   <input className="uiInput" placeholder="搜索角色名..." value={query} onChange={(e) => setQuery(e.target.value)} />
                   <div style={{ display: 'grid', gap: 8 }}>
                     <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
@@ -502,6 +566,7 @@ export default function CharactersPage() {
                     const isCreated = !unlocked
                     const isForked = isCreated && !!sourceCharacterId
                     const isPublic = c.visibility === 'public'
+                    const creatorRole = isCreated ? creatorMetricById[c.id] : undefined
 
                     return (
                       <div
@@ -528,6 +593,14 @@ export default function CharactersPage() {
                           {sourceCharacterId ? ` · ${unlocked ? '来源广场' : '衍生自广场'}` : ''}
                           {hidden ? ' · 已隐藏' : ''}
                         </div>
+                        {isCreated && isPublic ? (
+                          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <span className="uiBadge">解锁 {Number(creatorRole?.unlocks || 0)}</span>
+                            <span className="uiBadge">收益 {Number(creatorRole?.revenue || 0)} 币</span>
+                            <span className="uiBadge">定价 {Number(creatorRole?.unlockPrice || 0)} 币</span>
+                            <span className="uiBadge">分成 {Math.floor(Number(creatorRole?.creatorShareBp || 7000) / 100)}%</span>
+                          </div>
+                        ) : null}
 
                         {!manageMode && (
                           <div className="uiCardActions">

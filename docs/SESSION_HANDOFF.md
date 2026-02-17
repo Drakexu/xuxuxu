@@ -2092,3 +2092,22 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: studio business ranking pass (creator loop)
+- Files changed:
+  - app/api/wallet/creator-metrics/route.ts
+  - app/characters/page.tsx
+  - README.md
+- Completed:
+  - Extended creator metrics API:
+    - keeps topRoles, adds full roleMetrics for all public created roles
+    - role metrics now include unlocks, revenue, avgUnlockPrice, unlockPrice, creatorShareBp, latestUnlockAt, createdAt
+  - Upgraded studio page to use roleMetrics:
+    - added creator business sort modes (revenue/unlocks/newest/name)
+    - created-role cards now show business badges (unlocks/revenue/price/share)
+    - studio sorting now supports creator business priority while preserving legacy filters
+  - Updated README API docs for new metrics fields.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

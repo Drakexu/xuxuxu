@@ -9,11 +9,13 @@ type CharacterRow = {
   name?: string | null
   visibility?: string | null
   settings?: unknown
+  created_at?: string | null
 }
 
 type UnlockRow = {
   source_character_id?: string | null
   price_coins?: number | null
+  created_at?: string | null
 }
 
 type TxRow = {
@@ -56,6 +58,28 @@ function isWalletUnavailableError(msg: string) {
   )
 }
 
+function parseUnlockPrice(settings: unknown) {
+  const s = asRecord(settings)
+  const own = Number(s.unlock_price_coins)
+  if (Number.isFinite(own) && own > 0) return Math.max(0, Math.min(Math.floor(own), 200000))
+  const cf = asRecord(s.creation_form)
+  const publish = asRecord(cf.publish)
+  const nested = Number(publish.unlock_price_coins)
+  if (Number.isFinite(nested) && nested > 0) return Math.max(0, Math.min(Math.floor(nested), 200000))
+  return 0
+}
+
+function parseCreatorShareBp(settings: unknown) {
+  const s = asRecord(settings)
+  const own = Number(s.unlock_creator_share_bp)
+  if (Number.isFinite(own)) return Math.max(0, Math.min(Math.floor(own), 10000))
+  const cf = asRecord(s.creation_form)
+  const publish = asRecord(cf.publish)
+  const nested = Number(publish.unlock_creator_share_bp)
+  if (Number.isFinite(nested)) return Math.max(0, Math.min(Math.floor(nested), 10000))
+  return 7000
+}
+
 export async function GET(req: Request) {
   try {
     const token = requireAuthToken(req)
@@ -67,7 +91,7 @@ export async function GET(req: Request) {
 
     const charsRes = await sb
       .from('characters')
-      .select('id,name,visibility,settings')
+      .select('id,name,visibility,settings,created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(2000)
@@ -84,10 +108,15 @@ export async function GET(req: Request) {
         totalUnlocks: 0,
         totalRevenue: 0,
         topRoles: [],
+        roleMetrics: [],
       })
     }
 
-    const unlockRes = await sb.from('square_unlocks').select('source_character_id,price_coins').in('source_character_id', sourceIds).limit(5000)
+    const unlockRes = await sb
+      .from('square_unlocks')
+      .select('source_character_id,price_coins,created_at')
+      .in('source_character_id', sourceIds)
+      .limit(10000)
     if (unlockRes.error) {
       if (isWalletUnavailableError(unlockRes.error.message || '')) {
         return NextResponse.json({
@@ -97,6 +126,7 @@ export async function GET(req: Request) {
           totalUnlocks: 0,
           totalRevenue: 0,
           topRoles: [],
+          roleMetrics: [],
         })
       }
       throw new Error(unlockRes.error.message)
@@ -119,16 +149,22 @@ export async function GET(req: Request) {
           totalUnlocks: 0,
           totalRevenue: 0,
           topRoles: [],
+          roleMetrics: [],
         })
       }
       throw new Error(txRes.error.message)
     }
 
     const unlockBySource: Record<string, number> = {}
+    const unlockPriceSumBySource: Record<string, number> = {}
+    const latestUnlockAtBySource: Record<string, string> = {}
     for (const row of (unlockRes.data ?? []) as UnlockRow[]) {
       const sid = String(row.source_character_id || '').trim()
       if (!sid) continue
       unlockBySource[sid] = Number(unlockBySource[sid] || 0) + 1
+      unlockPriceSumBySource[sid] = Number(unlockPriceSumBySource[sid] || 0) + Math.max(0, Number(row.price_coins || 0))
+      const ts = String(row.created_at || '')
+      if (ts && (!latestUnlockAtBySource[sid] || ts > latestUnlockAtBySource[sid])) latestUnlockAtBySource[sid] = ts
     }
 
     const revenueBySource: Record<string, number> = {}
@@ -139,24 +175,36 @@ export async function GET(req: Request) {
     }
 
     const nameById: Record<string, string> = {}
+    const settingsById: Record<string, unknown> = {}
+    const createdAtById: Record<string, string> = {}
     for (const c of createdPublic) {
       if (!c.id) continue
       nameById[c.id] = String(c.name || '')
+      settingsById[c.id] = c.settings
+      createdAtById[c.id] = String(c.created_at || '')
     }
 
-    const topRoles = sourceIds
+    const roleMetrics = sourceIds
       .map((id) => ({
         sourceCharacterId: id,
         name: nameById[id] || '',
         unlocks: Number(unlockBySource[id] || 0),
         revenue: Number(revenueBySource[id] || 0),
+        avgUnlockPrice:
+          Number(unlockBySource[id] || 0) > 0
+            ? Math.floor(Number(unlockPriceSumBySource[id] || 0) / Math.max(1, Number(unlockBySource[id] || 0)))
+            : parseUnlockPrice(settingsById[id]),
+        unlockPrice: parseUnlockPrice(settingsById[id]),
+        creatorShareBp: parseCreatorShareBp(settingsById[id]),
+        latestUnlockAt: latestUnlockAtBySource[id] || '',
+        createdAt: createdAtById[id] || '',
       }))
       .sort((a, b) => {
         if (b.revenue !== a.revenue) return b.revenue - a.revenue
         if (b.unlocks !== a.unlocks) return b.unlocks - a.unlocks
         return a.name.localeCompare(b.name, 'zh-Hans-CN')
       })
-      .slice(0, 12)
+    const topRoles = roleMetrics.slice(0, 12)
 
     const totalUnlocks = Object.values(unlockBySource).reduce((s, n) => s + Number(n || 0), 0)
     const totalRevenue = Object.values(revenueBySource).reduce((s, n) => s + Number(n || 0), 0)
@@ -168,6 +216,7 @@ export async function GET(req: Request) {
       totalUnlocks,
       totalRevenue,
       topRoles,
+      roleMetrics,
     })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -175,4 +224,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: msg }, { status })
   }
 }
-
