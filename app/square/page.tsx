@@ -1,12 +1,12 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import { unlockSquareCharacter } from '@/lib/squareUnlock'
 import { fetchWalletSummary } from '@/lib/wallet'
-import { fetchSquareReactions, saveSquareReaction, type SquareReactionMap } from '@/lib/squareSocial'
+import { fetchSquareReactions, mergeSquareReactionMap, saveSquareReaction, type SquareReactionMap } from '@/lib/squareSocial'
 import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
@@ -36,6 +36,7 @@ type Alert = { type: 'ok' | 'err'; text: string } | null
 type AudienceTab = 'ALL' | 'MALE' | 'FEMALE' | 'TEEN'
 type SquareSort = 'RECOMMENDED' | 'POPULAR' | 'HOT' | 'REVENUE' | 'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'
 type PriceFilter = 'ALL' | 'FREE' | 'PAID'
+const SQUARE_LIVE_POLL_MS = 90 * 1000
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -158,6 +159,8 @@ export default function SquarePage() {
   const [squareReactions, setSquareReactions] = useState<SquareReactionMap>({})
   const [squareReactionTableReady, setSquareReactionTableReady] = useState(true)
   const [reactionBusyKey, setReactionBusyKey] = useState('')
+  const [squareLiveRefresh, setSquareLiveRefresh] = useState(true)
+  const [squareLiveSyncAt, setSquareLiveSyncAt] = useState('')
 
   const canRefresh = useMemo(() => !loading, [loading])
 
@@ -397,6 +400,62 @@ export default function SquarePage() {
     setLoading(false)
   }
 
+  const refreshSquareSignals = useCallback(async () => {
+    if (loading || !items.length) return
+    const ids = items.map((x) => x.id).filter(Boolean).slice(0, 80)
+    if (!ids.length) return
+
+    try {
+      const resp = await fetch(`/api/square/metrics?ids=${encodeURIComponent(ids.join(','))}`)
+      if (resp.ok) {
+        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+        const m = asRecord(data.metrics)
+        const nextMetrics: Record<string, SquareMetric> = {}
+        for (const sourceId of ids) {
+          const row = asRecord(m[sourceId])
+          nextMetrics[sourceId] = {
+            unlocked: Number(row.unlocked || 0),
+            active: Number(row.active || 0),
+            likes: Number(row.likes || 0),
+            saves: Number(row.saves || 0),
+            reactions: Number(row.reactions || 0),
+            comments: Number(row.comments || 0),
+            revenue: Number(row.revenue || 0),
+            sales: Number(row.sales || 0),
+            hot: Number(row.hot || 0),
+          }
+        }
+        setSquareMetricsBySourceId(nextMetrics)
+      }
+    } catch {
+      // ignore
+    }
+
+    if (isLoggedIn) {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (token) {
+          const out = await fetchSquareReactions({ token, sourceCharacterIds: ids })
+          setSquareReactionTableReady(out.tableReady)
+          setSquareReactions((prev) => mergeSquareReactionMap(prev, out.reactions))
+          const scoreBySourceId: Record<string, number> = {}
+          for (const [sourceId, reaction] of Object.entries(out.reactions)) {
+            const w = squareReactionScore(reaction)
+            if (w > 0) scoreBySourceId[sourceId] = w
+          }
+          if (Object.keys(scoreBySourceId).length) {
+            setReactionScoreBySourceId((prev) => ({ ...prev, ...scoreBySourceId }))
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    setSquareLiveSyncAt(new Date().toISOString())
+  }, [loading, items, isLoggedIn])
+
   const toggleActivation = async (sourceCharacterId: string, nextActive: boolean) => {
     const info = unlockedInfoBySourceId[sourceCharacterId]
     if (!info?.localId || togglingId) return
@@ -590,6 +649,23 @@ export default function SquarePage() {
   useEffect(() => {
     load()
   }, [])
+
+  useEffect(() => {
+    if (!squareLiveRefresh || loading || !items.length) return
+    let canceled = false
+    const run = async () => {
+      if (canceled) return
+      await refreshSquareSignals()
+    }
+    const timer = setInterval(() => {
+      void run()
+    }, SQUARE_LIVE_POLL_MS)
+    void run()
+    return () => {
+      canceled = true
+      clearInterval(timer)
+    }
+  }, [squareLiveRefresh, loading, items, refreshSquareSignals])
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -1176,6 +1252,12 @@ export default function SquarePage() {
                       ? '推荐排序会结合你的点赞/收藏偏好与全站热度信号。'
                       : '推荐排序会结合全站热度信号，并随着你的点赞/收藏逐步学习偏好。'}
                   </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className={`uiPill ${squareLiveRefresh ? 'uiPillActive' : ''}`} onClick={() => setSquareLiveRefresh((v) => !v)}>
+                      自动刷新 {squareLiveRefresh ? '开' : '关'}
+                    </button>
+                  </div>
+                  {squareLiveRefresh ? <div className="uiHint">自动刷新中（90 秒）{squareLiveSyncAt ? ` · 最近同步 ${new Date(squareLiveSyncAt).toLocaleTimeString()}` : ''}</div> : null}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className={`uiPill ${audienceTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('ALL')}>
                       全部频道

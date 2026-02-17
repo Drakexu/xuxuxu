@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
@@ -42,6 +42,7 @@ type SquareMetric = {
 type AudienceTab = 'ALL' | 'MALE' | 'FEMALE' | 'TEEN'
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
+const SQUARE_DETAIL_LIVE_POLL_MS = 60 * 1000
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -142,6 +143,8 @@ export default function SquareDetailPage() {
   const [commentDraft, setCommentDraft] = useState('')
   const [commentSaving, setCommentSaving] = useState(false)
   const [commentDeletingId, setCommentDeletingId] = useState('')
+  const [detailLiveRefresh, setDetailLiveRefresh] = useState(true)
+  const [detailLiveSyncAt, setDetailLiveSyncAt] = useState('')
   const currentSquareMetrics = useMemo(() => (item ? squareMetricsBySourceId[item.id] : undefined), [item, squareMetricsBySourceId])
   const insufficientCoins = useMemo(() => {
     if (!item || !!unlockedCharId || !isLoggedIn || !walletReady) return false
@@ -190,6 +193,72 @@ export default function SquareDetailPage() {
       creatorShareBp: unlockCreatorShareBp(item.settings),
     }
   }, [item])
+
+  const refreshDetailSignals = useCallback(async () => {
+    if (!item) return
+    const metricIds = [item.id, ...relatedItems.map((x) => x.id)].filter(Boolean).slice(0, 80)
+    if (metricIds.length) {
+      try {
+        const resp = await fetch(`/api/square/metrics?ids=${encodeURIComponent(metricIds.join(','))}`)
+        if (resp.ok) {
+          const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+          const m = asRecord(data.metrics)
+          const nextMetrics: Record<string, SquareMetric> = {}
+          for (const sourceId of metricIds) {
+            const row = asRecord(m[sourceId])
+            nextMetrics[sourceId] = {
+              unlocked: Number(row.unlocked || 0),
+              active: Number(row.active || 0),
+              likes: Number(row.likes || 0),
+              saves: Number(row.saves || 0),
+              reactions: Number(row.reactions || 0),
+              comments: Number(row.comments || 0),
+              revenue: Number(row.revenue || 0),
+              sales: Number(row.sales || 0),
+              hot: Number(row.hot || 0),
+            }
+          }
+          setSquareMetricsBySourceId(nextMetrics)
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    let token = ''
+    if (isLoggedIn) {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        token = sess.session?.access_token || ''
+      } catch {
+        // ignore
+      }
+    }
+
+    try {
+      const reactionOut = token
+        ? await fetchSquareReactions({ token, sourceCharacterIds: [item.id] })
+        : { tableReady: true, reactions: {} as Record<string, SquareReaction> }
+      setSquareReactionTableReady(reactionOut.tableReady)
+      setMySquareReaction(reactionOut.reactions[item.id] || {})
+    } catch {
+      // ignore
+    }
+
+    try {
+      const commentsOut = await fetchSquareComments({
+        sourceCharacterId: item.id,
+        limit: 24,
+        token: token || undefined,
+      })
+      setSquareCommentTableReady(commentsOut.tableReady)
+      setSquareComments(commentsOut.comments)
+    } catch {
+      // ignore
+    }
+
+    setDetailLiveSyncAt(new Date().toISOString())
+  }, [item, relatedItems, isLoggedIn])
 
   useEffect(() => {
     if (!alert) return
@@ -457,6 +526,23 @@ export default function SquareDetailPage() {
 
     load()
   }, [id, router])
+
+  useEffect(() => {
+    if (loading || !item || !detailLiveRefresh) return
+    let canceled = false
+    const run = async () => {
+      if (canceled) return
+      await refreshDetailSignals()
+    }
+    const timer = setInterval(() => {
+      void run()
+    }, SQUARE_DETAIL_LIVE_POLL_MS)
+    void run()
+    return () => {
+      canceled = true
+      clearInterval(timer)
+    }
+  }, [loading, item, detailLiveRefresh, refreshDetailSignals])
 
   const unlock = async (options?: { startChat?: boolean }) => {
     if (!item || busy) return
@@ -994,7 +1080,11 @@ export default function SquareDetailPage() {
                           登录后互动
                         </button>
                       ) : null}
+                      <button className={`uiBtn uiBtnGhost ${detailLiveRefresh ? 'uiPillActive' : ''}`} onClick={() => setDetailLiveRefresh((v) => !v)}>
+                        自动刷新 {detailLiveRefresh ? '开' : '关'}
+                      </button>
                     </div>
+                    {detailLiveRefresh ? <div className="uiHint">自动刷新中（60 秒）{detailLiveSyncAt ? ` · 最近同步 ${new Date(detailLiveSyncAt).toLocaleTimeString()}` : ''}</div> : null}
                     <div style={{ display: 'grid', gap: 8 }}>
                       <div className="uiHint">最新评论</div>
                       {squareComments.length === 0 ? <div className="uiHint">还没有评论。</div> : null}

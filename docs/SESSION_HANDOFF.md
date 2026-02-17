@@ -2253,3 +2253,20 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: square live signal refresh pass
+- Files changed:
+  - app/square/page.tsx
+  - app/square/[characterId]/page.tsx
+- Completed:
+  - Added live refresh loop for square list:
+    - refreshes metrics + social reaction signals every 90 seconds
+    - keeps recommendation/hot badges closer to real-time
+    - added UI toggle + last sync hint
+  - Added live refresh loop for square detail:
+    - refreshes metrics/reactions/comments every 60 seconds
+    - added UI toggle + last sync hint in interaction panel
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
