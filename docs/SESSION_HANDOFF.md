@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-17 (checkpoint: patch contradiction guard v34)
+Last updated: 2026-02-17 (checkpoint: chat ux rhythm v35)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -103,6 +103,27 @@ Repo: `d:/projects/xuxuxu`
       - for existing NPCs, conflicting stable attributes are stripped or downgraded without evidence
   - Kept existing safety gates intact (enum clamps, confirmed downgrade, inventory floor, dedupe).
   - Normalized cron PatchScribe prompt text (removed mojibake block).
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Chat UX rhythm v35 checkpoint (latest)
+- File changed:
+  - `app/chat/[characterId]/page.tsx`
+- Completed:
+  - Improved message loading rhythm and state handling:
+    - extracted pagination limits into constants (`RECENT_MESSAGES_LIMIT` / `OLDER_MESSAGES_LIMIT`)
+    - kept has-more logic aligned with those constants
+  - Added scroll rhythm tracking for “new message while away from bottom”:
+    - introduced tail/length refs to detect bottom-appended messages
+    - auto-scroll only when user is near bottom
+    - track pending unseen count while user is away from bottom
+    - clear unseen counter on manual return-to-bottom
+  - Added timestamp toggle persistence per character via localStorage key:
+    - `xuxuxu:showTimestamps:{characterId}`
+  - Added lightweight in-thread sending indicator for better perceived responsiveness.
+  - Switched timestamp rendering to compact formatter (`MM/DD HH:mm`) for denser chat readability.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

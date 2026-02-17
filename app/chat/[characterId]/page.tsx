@@ -22,6 +22,8 @@ type RelationshipStage = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7'
 type RomanceMode = 'ROMANCE_ON' | 'ROMANCE_OFF'
 type PlotGranularity = 'LINE' | 'BEAT' | 'SCENE'
 type EndingMode = 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'
+const RECENT_MESSAGES_LIMIT = 60
+const OLDER_MESSAGES_LIMIT = 20
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -49,6 +51,23 @@ function normalizePlotGranularity(v: unknown): PlotGranularity {
 function normalizeEndingMode(v: unknown): EndingMode {
   const s = String(v || '').trim().toUpperCase()
   return (s === 'QUESTION' || s === 'ACTION' || s === 'CLIFF' || s === 'MIXED' ? s : 'MIXED') as EndingMode
+}
+
+function messageTailKey(m?: Msg) {
+  if (!m) return ''
+  return [m.id || '', m.created_at || '', m.role, m.content.slice(0, 80)].join('|')
+}
+
+function formatMessageTime(ts?: string) {
+  if (!ts) return ''
+  const t = new Date(ts)
+  if (!Number.isFinite(t.getTime())) return ''
+  return t.toLocaleString([], {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 export default function ChatPage() {
@@ -85,6 +104,7 @@ export default function ChatPage() {
   const [oldestTs, setOldestTs] = useState<string>('')
   const [showTimestamps, setShowTimestamps] = useState(false)
   const [showScrollDown, setShowScrollDown] = useState(false)
+  const [pendingDownCount, setPendingDownCount] = useState(0)
   const [outfitHint, setOutfitHint] = useState('')
   const [scheduleState, setScheduleState] = useState<'PLAY' | 'PAUSE'>('PLAY')
   const [lockMode, setLockMode] = useState('manual')
@@ -110,10 +130,13 @@ export default function ChatPage() {
   } | null>(null)
 
   const listRef = useRef<HTMLDivElement | null>(null)
+  const messageTailRef = useRef('')
+  const messageLenRef = useRef(0)
 
   const canSend = useMemo(() => input.trim().length > 0 && !sending, [input, sending])
   const convKey = useMemo(() => `xuxuxu:conversationId:${characterId}`, [characterId])
   const bgKey = useMemo(() => `xuxuxu:chatBgPath:${characterId}`, [characterId])
+  const tsKey = useMemo(() => `xuxuxu:showTimestamps:${characterId}`, [characterId])
 
   const assistantInitial = useMemo(() => {
     const t = (title || 'AI').trim()
@@ -195,7 +218,7 @@ export default function ChatPage() {
         .eq('conversation_id', convId)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(60)
+        .limit(RECENT_MESSAGES_LIMIT)
       if (r.error) throw new Error(r.error.message)
 
       const rows = (r.data ?? []) as DbMessageRow[]
@@ -212,7 +235,8 @@ export default function ChatPage() {
 
       setMessages(next)
       if (next.length) setOldestTs(next[0].created_at || '')
-      setHasMore(rows.length >= 60)
+      setHasMore(rows.length >= RECENT_MESSAGES_LIMIT)
+      setPendingDownCount(0)
 
       requestAnimationFrame(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' })
@@ -243,7 +267,7 @@ export default function ChatPage() {
         .eq('user_id', userId)
         .lt('created_at', oldestTs)
         .order('created_at', { ascending: false })
-        .limit(20)
+        .limit(OLDER_MESSAGES_LIMIT)
       if (r.error) throw new Error(r.error.message)
 
       const rows = (r.data ?? []) as DbMessageRow[]
@@ -265,7 +289,7 @@ export default function ChatPage() {
 
       setMessages((prev) => [...older, ...prev])
       setOldestTs(older[0]?.created_at || oldestTs)
-      setHasMore(rows.length >= 20)
+      setHasMore(rows.length >= OLDER_MESSAGES_LIMIT)
 
       requestAnimationFrame(() => {
         const el2 = listRef.current
@@ -737,11 +761,43 @@ export default function ChatPage() {
   }, [showUserCard, userCard])
 
   useEffect(() => {
-    // Keep near bottom if the user is already near bottom.
+    try {
+      const raw = localStorage.getItem(tsKey) || ''
+      setShowTimestamps(raw === '1')
+    } catch {
+      setShowTimestamps(false)
+    }
+  }, [tsKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(tsKey, showTimestamps ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }, [showTimestamps, tsKey])
+
+  useEffect(() => {
     const el = listRef.current
-    if (!el) return
-    const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 180
-    if (nearBottom) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    const tail = messageTailKey(messages[messages.length - 1])
+    const prevTail = messageTailRef.current
+    const prevLen = messageLenRef.current
+    const appendedAtBottom = !!tail && tail !== prevTail
+
+    if (el && appendedAtBottom && messages.length > prevLen) {
+      const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 180
+      if (nearBottom) {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+        setShowScrollDown(false)
+        setPendingDownCount(0)
+      } else {
+        setShowScrollDown(true)
+        setPendingDownCount((v) => Math.min(99, v + (messages.length - prevLen)))
+      }
+    }
+
+    messageTailRef.current = tail
+    messageLenRef.current = messages.length
   }, [messages])
 
   const createNewConversation = async () => {
@@ -840,6 +896,7 @@ export default function ChatPage() {
     requestAnimationFrame(() => {
       listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
       setShowScrollDown(false)
+      setPendingDownCount(0)
     })
     setSending(false)
   }
@@ -1094,6 +1151,7 @@ export default function ChatPage() {
             }
             const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 180
             setShowScrollDown(!nearBottom)
+            if (nearBottom) setPendingDownCount(0)
           }}
           style={{
             height: '62vh',
@@ -1149,7 +1207,7 @@ export default function ChatPage() {
               )}
 
               <div>
-                {showTimestamps && m.created_at && <div className="uiHint">{new Date(m.created_at).toLocaleString()}</div>}
+                {showTimestamps && m.created_at && <div className="uiHint">{formatMessageTime(m.created_at)}</div>}
                 <div className={`chatBubble ${m.role === 'user' ? 'chatBubbleUser' : 'chatBubbleAssistant'}`}>{m.content}</div>
               </div>
 
@@ -1160,6 +1218,7 @@ export default function ChatPage() {
               )}
             </div>
           ))}
+          {sending && <div className="uiHint" style={{ marginTop: 8 }}>发送中...</div>}
           </div>
         </div>
 
@@ -1253,11 +1312,14 @@ export default function ChatPage() {
             onClick={() => {
               listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
               setShowScrollDown(false)
+              setPendingDownCount(0)
             }}
           >
             回到底部
           </button>
         )}
+
+        {showScrollDown && pendingDownCount > 0 && <div className="uiHint">有 {pendingDownCount} 条新消息</div>}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
           <input
