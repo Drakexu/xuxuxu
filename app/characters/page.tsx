@@ -28,6 +28,11 @@ function isUnlockedFromSquare(c: CharacterRow) {
   return (typeof s.source_character_id === 'string' && s.source_character_id.trim().length > 0) || s.unlocked_from_square === true
 }
 
+function getSourceCharacterId(c: CharacterRow) {
+  const s = asRecord(c.settings)
+  return typeof s.source_character_id === 'string' ? s.source_character_id.trim() : ''
+}
+
 function isActivatedForHome(c: CharacterRow) {
   if (!isUnlockedFromSquare(c)) return false
   const s = asRecord(c.settings)
@@ -356,6 +361,7 @@ export default function CharactersPage() {
                 <div className="uiGrid">
                   {filteredCharacters.map((c) => {
                     const unlocked = isUnlockedFromSquare(c)
+                    const sourceCharacterId = unlocked ? getSourceCharacterId(c) : ''
                     const active = isActivatedForHome(c)
                     const hidden = unlocked && asRecord(c.settings).home_hidden === true
                     const isCreated = !unlocked
@@ -383,6 +389,7 @@ export default function CharactersPage() {
                         <div className="uiCardMeta">
                           {isPublic ? '公开' : '私密'}
                           {unlocked ? ` · 已解锁${active ? ' · 已激活' : ''}` : ' · 我的创作'}
+                          {sourceCharacterId ? ` · 来源广场` : ''}
                           {hidden ? ' · 已隐藏' : ''}
                         </div>
 
@@ -415,6 +422,17 @@ export default function CharactersPage() {
                             >
                               编辑
                             </button>
+                            {unlocked && sourceCharacterId ? (
+                              <button
+                                className="uiBtn uiBtnGhost"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  router.push(`/square/${sourceCharacterId}`)
+                                }}
+                              >
+                                原角色详情
+                              </button>
+                            ) : null}
                             {unlocked && (
                               <button
                                 className="uiBtn uiBtnGhost"
@@ -484,6 +502,11 @@ export default function CharactersPage() {
                             )}
                             {unlocked && (
                               <>
+                                {sourceCharacterId ? (
+                                  <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/square/${sourceCharacterId}`)}>
+                                    原角色详情
+                                  </button>
+                                ) : null}
                                 <button
                                   className="uiBtn uiBtnSecondary"
                                   disabled={busyId === c.id}

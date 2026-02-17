@@ -1255,3 +1255,17 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v15 checkpoint (latest)
+- Files changed:
+  - `app/characters/page.tsx`
+- Completed:
+  - Added source-trace loop for unlocked characters copied from square:
+    - detect `settings.source_character_id`
+    - show `Ô­½ÇÉ«ÏêÇé` CTA in both normal mode and manage mode
+    - one-click jump back to source square detail page
+  - This closes the discover -> unlock -> manage -> trace-back product loop.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
