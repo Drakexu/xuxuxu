@@ -1334,3 +1334,16 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v20 checkpoint (latest)
+- Files changed:
+  - `app/characters/[characterId]/assets/page.tsx`
+- Completed:
+  - Added scene presets to asset composer:
+    - `Preset Daily` / `Preset Night` / `Preset Closeup`
+    - each preset applies background + role layer + scale + y-offset in one action
+  - Kept manual controls unchanged and compatible with existing asset picker.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass

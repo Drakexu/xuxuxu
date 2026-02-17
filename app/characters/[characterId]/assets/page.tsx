@@ -98,6 +98,24 @@ export default function CharacterAssetsPage() {
 
   const composerBgUrl = useMemo(() => backgrounds.find((a) => a.path === composerBgPath)?.url || '', [backgrounds, composerBgPath])
   const composerRoleUrl = useMemo(() => roleLayers.find((a) => a.path === composerRolePath)?.url || '', [roleLayers, composerRolePath])
+  const scenePresets = useMemo(() => {
+    const pickBg = (keys: string[]) => backgrounds.find((a) => keys.some((k) => a.path.toLowerCase().includes(k))) || backgrounds[0]
+    const pickRole = (keys: string[]) => roleLayers.find((a) => keys.some((k) => a.path.toLowerCase().includes(k))) || roleLayers[0]
+    return [
+      { id: 'daily', label: 'Daily', bg: pickBg(['street', 'city', 'day', 'cafe']), role: pickRole(['full', 'body']), scale: 100, y: 0 },
+      { id: 'night', label: 'Night', bg: pickBg(['night', 'moon', 'neon']), role: pickRole(['full', 'body']), scale: 102, y: 0 },
+      { id: 'closeup', label: 'Closeup', bg: pickBg(['room', 'home', 'indoor']), role: pickRole(['head', 'close']), scale: 118, y: 8 },
+    ].filter((x) => x.bg || x.role)
+  }, [backgrounds, roleLayers])
+
+  const applyScenePreset = (presetId: string) => {
+    const p = scenePresets.find((x) => x.id === presetId)
+    if (!p) return
+    if (p.bg?.path) setComposerBgPath(p.bg.path)
+    if (p.role?.path) setComposerRolePath(p.role.path)
+    setRoleScale(p.scale)
+    setRoleYOffset(p.y)
+  }
 
   const loadDetails = async (uid: string, convId: string) => {
     try {
@@ -448,7 +466,7 @@ export default function CharacterAssetsPage() {
                     角色上下偏移 ({roleYOffset}px)
                     <input type="range" min={-40} max={40} value={roleYOffset} onChange={(e) => setRoleYOffset(Number(e.target.value))} />
                   </label>
-                  <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <button
                       className="uiBtn uiBtnGhost"
                       onClick={() => {
@@ -458,6 +476,11 @@ export default function CharacterAssetsPage() {
                     >
                       重置构图
                     </button>
+                    {scenePresets.map((p) => (
+                      <button key={p.id} className="uiBtn uiBtnSecondary" onClick={() => applyScenePreset(p.id)}>
+                        Preset {p.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
