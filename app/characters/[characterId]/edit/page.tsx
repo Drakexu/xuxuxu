@@ -26,6 +26,14 @@ function normalizePriceCoins(raw: string) {
   return Math.max(0, Math.min(Math.floor(n), 200000))
 }
 
+function normalizeShareBp(raw: string) {
+  const s = String(raw || '').trim()
+  if (!s) return 7000
+  const n = Number(s)
+  if (!Number.isFinite(n)) return 7000
+  return Math.max(0, Math.min(Math.floor(n), 10000))
+}
+
 export default function EditCharacterPage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -47,6 +55,7 @@ export default function EditCharacterPage() {
   const [endingMode, setEndingMode] = useState<'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'>('MIXED')
   const [endingRepeatWindow, setEndingRepeatWindow] = useState(6)
   const [unlockPriceCoins, setUnlockPriceCoins] = useState('')
+  const [unlockCreatorShareBp, setUnlockCreatorShareBp] = useState('7000')
 
   const canSave = useMemo(() => !loading && !saving && !deleting && name.trim().length > 0 && prompt.trim().length > 0, [loading, saving, deleting, name, prompt])
 
@@ -85,6 +94,7 @@ export default function EditCharacterPage() {
       const creation = settings.creation_form && typeof settings.creation_form === 'object' ? (settings.creation_form as Record<string, unknown>) : {}
       const publish = creation.publish && typeof creation.publish === 'object' ? (creation.publish as Record<string, unknown>) : {}
       setUnlockPriceCoins(String(settings.unlock_price_coins ?? publish.unlock_price_coins ?? '').replace(/[^\d]/g, '').slice(0, 6))
+      setUnlockCreatorShareBp(String(settings.unlock_creator_share_bp ?? publish.unlock_creator_share_bp ?? '7000').replace(/[^\d]/g, '').slice(0, 5))
 
       const teenMode = settings.teen_mode === true || settings.age_mode === 'teen'
       setAgeMode(teenMode ? 'teen' : 'adult')
@@ -123,6 +133,7 @@ export default function EditCharacterPage() {
       age_mode: ageMode,
       romance_mode: resolvedRomanceMode,
       unlock_price_coins: normalizePriceCoins(unlockPriceCoins),
+      unlock_creator_share_bp: normalizeShareBp(unlockCreatorShareBp),
       plot_granularity: plotGranularity,
       ending_mode: endingMode,
       ending_repeat_window: endingRepeatWindow,
@@ -149,6 +160,7 @@ export default function EditCharacterPage() {
             return publish
           })(),
           unlock_price_coins: normalizePriceCoins(unlockPriceCoins),
+          unlock_creator_share_bp: normalizeShareBp(unlockCreatorShareBp),
         },
       },
     }
@@ -266,6 +278,20 @@ export default function EditCharacterPage() {
                 />
                 <div className="uiHint" style={{ marginTop: 6 }}>
                   当前：{visibility === 'public' ? (normalizePriceCoins(unlockPriceCoins) > 0 ? `${normalizePriceCoins(unlockPriceCoins)} 币` : '免费') : '私密角色不展示价格'}
+                </div>
+              </label>
+
+              <label className="uiLabel">
+                创作者分成（基点）
+                <input
+                  className="uiInput"
+                  inputMode="numeric"
+                  placeholder="7000 = 70%"
+                  value={unlockCreatorShareBp}
+                  onChange={(e) => setUnlockCreatorShareBp(e.target.value.replace(/[^\d]/g, '').slice(0, 5))}
+                />
+                <div className="uiHint" style={{ marginTop: 6 }}>
+                  当前：{visibility === 'public' ? `${Math.floor(normalizeShareBp(unlockCreatorShareBp) / 100)}%` : '私密角色不展示分成'}
                 </div>
               </label>
 

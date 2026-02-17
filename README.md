@@ -92,8 +92,10 @@ npm run start
 - APIs:
   - `GET /api/wallet/summary`
   - `GET /api/wallet/history`
+  - `GET /api/wallet/creator-metrics`
   - `POST /api/square/unlock`
 - Behavior:
   - Unlock now uses server-side idempotent flow (same user/source will not double charge).
   - Supports optional paid unlock via `settings.unlock_price_coins` (or `settings.creation_form.publish.unlock_price_coins`).
+  - Supports creator revenue split via `settings.unlock_creator_share_bp` (or `settings.creation_form.publish.unlock_creator_share_bp`), default `7000` (=70%).
   - If wallet schema is missing, unlock API gracefully falls back to legacy free unlock path.

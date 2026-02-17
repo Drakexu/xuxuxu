@@ -104,6 +104,8 @@ async function fallbackUnlock(sb: ReturnType<typeof supabaseForToken>, userId: s
       chargedCoins: 0,
       priceCoins: parseUnlockPrice(source.settings),
       balanceAfter: null,
+      creatorGain: 0,
+      platformFee: 0,
     }
   }
 
@@ -133,6 +135,8 @@ async function fallbackUnlock(sb: ReturnType<typeof supabaseForToken>, userId: s
       chargedCoins: 0,
       priceCoins: parseUnlockPrice(source.settings),
       balanceAfter: null,
+      creatorGain: 0,
+      platformFee: 0,
     }
   }
 
@@ -144,6 +148,8 @@ async function fallbackUnlock(sb: ReturnType<typeof supabaseForToken>, userId: s
     chargedCoins: 0,
     priceCoins: parseUnlockPrice(source.settings),
     balanceAfter: null,
+    creatorGain: 0,
+    platformFee: 0,
   }
 }
 
@@ -190,6 +196,8 @@ export async function POST(req: Request) {
       chargedCoins: Number(row.charged_coins || 0),
       priceCoins: Number(row.price_coins || 0),
       balanceAfter: row.balance_after == null ? null : Number(row.balance_after),
+      creatorGain: Number(row.creator_gain || 0),
+      platformFee: Number(row.platform_fee || 0),
     })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)

@@ -2034,3 +2034,38 @@ pm run -s build -> pass
   - `npx tsc --noEmit` -> pass
 - Note:
   - after adding new routes, run `npm run -s build` once before standalone `tsc`, because `.next/types` route unions are build-generated.
+
+## 2026-02-18 checkpoint: creator revenue split pass (economy loop)
+- Files changed:
+  - `supabase/schema_square_unlocks.sql`
+  - `app/api/square/unlock/route.ts`
+  - `lib/squareUnlock.ts`
+  - `app/api/wallet/creator-metrics/route.ts` (new)
+  - `app/characters/page.tsx`
+  - `app/characters/new/page.tsx`
+  - `app/characters/[characterId]/edit/page.tsx`
+  - `app/square/page.tsx`
+  - `app/square/[characterId]/page.tsx`
+  - `app/wallet/page.tsx`
+  - `README.md`
+- Completed:
+  - Added creator split settlement in unlock SQL function:
+    - buyer pays full unlock price
+    - creator credited by `unlock_creator_share_bp` (default 7000 = 70%)
+    - transaction entries written for both buyer (debit) and creator (credit, `square_unlock_sale`)
+  - Extended unlock response contract:
+    - `creatorGain`
+    - `platformFee`
+  - Added creator metrics API:
+    - `GET /api/wallet/creator-metrics`
+    - returns public-role count, total unlocks, total creator revenue, and top roles
+  - Studio workbench now surfaces creator business metrics and top-earning roles.
+  - Creator forms now support split configuration fields:
+    - `unlock_creator_share_bp` (new/edit)
+  - Square card/detail surfaces now show creator share percentage for paid roles.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npm run -s build` -> pass
+  - `npx tsc --noEmit` -> pass
+- Ops note:
+  - re-run `supabase/schema_square_unlocks.sql` to apply the upgraded unlock function and creator split logic.

@@ -16,7 +16,8 @@ function fmtTime(v: string) {
 
 function reasonLabel(v: string) {
   const key = String(v || '').trim().toLowerCase()
-  if (key === 'square_unlock') return '广场解锁'
+  if (key === 'square_unlock') return 'square unlock'
+  if (key === 'square_unlock_sale') return 'creator sale share'
   if (!key) return '-'
   return key
 }
@@ -80,7 +81,7 @@ export default function WalletPage() {
     let credit = 0
     for (const tx of transactions) {
       if (tx.kind === 'debit') debit += tx.amount
-      else credit += tx.amount
+      else if (tx.kind === 'credit') credit += tx.amount
     }
     return { debit, credit }
   }, [transactions])
@@ -90,7 +91,7 @@ export default function WalletPage() {
       <AppShell
         title="钱包中心"
         badge="coins"
-        subtitle="查看星币余额、解锁消费流水和已解锁角色凭据。"
+        subtitle="查看星币余额、消费流水和角色解锁凭据。"
         actions={
           <button className="uiBtn uiBtnGhost" onClick={() => void load()} disabled={loading}>
             刷新
@@ -105,8 +106,8 @@ export default function WalletPage() {
             <section className="uiHero">
               <div>
                 <span className="uiBadge">Wallet</span>
-                <h2 className="uiHeroTitle">星币与解锁消费总览</h2>
-                <p className="uiHeroSub">广场付费角色会在解锁时扣费，并在这里保留消费与解锁凭据。</p>
+                <h2 className="uiHeroTitle">星币与收益总览</h2>
+                <p className="uiHeroSub">角色解锁的扣费与创作者分成都会记录在钱包流水中。</p>
               </div>
               <div className="uiKpiGrid">
                 <div className="uiKpi">
@@ -130,20 +131,24 @@ export default function WalletPage() {
                   <span>总扣费</span>
                 </div>
                 <div className="uiKpi">
+                  <b>{txStats.credit}</b>
+                  <span>总收入</span>
+                </div>
+                <div className="uiKpi">
                   <b>{walletReady ? 'ready' : 'fallback'}</b>
                   <span>钱包状态</span>
                 </div>
               </div>
             </section>
 
-            {!walletReady && <div className="uiAlert uiAlertOk">钱包表尚未启用，当前为兼容模式（仍可免费解锁）。</div>}
+            {!walletReady && <div className="uiAlert uiAlertOk">钱包表尚未启用，当前为兼容模式。</div>}
 
             <div className="uiSplit">
               <div className="uiPanel" style={{ marginTop: 0 }}>
                 <div className="uiPanelHeader">
                   <div>
-                    <div className="uiPanelTitle">消费流水</div>
-                    <div className="uiPanelSub">最近 200 条交易</div>
+                    <div className="uiPanelTitle">交易流水</div>
+                    <div className="uiPanelSub">最近 200 条</div>
                   </div>
                 </div>
                 <div className="uiForm" style={{ paddingTop: 14 }}>
@@ -181,7 +186,7 @@ export default function WalletPage() {
                 <div className="uiPanelHeader">
                   <div>
                     <div className="uiPanelTitle">解锁凭据</div>
-                    <div className="uiPanelSub">每个公开角色仅保留一条解锁关系</div>
+                    <div className="uiPanelSub">每个公开角色仅一条关系</div>
                   </div>
                 </div>
                 <div className="uiForm" style={{ paddingTop: 14 }}>

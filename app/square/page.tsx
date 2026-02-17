@@ -104,6 +104,17 @@ function unlockPrice(settings: unknown) {
   return 0
 }
 
+function unlockCreatorShareBp(settings: unknown) {
+  const s = asRecord(settings)
+  const own = Number(s.unlock_creator_share_bp)
+  if (Number.isFinite(own)) return Math.max(0, Math.min(Math.floor(own), 10000))
+  const cf = asRecord(s.creation_form)
+  const publish = asRecord(cf.publish)
+  const nested = Number(publish.unlock_creator_share_bp)
+  if (Number.isFinite(nested)) return Math.max(0, Math.min(Math.floor(nested), 10000))
+  return 7000
+}
+
 export default function SquarePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -441,11 +452,12 @@ export default function SquarePage() {
       }
 
       const chargedText = unlock.chargedCoins > 0 ? `（消耗 ${unlock.chargedCoins} 币）` : ''
+      const creatorText = unlock.creatorGain > 0 ? ` 创作者分成 ${unlock.creatorGain} 币。` : ''
       setAlert({
         type: 'ok',
         text: options?.startChat
-          ? `${unlock.alreadyUnlocked ? '已在队列中，正在跳转聊天。' : '已解锁并激活，正在跳转聊天。'}${chargedText}`
-          : `${unlock.alreadyUnlocked ? '角色已在你的队列中。' : '已解锁并激活到首页队列。'}${chargedText}`,
+          ? `${unlock.alreadyUnlocked ? '已在队列中，正在跳转聊天。' : '已解锁并激活，正在跳转聊天。'}${chargedText}${creatorText}`
+          : `${unlock.alreadyUnlocked ? '角色已在你的队列中。' : '已解锁并激活到首页队列。'}${chargedText}${creatorText}`,
       })
       if (options?.startChat) {
         router.push(`/chat/${localId}`)
@@ -580,6 +592,7 @@ export default function SquarePage() {
     const audience = getAudienceTab(c)
     const info = unlockedInfoBySourceId[c.id]
     const priceCoins = unlockPrice(c.settings)
+    const shareBp = unlockCreatorShareBp(c.settings)
     const paidRole = priceCoins > 0
     const insufficientCoins = !info && isLoggedIn && walletReady && paidRole && walletBalance < priceCoins
     const recScore = Number(reactionScoreBySourceId[c.id] || 0)
@@ -611,6 +624,7 @@ export default function SquarePage() {
           <span className="uiBadge">{audienceLabel(audience)}</span>
           <span className="uiBadge">{romanceLabel}</span>
           <span className="uiBadge">{paidRole ? `${priceCoins} 币` : '免费'}</span>
+          {paidRole ? <span className="uiBadge">创作者 {Math.floor(shareBp / 100)}%</span> : null}
           {recScore > 0 ? <span className="uiBadge">偏好命中 {recScore}</span> : null}
           {metrics && (metrics.unlocked > 0 || metrics.active > 0) ? (
             <span className="uiBadge">

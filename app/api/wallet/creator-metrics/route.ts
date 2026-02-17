@@ -1,0 +1,178 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+type CharacterRow = {
+  id: string
+  name?: string | null
+  visibility?: string | null
+  settings?: unknown
+}
+
+type UnlockRow = {
+  source_character_id?: string | null
+  price_coins?: number | null
+}
+
+type TxRow = {
+  source_character_id?: string | null
+  amount?: number | null
+}
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+}
+
+function requireAuthToken(req: Request) {
+  const auth = (req.headers.get('authorization') || '').trim()
+  const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice('bearer '.length).trim() : ''
+  if (!token) throw new Error('Missing Authorization token')
+  return token
+}
+
+function supabaseForToken(token: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  if (!url || !anon) throw new Error('Missing Supabase env')
+  return createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
+}
+
+function isUnlockedFromSquare(settings: unknown) {
+  const s = asRecord(settings)
+  return (typeof s.source_character_id === 'string' && s.source_character_id.trim().length > 0) || s.unlocked_from_square === true
+}
+
+function isWalletUnavailableError(msg: string) {
+  const s = String(msg || '').toLowerCase()
+  if (!s) return false
+  return (
+    (s.includes('wallet_transactions') || s.includes('square_unlocks')) &&
+    (s.includes('does not exist') || s.includes('relation') || s.includes('schema cache'))
+  )
+}
+
+export async function GET(req: Request) {
+  try {
+    const token = requireAuthToken(req)
+    const sb = supabaseForToken(token)
+
+    const u = await sb.auth.getUser(token)
+    const userId = u.data?.user?.id || ''
+    if (u.error || !userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const charsRes = await sb
+      .from('characters')
+      .select('id,name,visibility,settings')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(2000)
+    if (charsRes.error) throw new Error(charsRes.error.message)
+
+    const chars = (charsRes.data ?? []) as CharacterRow[]
+    const createdPublic = chars.filter((c) => c.visibility === 'public' && !isUnlockedFromSquare(c.settings))
+    const sourceIds = createdPublic.map((x) => String(x.id || '').trim()).filter(Boolean).slice(0, 1000)
+    if (!sourceIds.length) {
+      return NextResponse.json({
+        ok: true,
+        walletReady: true,
+        publicRoleCount: 0,
+        totalUnlocks: 0,
+        totalRevenue: 0,
+        topRoles: [],
+      })
+    }
+
+    const unlockRes = await sb.from('square_unlocks').select('source_character_id,price_coins').in('source_character_id', sourceIds).limit(5000)
+    if (unlockRes.error) {
+      if (isWalletUnavailableError(unlockRes.error.message || '')) {
+        return NextResponse.json({
+          ok: true,
+          walletReady: false,
+          publicRoleCount: createdPublic.length,
+          totalUnlocks: 0,
+          totalRevenue: 0,
+          topRoles: [],
+        })
+      }
+      throw new Error(unlockRes.error.message)
+    }
+
+    const txRes = await sb
+      .from('wallet_transactions')
+      .select('source_character_id,amount')
+      .eq('user_id', userId)
+      .eq('kind', 'credit')
+      .eq('reason', 'square_unlock_sale')
+      .in('source_character_id', sourceIds)
+      .limit(5000)
+    if (txRes.error) {
+      if (isWalletUnavailableError(txRes.error.message || '')) {
+        return NextResponse.json({
+          ok: true,
+          walletReady: false,
+          publicRoleCount: createdPublic.length,
+          totalUnlocks: 0,
+          totalRevenue: 0,
+          topRoles: [],
+        })
+      }
+      throw new Error(txRes.error.message)
+    }
+
+    const unlockBySource: Record<string, number> = {}
+    for (const row of (unlockRes.data ?? []) as UnlockRow[]) {
+      const sid = String(row.source_character_id || '').trim()
+      if (!sid) continue
+      unlockBySource[sid] = Number(unlockBySource[sid] || 0) + 1
+    }
+
+    const revenueBySource: Record<string, number> = {}
+    for (const row of (txRes.data ?? []) as TxRow[]) {
+      const sid = String(row.source_character_id || '').trim()
+      if (!sid) continue
+      revenueBySource[sid] = Number(revenueBySource[sid] || 0) + Number(row.amount || 0)
+    }
+
+    const nameById: Record<string, string> = {}
+    for (const c of createdPublic) {
+      if (!c.id) continue
+      nameById[c.id] = String(c.name || '')
+    }
+
+    const topRoles = sourceIds
+      .map((id) => ({
+        sourceCharacterId: id,
+        name: nameById[id] || '',
+        unlocks: Number(unlockBySource[id] || 0),
+        revenue: Number(revenueBySource[id] || 0),
+      }))
+      .sort((a, b) => {
+        if (b.revenue !== a.revenue) return b.revenue - a.revenue
+        if (b.unlocks !== a.unlocks) return b.unlocks - a.unlocks
+        return a.name.localeCompare(b.name, 'zh-Hans-CN')
+      })
+      .slice(0, 12)
+
+    const totalUnlocks = Object.values(unlockBySource).reduce((s, n) => s + Number(n || 0), 0)
+    const totalRevenue = Object.values(revenueBySource).reduce((s, n) => s + Number(n || 0), 0)
+
+    return NextResponse.json({
+      ok: true,
+      walletReady: true,
+      publicRoleCount: createdPublic.length,
+      totalUnlocks,
+      totalRevenue,
+      topRoles,
+    })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const status = msg.includes('Missing Authorization token') ? 401 : 500
+    return NextResponse.json({ error: msg }, { status })
+  }
+}
+

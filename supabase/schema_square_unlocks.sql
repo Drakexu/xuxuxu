@@ -141,6 +141,10 @@ declare
   v_wallet public.user_wallets%rowtype;
   v_local_character_id uuid;
   v_price int := 0;
+  v_share_raw text := '';
+  v_creator_share_bp int := 7000;
+  v_creator_gain int := 0;
+  v_platform_fee int := 0;
   v_now timestamptz := now();
   v_settings jsonb := '{}'::jsonb;
 begin
@@ -177,7 +181,9 @@ begin
       'local_character_id', v_unlock.local_character_id,
       'charged_coins', 0,
       'price_coins', coalesce(v_unlock.price_coins, 0),
-      'balance_after', coalesce(v_wallet.balance, 0)
+      'balance_after', coalesce(v_wallet.balance, 0),
+      'creator_gain', 0,
+      'platform_fee', 0
     );
   end if;
 
@@ -193,6 +199,19 @@ begin
   end if;
 
   v_price := public.parse_unlock_price(coalesce(v_source.settings, '{}'::jsonb));
+  v_share_raw := coalesce(v_source.settings ->> 'unlock_creator_share_bp', '');
+  if not (v_share_raw ~ '^\d+$') then
+    v_share_raw := coalesce(v_source.settings -> 'creation_form' -> 'publish' ->> 'unlock_creator_share_bp', '');
+  end if;
+  if v_share_raw ~ '^\d+$' then
+    v_creator_share_bp := v_share_raw::int;
+  end if;
+  if v_creator_share_bp < 0 then
+    v_creator_share_bp := 0;
+  end if;
+  if v_creator_share_bp > 10000 then
+    v_creator_share_bp := 10000;
+  end if;
 
   insert into public.user_wallets (user_id)
   values (v_user_id)
@@ -277,6 +296,19 @@ begin
   end if;
 
   if v_price > 0 then
+    if v_source.user_id is not null and v_source.user_id <> v_user_id then
+      v_creator_gain := floor((v_price::numeric * v_creator_share_bp::numeric) / 10000)::int;
+      if v_creator_gain < 0 then
+        v_creator_gain := 0;
+      end if;
+      if v_creator_gain > v_price then
+        v_creator_gain := v_price;
+      end if;
+    else
+      v_creator_gain := 0;
+    end if;
+    v_platform_fee := v_price - v_creator_gain;
+
     update public.user_wallets
     set
       balance = balance - v_price,
@@ -300,9 +332,53 @@ begin
       'debit',
       v_price,
       'square_unlock',
-      jsonb_build_object('source_character_id', p_source_character_id)
+      jsonb_build_object(
+        'source_character_id', p_source_character_id,
+        'creator_user_id', v_source.user_id,
+        'creator_share_bp', v_creator_share_bp,
+        'creator_gain', v_creator_gain,
+        'platform_fee', v_platform_fee
+      )
     );
+
+    if v_creator_gain > 0 and v_source.user_id is not null and v_source.user_id <> v_user_id then
+      insert into public.user_wallets (user_id)
+      values (v_source.user_id)
+      on conflict (user_id) do nothing;
+
+      update public.user_wallets
+      set
+        balance = balance + v_creator_gain,
+        updated_at = now()
+      where user_id = v_source.user_id;
+
+      insert into public.wallet_transactions (
+        user_id,
+        source_character_id,
+        local_character_id,
+        kind,
+        amount,
+        reason,
+        meta
+      ) values (
+        v_source.user_id,
+        p_source_character_id,
+        v_local_character_id,
+        'credit',
+        v_creator_gain,
+        'square_unlock_sale',
+        jsonb_build_object(
+          'source_character_id', p_source_character_id,
+          'buyer_user_id', v_user_id,
+          'buyer_paid', v_price,
+          'creator_share_bp', v_creator_share_bp,
+          'platform_fee', v_platform_fee
+        )
+      );
+    end if;
   else
+    v_creator_gain := 0;
+    v_platform_fee := 0;
     update public.user_wallets
     set updated_at = now()
     where user_id = v_user_id
@@ -316,11 +392,12 @@ begin
     'local_character_id', v_local_character_id,
     'charged_coins', v_price,
     'price_coins', v_price,
-    'balance_after', coalesce(v_wallet.balance, 0)
+    'balance_after', coalesce(v_wallet.balance, 0),
+    'creator_gain', v_creator_gain,
+    'platform_fee', v_platform_fee
   );
 end;
 $$;
 
 grant execute on function public.get_wallet_summary() to authenticated;
 grant execute on function public.unlock_public_character(uuid) to authenticated;
-

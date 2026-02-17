@@ -19,6 +19,13 @@ type CharacterAssetRow = { character_id: string; kind: string; storage_path: str
 type Alert = { type: 'ok' | 'err'; text: string } | null
 type StudioTab = 'CREATED' | 'UNLOCKED' | 'ALL'
 type VisibilityFilter = 'ALL' | 'PUBLIC' | 'PRIVATE'
+type CreatorMetrics = {
+  walletReady: boolean
+  publicRoleCount: number
+  totalUnlocks: number
+  totalRevenue: number
+  topRoles: Array<{ sourceCharacterId: string; name: string; unlocks: number; revenue: number }>
+}
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -75,6 +82,13 @@ export default function CharactersPage() {
   const [studioTab, setStudioTab] = useState<StudioTab>('CREATED')
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('ALL')
   const [query, setQuery] = useState('')
+  const [creatorMetrics, setCreatorMetrics] = useState<CreatorMetrics>({
+    walletReady: false,
+    publicRoleCount: 0,
+    totalUnlocks: 0,
+    totalRevenue: 0,
+    topRoles: [],
+  })
 
   const canRefresh = useMemo(() => !loading && !deletingId, [loading, deletingId])
   const counts = useMemo(() => {
@@ -114,6 +128,13 @@ export default function CharactersPage() {
     setLoading(true)
     setAlert(null)
     setImgById({})
+    setCreatorMetrics({
+      walletReady: false,
+      publicRoleCount: 0,
+      totalUnlocks: 0,
+      totalRevenue: 0,
+      topRoles: [],
+    })
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
@@ -126,6 +147,31 @@ export default function CharactersPage() {
       .select('id,name,system_prompt,visibility,created_at,settings')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
+
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (token) {
+        const mr = await fetch('/api/wallet/creator-metrics', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (mr.ok) {
+          const data = (await mr.json().catch(() => ({}))) as Record<string, unknown>
+          setCreatorMetrics({
+            walletReady: data.walletReady !== false,
+            publicRoleCount: Number(data.publicRoleCount || 0),
+            totalUnlocks: Number(data.totalUnlocks || 0),
+            totalRevenue: Number(data.totalRevenue || 0),
+            topRoles: Array.isArray(data.topRoles)
+              ? (data.topRoles as Array<{ sourceCharacterId: string; name: string; unlocks: number; revenue: number }>)
+              : [],
+          })
+        }
+      }
+    } catch {
+      // ignore creator metrics errors
+    }
 
     if (r1.error) {
       const msg = r1.error.message || ''
@@ -336,12 +382,16 @@ export default function CharactersPage() {
                 <span>已解锁角色</span>
               </button>
               <button className={`uiStudioBoardCard ${visibilityFilter === 'PUBLIC' ? 'uiStudioBoardCardActive' : ''}`} onClick={() => setVisibilityFilter('PUBLIC')}>
-                <b>{counts.publicCount}</b>
+                <b>{creatorMetrics.publicRoleCount || counts.publicCount}</b>
                 <span>公开角色</span>
               </button>
               <button className={`uiStudioBoardCard ${visibilityFilter === 'PRIVATE' ? 'uiStudioBoardCardActive' : ''}`} onClick={() => setVisibilityFilter('PRIVATE')}>
                 <b>{counts.privateCount}</b>
                 <span>私密角色</span>
+              </button>
+              <button className="uiStudioBoardCard" onClick={() => router.push('/wallet')}>
+                <b>{creatorMetrics.totalRevenue}</b>
+                <span>创作收益</span>
               </button>
             </div>
           </section>
@@ -369,6 +419,9 @@ export default function CharactersPage() {
                     <span className="uiBadge">已激活: {counts.active}</span>
                     <span className="uiBadge">公开: {counts.publicCount}</span>
                     <span className="uiBadge">私密: {counts.privateCount}</span>
+                    <span className="uiBadge">累计解锁: {creatorMetrics.totalUnlocks}</span>
+                    <span className="uiBadge">累计收益: {creatorMetrics.totalRevenue}</span>
+                    {!creatorMetrics.walletReady ? <span className="uiBadge">收益账本未启用</span> : null}
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className={`uiPill ${studioTab === 'CREATED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('CREATED')}>
@@ -397,6 +450,9 @@ export default function CharactersPage() {
                     <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
                       去广场解锁角色
                     </button>
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wallet')}>
+                      钱包中心（收益）
+                    </button>
                     <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wardrobe')}>
                       去衣柜资产中心
                     </button>
@@ -404,6 +460,22 @@ export default function CharactersPage() {
                       去首页看动态
                     </button>
                   </div>
+                  {creatorMetrics.topRoles.length > 0 && (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div className="uiHint">收益角色 Top</div>
+                      {creatorMetrics.topRoles.slice(0, 5).map((x) => (
+                        <button
+                          key={x.sourceCharacterId}
+                          className="uiBtn uiBtnGhost"
+                          onClick={() => router.push(`/square/${x.sourceCharacterId}`)}
+                          style={{ justifyContent: 'space-between' }}
+                        >
+                          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.name || x.sourceCharacterId}</span>
+                          <span>{x.revenue} 币 / {x.unlocks} 解锁</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </aside>

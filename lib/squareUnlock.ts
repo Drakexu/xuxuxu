@@ -6,6 +6,8 @@ export type SquareUnlockResult = {
   chargedCoins: number
   priceCoins: number
   balanceAfter: number | null
+  creatorGain: number
+  platformFee: number
   error?: string
   balance?: number
 }
@@ -19,6 +21,8 @@ function parseUnlockResult(data: Record<string, unknown>): SquareUnlockResult {
     chargedCoins: Number(data.chargedCoins || 0),
     priceCoins: Number(data.priceCoins || 0),
     balanceAfter: data.balanceAfter == null ? null : Number(data.balanceAfter),
+    creatorGain: Number(data.creatorGain || 0),
+    platformFee: Number(data.platformFee || 0),
     error: typeof data.error === 'string' ? data.error : undefined,
     balance: data.balance == null ? undefined : Number(data.balance),
   }
@@ -39,4 +43,3 @@ export async function unlockSquareCharacter(token: string, sourceCharacterId: st
   if (!resp.ok) throw new Error(String(data.error || `unlock failed (${resp.status})`))
   return parsed
 }
-

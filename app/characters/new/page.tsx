@@ -20,6 +20,7 @@ type FormState = {
   visibility: 'private' | 'public'
   systemPrompt: string
   unlockPriceCoins: string
+  unlockCreatorShareBp: string
 
   gender: 'male' | 'female' | 'other'
   age: string
@@ -54,6 +55,7 @@ const DEFAULT_FORM: FormState = {
   visibility: 'public',
   systemPrompt: '',
   unlockPriceCoins: '',
+  unlockCreatorShareBp: '7000',
 
   gender: 'other',
   age: '',
@@ -105,6 +107,14 @@ function normalizePriceCoins(raw: string) {
   return Math.max(0, Math.min(Math.floor(n), 200000))
 }
 
+function normalizeShareBp(raw: string) {
+  const s = String(raw || '').trim()
+  if (!s) return 7000
+  const n = Number(s)
+  if (!Number.isFinite(n)) return 7000
+  return Math.max(0, Math.min(Math.floor(n), 10000))
+}
+
 function formFromSourceCharacter(source: SourceCharacter): FormState {
   const profile = asRecord(source.profile)
   const settings = asRecord(source.settings)
@@ -123,6 +133,7 @@ function formFromSourceCharacter(source: SourceCharacter): FormState {
     visibility: 'private',
     systemPrompt: String(source.system_prompt || '').trim(),
     unlockPriceCoins: String(settings.unlock_price_coins ?? publish.unlock_price_coins ?? '').trim(),
+    unlockCreatorShareBp: String(settings.unlock_creator_share_bp ?? publish.unlock_creator_share_bp ?? '7000').trim(),
     gender: profile.gender === 'male' ? 'male' : profile.gender === 'female' ? 'female' : 'other',
     age: String(profile.age || ''),
     occupation: String(profile.occupation || ''),
@@ -218,6 +229,7 @@ export default function NewCharacterPage() {
   )
   const romanceMode = effectiveRomanceMode(f)
   const normalizedUnlockPrice = useMemo(() => normalizePriceCoins(f.unlockPriceCoins), [f.unlockPriceCoins])
+  const normalizedCreatorShareBp = useMemo(() => normalizeShareBp(f.unlockCreatorShareBp), [f.unlockCreatorShareBp])
 
   useEffect(() => {
     if (!alert) return
@@ -301,6 +313,7 @@ export default function NewCharacterPage() {
         teen_mode: !!f.teenMode,
         age_mode: f.teenMode ? 'teen' : 'adult',
         unlock_price_coins: normalizePriceCoins(f.unlockPriceCoins),
+        unlock_creator_share_bp: normalizeShareBp(f.unlockCreatorShareBp),
         forked_from_character_id: sourceTemplateId || undefined,
         forked_from_square: !!sourceTemplateId || undefined,
         forked_at: sourceTemplateId ? new Date().toISOString() : undefined,
@@ -339,6 +352,7 @@ export default function NewCharacterPage() {
           publish: {
             author_note: clampText(f.authorNote, 1200),
             unlock_price_coins: normalizePriceCoins(f.unlockPriceCoins),
+            unlock_creator_share_bp: normalizeShareBp(f.unlockCreatorShareBp),
           },
         },
       },
@@ -459,6 +473,10 @@ export default function NewCharacterPage() {
               <span>广场解锁价</span>
             </div>
             <div className="uiKpi">
+              <b>{f.visibility === 'public' ? `${Math.floor(normalizedCreatorShareBp / 100)}%` : '-'}</b>
+              <span>创作者分成</span>
+            </div>
+            <div className="uiKpi">
               <b>{romanceMode === 'ROMANCE_ON' ? '开启' : '关闭'}</b>
               <span>恋爱模式</span>
             </div>
@@ -515,6 +533,20 @@ export default function NewCharacterPage() {
                 />
                 <div className="uiHint" style={{ marginTop: 6 }}>
                   仅对公开角色生效。当前：{normalizedUnlockPrice > 0 ? `${normalizedUnlockPrice} 币` : '免费'}
+                </div>
+              </label>
+
+              <label className="uiLabel">
+                创作者分成（基点）
+                <input
+                  className="uiInput"
+                  inputMode="numeric"
+                  placeholder="7000 = 70%"
+                  value={f.unlockCreatorShareBp}
+                  onChange={(e) => setF((p) => ({ ...p, unlockCreatorShareBp: e.target.value.replace(/[^\d]/g, '').slice(0, 5) }))}
+                />
+                <div className="uiHint" style={{ marginTop: 6 }}>
+                  0-10000。当前：{Math.floor(normalizedCreatorShareBp / 100)}%（平台={100 - Math.floor(normalizedCreatorShareBp / 100)}%）
                 </div>
               </label>
 

@@ -81,6 +81,17 @@ function unlockPrice(settings: unknown) {
   return 0
 }
 
+function unlockCreatorShareBp(settings: unknown) {
+  const s = asRecord(settings)
+  const own = Number(s.unlock_creator_share_bp)
+  if (Number.isFinite(own)) return Math.max(0, Math.min(Math.floor(own), 10000))
+  const cf = asRecord(s.creation_form)
+  const publish = asRecord(cf.publish)
+  const nested = Number(publish.unlock_creator_share_bp)
+  if (Number.isFinite(nested)) return Math.max(0, Math.min(Math.floor(nested), 10000))
+  return 7000
+}
+
 export default function SquareDetailPage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -125,6 +136,7 @@ export default function SquareDetailPage() {
         romanceLabel: '',
         authorNote: '',
         unlockPrice: 0,
+        creatorShareBp: 7000,
       }
     }
     const p = asRecord(item.profile)
@@ -147,6 +159,7 @@ export default function SquareDetailPage() {
       romanceLabel,
       authorNote,
       unlockPrice: unlockPrice(item.settings),
+      creatorShareBp: unlockCreatorShareBp(item.settings),
     }
   }, [item])
 
@@ -445,11 +458,12 @@ export default function SquareDetailPage() {
       }
 
       const chargedText = result.chargedCoins > 0 ? `（消耗 ${result.chargedCoins} 币）` : ''
+      const creatorText = result.creatorGain > 0 ? ` 创作者分成 ${result.creatorGain} 币。` : ''
       setAlert({
         type: 'ok',
         text: options?.startChat
-          ? `${result.alreadyUnlocked ? '已在队列中，正在进入聊天。' : '已解锁，正在进入聊天。'}${chargedText}`
-          : `${result.alreadyUnlocked ? '角色已在你的队列中。' : '已解锁。'}${chargedText}`,
+          ? `${result.alreadyUnlocked ? '已在队列中，正在进入聊天。' : '已解锁，正在进入聊天。'}${chargedText}${creatorText}`
+          : `${result.alreadyUnlocked ? '角色已在你的队列中。' : '已解锁。'}${chargedText}${creatorText}`,
       })
       if (options?.startChat) router.push(`/chat/${localId}`)
       setBusy(false)
@@ -558,6 +572,10 @@ export default function SquareDetailPage() {
                   <span>解锁价格</span>
                 </div>
                 <div className="uiKpi">
+                  <b>{detailMeta.unlockPrice > 0 ? `${Math.floor(detailMeta.creatorShareBp / 100)}%` : '-'}</b>
+                  <span>创作者分成</span>
+                </div>
+                <div className="uiKpi">
                   <b>{Number(currentSquareMetrics?.unlocked || 0)}</b>
                   <span>全站解锁</span>
                 </div>
@@ -621,6 +639,7 @@ export default function SquareDetailPage() {
                     <span className="uiBadge">{audienceLabel(detailMeta.audience)}</span>
                     <span className="uiBadge">{detailMeta.romanceLabel || '恋爱开启'}</span>
                     <span className="uiBadge">{detailMeta.unlockPrice > 0 ? `${detailMeta.unlockPrice} 币` : '免费解锁'}</span>
+                    {detailMeta.unlockPrice > 0 ? <span className="uiBadge">创作者 {Math.floor(detailMeta.creatorShareBp / 100)}%</span> : null}
                     {unlockedCharId ? <span className="uiBadge">已解锁</span> : null}
                     {unlockedCharId && unlockedActive ? <span className="uiBadge">已激活</span> : null}
                     {!unlockedCharId && isLoggedIn && walletReady && detailMeta.unlockPrice > walletBalance ? <span className="uiBadge">余额不足</span> : null}
