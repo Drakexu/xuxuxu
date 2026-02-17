@@ -1362,3 +1362,25 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v22 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/square/page.tsx
+- Completed:
+  - Added Square recommendation ranking loop based on user interaction signals:
+    - source-character score built from feed reactions (saved=2, liked=1)
+    - audience affinity (男频/女频/青少年) aggregated from scored characters
+    - new sort mode 排序：为你推荐 combining preference score + active/unlocked + recency fallback
+  - Added visible recommendation feedback:
+    - sort panel hint text shows whether recommendation has learned user signals
+    - role cards show 偏好命中 badge when current role has positive preference score
+  - Kept graceful degradation when eed_reactions table is missing (no hard failure).
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass

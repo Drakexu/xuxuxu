@@ -19,6 +19,7 @@ type CharacterAssetRow = { character_id: string; kind: string; storage_path: str
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
 type AudienceTab = 'ALL' | 'MALE' | 'FEMALE' | 'TEEN'
+type SquareSort = 'RECOMMENDED' | 'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -81,6 +82,11 @@ function audienceLabel(audienceTab: AudienceTab) {
   return '全部'
 }
 
+function isMissingFeedReactionsTableError(msg: string) {
+  const s = String(msg || '').toLowerCase()
+  return s.includes('feed_reactions') && (s.includes('does not exist') || s.includes('relation') || s.includes('schema cache'))
+}
+
 function pickAssetPath(rows: CharacterAssetRow[]) {
   // Prefer cover > full_body > head.
   const byKind: Record<string, CharacterAssetRow[]> = {}
@@ -105,10 +111,13 @@ export default function SquarePage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'ALL' | 'LOCKED' | 'UNLOCKED' | 'ACTIVE'>('ALL')
   const [audienceTab, setAudienceTab] = useState<AudienceTab>('ALL')
-  const [sortBy, setSortBy] = useState<'NEWEST' | 'UNLOCKED_FIRST' | 'ACTIVE_FIRST' | 'NAME'>('UNLOCKED_FIRST')
+  const [sortBy, setSortBy] = useState<SquareSort>('RECOMMENDED')
   const [items, setItems] = useState<PubCharacter[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
   const [unlockedInfoBySourceId, setUnlockedInfoBySourceId] = useState<Record<string, { localId: string; active: boolean }>>({})
+  const [reactionScoreBySourceId, setReactionScoreBySourceId] = useState<Record<string, number>>({})
+  const [audienceAffinity, setAudienceAffinity] = useState<Record<AudienceTab, number>>({ ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 })
+  const [hasPreferenceSignal, setHasPreferenceSignal] = useState(false)
   const [alert, setAlert] = useState<Alert>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
@@ -125,6 +134,9 @@ export default function SquarePage() {
     setAlert(null)
     setImgById({})
     setUnlockedInfoBySourceId({})
+    setReactionScoreBySourceId({})
+    setAudienceAffinity({ ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 })
+    setHasPreferenceSignal(false)
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
@@ -153,6 +165,10 @@ export default function SquarePage() {
 
     const nextItems = (r1.data ?? []) as PubCharacter[]
     setItems(nextItems)
+    const itemById: Record<string, PubCharacter> = {}
+    for (const it of nextItems) {
+      if (it.id) itemById[it.id] = it
+    }
 
     // Best-effort: show "已解锁" badges by checking user's copied characters.
     if (userId) {
@@ -165,12 +181,53 @@ export default function SquarePage() {
           .limit(600)
         if (!mine.error) {
           const map: Record<string, { localId: string; active: boolean }> = {}
+          const localToSource: Record<string, string> = {}
           for (const row of (mine.data ?? []) as Array<{ id: string; settings?: unknown }>) {
             const s = asRecord(row.settings)
             const src = typeof s.source_character_id === 'string' ? s.source_character_id.trim() : ''
-            if (src) map[src] = { localId: row.id, active: isActivatedBySettings(row.settings) }
+            if (!src) continue
+            map[src] = { localId: row.id, active: isActivatedBySettings(row.settings) }
+            localToSource[row.id] = src
           }
           setUnlockedInfoBySourceId(map)
+
+          try {
+            const rr = await supabase
+              .from('feed_reactions')
+              .select('character_id,liked,saved')
+              .eq('user_id', userId)
+              .order('updated_at', { ascending: false })
+              .limit(1200)
+
+            if (!rr.error) {
+              const scoreBySourceId: Record<string, number> = {}
+              for (const row of rr.data ?? []) {
+                const r = asRecord(row)
+                const localCharId = String(r.character_id || '').trim()
+                const sourceId = localToSource[localCharId] || ''
+                if (!sourceId) continue
+                const w = (r.saved === true ? 2 : 0) + (r.liked === true ? 1 : 0)
+                if (w <= 0) continue
+                scoreBySourceId[sourceId] = Number(scoreBySourceId[sourceId] || 0) + w
+              }
+
+              const nextAffinity: Record<AudienceTab, number> = { ALL: 0, MALE: 0, FEMALE: 0, TEEN: 0 }
+              for (const [sourceId, score] of Object.entries(scoreBySourceId)) {
+                const it = itemById[sourceId]
+                if (!it) continue
+                const a = getAudienceTab(it)
+                if (a !== 'ALL') nextAffinity[a] = Number(nextAffinity[a] || 0) + score
+              }
+
+              setReactionScoreBySourceId(scoreBySourceId)
+              setAudienceAffinity(nextAffinity)
+              setHasPreferenceSignal(Object.keys(scoreBySourceId).length > 0)
+            } else if (!isMissingFeedReactionsTableError(rr.error.message || '')) {
+              throw new Error(rr.error.message)
+            }
+          } catch {
+            // ignore
+          }
         }
       } catch {
         // ignore
@@ -357,11 +414,21 @@ export default function SquarePage() {
       const unlocked = info ? 1 : 0
       const ts = c.created_at ? Date.parse(c.created_at) : 0
       const name = (c.name || '').toLowerCase()
-      return { active, unlocked, ts, name }
+      const reaction = Number(reactionScoreBySourceId[c.id] || 0)
+      const audience = getAudienceTab(c)
+      const affinity = audience === 'ALL' ? 0 : Number(audienceAffinity[audience] || 0)
+      const rec = reaction * 3 + affinity
+      return { active, unlocked, ts, name, rec }
     }
     arr.sort((a, b) => {
       const sa = score(a)
       const sb = score(b)
+      if (sortBy === 'RECOMMENDED') {
+        if (sb.rec !== sa.rec) return sb.rec - sa.rec
+        if (sb.active !== sa.active) return sb.active - sa.active
+        if (sb.unlocked !== sa.unlocked) return sb.unlocked - sa.unlocked
+        return sb.ts - sa.ts
+      }
       if (sortBy === 'ACTIVE_FIRST') {
         if (sb.active !== sa.active) return sb.active - sa.active
         if (sb.unlocked !== sa.unlocked) return sb.unlocked - sa.unlocked
@@ -376,7 +443,7 @@ export default function SquarePage() {
       return sb.ts - sa.ts
     })
     return arr
-  }, [items, unlockedInfoBySourceId, filter, query, sortBy, audienceTab])
+  }, [items, unlockedInfoBySourceId, reactionScoreBySourceId, audienceAffinity, filter, query, sortBy, audienceTab])
 
   const stats = useMemo(() => {
     let unlocked = 0
@@ -418,6 +485,7 @@ export default function SquarePage() {
     const romanceLabel = ageMode === '未成年模式' ? '恋爱关闭' : romance === 'ROMANCE_OFF' ? '恋爱关闭' : '恋爱开启'
     const audience = getAudienceTab(c)
     const info = unlockedInfoBySourceId[c.id]
+    const recScore = Number(reactionScoreBySourceId[c.id] || 0)
 
     return (
       <div key={c.id} className="uiCard" style={{ cursor: 'pointer', borderColor: featured ? 'rgba(249,217,142,.32)' : undefined }} onClick={() => router.push(`/square/${c.id}`)}>
@@ -444,6 +512,7 @@ export default function SquarePage() {
           <span className="uiBadge">{ageMode}</span>
           <span className="uiBadge">{audienceLabel(audience)}</span>
           <span className="uiBadge">{romanceLabel}</span>
+          {recScore > 0 ? <span className="uiBadge">偏好命中 {recScore}</span> : null}
           <span
             className="uiBadge"
             style={{
@@ -651,11 +720,17 @@ export default function SquarePage() {
                     </button>
                   </div>
                   <select className="uiInput" value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+                    <option value="RECOMMENDED">排序：为你推荐</option>
                     <option value="UNLOCKED_FIRST">排序：已解锁优先</option>
                     <option value="ACTIVE_FIRST">排序：已激活优先</option>
                     <option value="NEWEST">排序：最新发布</option>
                     <option value="NAME">排序：角色名</option>
                   </select>
+                  <div className="uiHint">
+                    {hasPreferenceSignal
+                      ? '推荐排序已根据你的点赞/收藏学习偏好。'
+                      : '推荐排序会随着你的点赞/收藏逐步学习偏好。'}
+                  </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className={`uiPill ${audienceTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setAudienceTab('ALL')}>
                       全部频道
