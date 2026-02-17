@@ -105,6 +105,10 @@ export default function ChatPage() {
   const [assistantAvatarUrl, setAssistantAvatarUrl] = useState('')
   const [chatBgUrl, setChatBgUrl] = useState('')
   const [chatBgPath, setChatBgPathState] = useState('')
+  const [chatRoleUrl, setChatRoleUrl] = useState('')
+  const [chatRolePath, setChatRolePathState] = useState('')
+  const [chatRoleScale, setChatRoleScale] = useState(104)
+  const [chatRoleYOffset, setChatRoleYOffset] = useState(0)
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [bgAutoEnabled, setBgAutoEnabled] = useState(true)
   const [bgCue, setBgCue] = useState('')
@@ -135,6 +139,7 @@ export default function ChatPage() {
   const [updatingRelationship, setUpdatingRelationship] = useState(false)
   const [updatingPromptPolicy, setUpdatingPromptPolicy] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  const [showSceneDock, setShowSceneDock] = useState(true)
   const [savingOutfit, setSavingOutfit] = useState(false)
   const [manualOutfit, setManualOutfit] = useState('')
   const [details, setDetails] = useState<{
@@ -154,6 +159,7 @@ export default function ChatPage() {
   const canSend = useMemo(() => input.trim().length > 0 && !sending, [input, sending])
   const convKey = useMemo(() => `xuxuxu:conversationId:${characterId}`, [characterId])
   const bgKey = useMemo(() => `xuxuxu:chatBgPath:${characterId}`, [characterId])
+  const roleKey = useMemo(() => `xuxuxu:chatRolePath:${characterId}`, [characterId])
   const tsKey = useMemo(() => `xuxuxu:showTimestamps:${characterId}`, [characterId])
 
   const assistantInitial = useMemo(() => {
@@ -206,8 +212,18 @@ export default function ChatPage() {
     })
   }
 
+  const backgroundAssets = useMemo(
+    () => assetUrls.filter((a) => a.kind === 'cover' || /bg|background|scene|street|city|room|night|beach/i.test(a.path)),
+    [assetUrls],
+  )
+
+  const roleAssets = useMemo(
+    () => assetUrls.filter((a) => a.kind === 'full_body' || a.kind === 'head' || /body|head|portrait|avatar|role|character/i.test(a.path)),
+    [assetUrls],
+  )
+
   const backgroundPresets = useMemo(() => {
-    const list = assetUrls.filter((a) => a.kind === 'cover' || /bg|background|scene|street|city|room|night|beach/i.test(a.path))
+    const list = backgroundAssets
     if (!list.length) return [] as Array<{ id: string; label: string; path: string }>
     const pick = (keys: string[]) => list.find((a) => keys.some((k) => a.path.toLowerCase().includes(k))) || list[0]
     return [
@@ -215,7 +231,18 @@ export default function ChatPage() {
       { id: 'night', label: 'Night', path: pick(['night', 'moon', 'neon']).path },
       { id: 'room', label: 'Room', path: pick(['room', 'home', 'indoor']).path },
     ]
-  }, [assetUrls])
+  }, [backgroundAssets])
+
+  const scenePresets = useMemo(() => {
+    if (!backgroundAssets.length && !roleAssets.length) return [] as Array<{ id: string; label: string; bgPath: string; rolePath: string; scale: number; y: number }>
+    const pickBg = (keys: string[]) => backgroundAssets.find((a) => keys.some((k) => a.path.toLowerCase().includes(k))) || backgroundAssets[0]
+    const pickRole = (keys: string[]) => roleAssets.find((a) => keys.some((k) => a.path.toLowerCase().includes(k))) || roleAssets[0]
+    return [
+      { id: 'daily', label: 'Daily', bgPath: pickBg(['street', 'city', 'day', 'cafe'])?.path || '', rolePath: pickRole(['full', 'body'])?.path || '', scale: 104, y: 0 },
+      { id: 'night', label: 'Night', bgPath: pickBg(['night', 'moon', 'neon'])?.path || '', rolePath: pickRole(['full', 'body'])?.path || '', scale: 108, y: 2 },
+      { id: 'closeup', label: 'Closeup', bgPath: pickBg(['room', 'home', 'indoor'])?.path || '', rolePath: pickRole(['head', 'portrait'])?.path || '', scale: 124, y: 10 },
+    ]
+  }, [backgroundAssets, roleAssets])
 
   const storyLockLabel = useMemo(() => {
     if (!storyLockUntil) return ''
@@ -433,12 +460,13 @@ export default function ChatPage() {
           .eq('character_id', characterId)
           .in('kind', ['head', 'full_body', 'cover'])
           .order('created_at', { ascending: false })
-          .limit(12)
+          .limit(60)
 
         if (!assets.error && (assets.data ?? []).length) {
           const rows = (assets.data ?? []) as CharacterAssetRow[]
           const avatar = rows.find((r) => r.kind === 'head') ?? rows.find((r) => r.kind === 'full_body') ?? rows[0]
           const bg = rows.find((r) => r.kind === 'cover') ?? rows.find((r) => r.kind === 'full_body') ?? null
+          const role = rows.find((r) => r.kind === 'full_body') ?? rows.find((r) => r.kind === 'head') ?? null
 
           // Allow user override for chat background (store storage_path, sign per session).
           let bgPath = ''
@@ -452,6 +480,14 @@ export default function ChatPage() {
           }
           const bgPick = (bgPath && rows.find((r) => r.storage_path === bgPath)) || bg
 
+          let rolePath = ''
+          try {
+            rolePath = localStorage.getItem(roleKey) || ''
+          } catch {
+            rolePath = ''
+          }
+          const rolePick = (rolePath && rows.find((r) => r.storage_path === rolePath)) || role
+
           if (avatar?.storage_path) {
             const signed = await supabase.storage.from('character-assets').createSignedUrl(avatar.storage_path, 60 * 60)
             if (!signed.error && signed.data?.signedUrl) setAssistantAvatarUrl(signed.data.signedUrl)
@@ -464,6 +500,13 @@ export default function ChatPage() {
               setBgAutoEnabled(!hasBgOverride)
             }
           }
+          if (rolePick?.storage_path) {
+            const signed3 = await supabase.storage.from('character-assets').createSignedUrl(rolePick.storage_path, 60 * 60)
+            if (!signed3.error && signed3.data?.signedUrl) {
+              setChatRoleUrl(signed3.data.signedUrl)
+              setChatRolePathState(rolePick.storage_path)
+            }
+          }
 
           // Sign a small list for UI selection (best-effort).
           const uniquePaths = new Set<string>()
@@ -474,7 +517,7 @@ export default function ChatPage() {
               uniquePaths.add(r.storage_path)
               return true
             })
-            .slice(0, 6)
+            .slice(0, 24)
 
           const signedList = await Promise.all(
             picks.map(async (r) => {
@@ -492,7 +535,7 @@ export default function ChatPage() {
     }
 
     init()
-  }, [characterId, convKey, bgKey, router])
+  }, [characterId, convKey, bgKey, roleKey, router])
 
   const loadOutfitHint = async (convId: string, userId: string) => {
     try {
@@ -684,6 +727,37 @@ export default function ChatPage() {
     } catch {
       // ignore
     }
+  }
+
+  const setRoleLayerPath = async (path: string) => {
+    const nextPath = String(path || '').trim()
+    if (!nextPath) return
+    if (nextPath === chatRolePath) return
+
+    try {
+      localStorage.setItem(roleKey, nextPath)
+    } catch {
+      // ignore
+    }
+
+    try {
+      const signed = await supabase.storage.from('character-assets').createSignedUrl(nextPath, 60 * 60)
+      if (!signed.error && signed.data?.signedUrl) {
+        setChatRolePathState(nextPath)
+        setChatRoleUrl(signed.data.signedUrl)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const applyScenePreset = async (presetId: string) => {
+    const preset = scenePresets.find((x) => x.id === presetId)
+    if (!preset) return
+    if (preset.bgPath) await setChatBgPath(preset.bgPath, { manual: true })
+    if (preset.rolePath) await setRoleLayerPath(preset.rolePath)
+    setChatRoleScale(preset.scale)
+    setChatRoleYOffset(preset.y)
   }
 
   const updateScheduleControl = async (action: 'PLAY' | 'PAUSE' | 'LOCK' | 'UNLOCK', lockMinutes?: number) => {
@@ -948,9 +1022,9 @@ export default function ChatPage() {
         setGuardWarn(`主语护栏触发：${notes.join('，') || '已修正输出'}`)
       }
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }])
-      if (bgAutoEnabled && assetUrls.length > 0) {
+      if (bgAutoEnabled && backgroundAssets.length > 0) {
         const cue = inferPresentationCue(assistantText)
-        const picked = pickBestBackgroundPath(assetUrls.map((x) => ({ path: x.path })), cue)
+        const picked = pickBestBackgroundPath(backgroundAssets.map((x) => ({ path: x.path })), cue)
         if (picked.path && picked.score > 0) {
           const cueLabel = `${cue.emotion}${cue.sceneTags.length ? `/${cue.sceneTags.join('-')}` : ''}`
           await setChatBgPath(picked.path, { cueLabel })
@@ -1057,6 +1131,9 @@ export default function ChatPage() {
               >
                 {showDetails ? '收起账本' : '账本详情'}
             </button>
+            <button className="uiBtn uiBtnGhost" onClick={() => setShowSceneDock((v) => !v)}>
+              {showSceneDock ? 'Scene Dock Off' : 'Scene Dock On'}
+            </button>
             <button className="uiBtn uiBtnGhost" onClick={() => setShowTimestamps((v) => !v)}>
               {showTimestamps ? '隐藏时间' : '显示时间'}
             </button>
@@ -1099,8 +1176,12 @@ export default function ChatPage() {
               <span>账本完整度</span>
             </div>
             <div className="uiKpi">
-              <b>{assetUrls.length}</b>
-              <span>背景候选</span>
+              <b>{backgroundAssets.length}</b>
+              <span>Backgrounds</span>
+            </div>
+            <div className="uiKpi">
+              <b>{roleAssets.length}</b>
+              <span>Role Layers</span>
             </div>
           </div>
         </section>
@@ -1209,6 +1290,80 @@ export default function ChatPage() {
           </div>
         </div>
 
+        {showSceneDock && (
+          <div className="uiPanel uiPanelCompactTop">
+            <div className="uiPanelHeader">
+              <div>
+                <div className="uiPanelTitle">Scene Dock</div>
+                <div className="uiPanelSub">Static background + role layer composer for chat stage.</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="uiBtn uiBtnGhost" onClick={() => setBgAutoEnabled(true)}>
+                  Auto BG
+                </button>
+                <button
+                  className="uiBtn uiBtnGhost"
+                  onClick={() => {
+                    setChatRoleScale(104)
+                    setChatRoleYOffset(0)
+                  }}
+                >
+                  Reset Pose
+                </button>
+              </div>
+            </div>
+            <div className="uiForm">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {scenePresets.map((p) => (
+                  <button key={`scene:${p.id}`} className="uiBtn uiBtnSecondary" onClick={() => void applyScenePreset(p.id)}>
+                    Preset {p.label}
+                  </button>
+                ))}
+                {scenePresets.length === 0 && <div className="uiHint">No scene presets available.</div>}
+              </div>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div className="uiHint">Background</div>
+                <div className="uiSceneThumbStrip">
+                  {backgroundAssets.slice(0, 12).map((a) => (
+                    <button key={`bg:${a.path}`} className={`uiSceneThumb ${chatBgPath === a.path ? 'uiSceneThumbActive' : ''}`} onClick={() => void setChatBgPath(a.path, { manual: true })}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={a.url} alt="" />
+                      <span>{a.kind}</span>
+                    </button>
+                  ))}
+                  {backgroundAssets.length === 0 && <div className="uiHint">No background assets.</div>}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div className="uiHint">Role Layer</div>
+                <div className="uiSceneThumbStrip">
+                  {roleAssets.slice(0, 12).map((a) => (
+                    <button key={`role:${a.path}`} className={`uiSceneThumb ${chatRolePath === a.path ? 'uiSceneThumbActive' : ''}`} onClick={() => void setRoleLayerPath(a.path)}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={a.url} alt="" />
+                      <span>{a.kind}</span>
+                    </button>
+                  ))}
+                  {roleAssets.length === 0 && <div className="uiHint">No role layer assets.</div>}
+                </div>
+              </div>
+
+              <div className="uiSceneRangeRow">
+                <label className="uiLabel" style={{ margin: 0 }}>
+                  Role Scale ({chatRoleScale}%)
+                  <input type="range" min={82} max={132} value={chatRoleScale} onChange={(e) => setChatRoleScale(Number(e.target.value))} />
+                </label>
+                <label className="uiLabel" style={{ margin: 0 }}>
+                  Role Offset ({chatRoleYOffset}px)
+                  <input type="range" min={-42} max={42} value={chatRoleYOffset} onChange={(e) => setChatRoleYOffset(Number(e.target.value))} />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div
           className="uiChatStage"
           ref={listRef}
@@ -1230,6 +1385,15 @@ export default function ChatPage() {
               className="uiChatStageBg"
               alt=""
               src={chatBgUrl}
+            />
+          )}
+          {chatRoleUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              className="uiChatRoleLayer"
+              alt=""
+              src={chatRoleUrl}
+              style={{ transform: `translate(-50%, ${chatRoleYOffset}px) scale(${chatRoleScale / 100})` }}
             />
           )}
           {loadingHistory && <div className="uiHint uiChatLoadHint">正在加载聊天记录...</div>}
@@ -1308,7 +1472,7 @@ export default function ChatPage() {
                   </span>
                 ))}
               </div>
-              {assetUrls.length > 0 && (
+              {backgroundAssets.length > 0 && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div className="uiHint">聊天背景：</div>
                   {backgroundPresets.map((p) => (
@@ -1316,7 +1480,7 @@ export default function ChatPage() {
                       Preset {p.label}
                     </button>
                   ))}
-                  {assetUrls.map((a) => (
+                  {backgroundAssets.map((a) => (
                     <button key={a.path} className="uiBtn uiBtnGhost" onClick={() => setChatBgPath(a.path, { manual: true })}>
                       {a.kind}
                     </button>
@@ -1446,4 +1610,3 @@ export default function ChatPage() {
     </div>
   )
 }
-

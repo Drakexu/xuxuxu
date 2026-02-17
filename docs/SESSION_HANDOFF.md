@@ -1864,3 +1864,28 @@ pm run -s build -> pass
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run -s build` -> pass
+
+## 2026-02-17 checkpoint: chat scene dock pass #7
+- Files changed:
+  - `app/chat/[characterId]/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Added `Scene Dock` to chat page for static layered visual control (no voice required):
+    - scene presets (`Daily` / `Night` / `Closeup`)
+    - background thumb strip selection
+    - role-layer thumb strip selection
+    - role scale + Y-offset sliders
+  - Added role layer rendering on chat stage:
+    - chat stage now supports `background + role layer` composition in real time.
+  - Added per-character persistence for role-layer selection:
+    - localStorage key: `xuxuxu:chatRolePath:{characterId}`
+  - Expanded asset sampling for chat composer:
+    - increased character asset candidate load depth (`limit 60`, signed list up to 24)
+  - Improved auto background switching quality:
+    - auto cue matching now uses background-only assets instead of mixed asset pool.
+  - Added quick toggle in chat header actions:
+    - `Scene Dock On/Off`
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass

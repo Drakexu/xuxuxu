@@ -1602,6 +1602,18 @@ body {
   pointer-events: none;
 }
 
+.uiChatRoleLayer {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  height: 92%;
+  width: auto;
+  transform-origin: center bottom;
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.5));
+  opacity: 0.88;
+  pointer-events: none;
+}
+
 .uiChatStream {
   position: relative;
   z-index: 1;
@@ -1647,6 +1659,54 @@ body {
   min-width: 0;
 }
 
+.uiSceneThumbStrip {
+  display: flex;
+  gap: 8px;
+  overflow: auto;
+  padding-bottom: 2px;
+}
+
+.uiSceneThumb {
+  appearance: none;
+  width: 100px;
+  min-width: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(22, 22, 22, 0.86);
+  color: rgba(255, 255, 255, 0.88);
+  padding: 6px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+}
+
+.uiSceneThumb img {
+  width: 100%;
+  height: 70px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.uiSceneThumb span {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.uiSceneThumbActive {
+  border-color: rgba(249, 217, 142, 0.44);
+  background: rgba(77, 29, 40, 0.72);
+}
+
+.uiSceneRangeRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .uiModalOverlay {
   position: fixed;
   inset: 0;
@@ -1678,6 +1738,10 @@ body {
   .uiChatComposer > .uiBtn {
     flex: 1;
     min-width: 126px;
+  }
+
+  .uiSceneRangeRow {
+    grid-template-columns: 1fr;
   }
 
   .uiModalPanel {
