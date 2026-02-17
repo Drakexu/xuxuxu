@@ -1048,7 +1048,7 @@ export default function ChatPage() {
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
         {patchOk === false && patchError && <div className="uiAlert uiAlertErr">状态补丁错误：{patchError}</div>}
 
-        <div className="uiPanel" style={{ marginTop: 10 }}>
+        <div className="uiPanel uiPanelCompactTop">
           <div className="uiPanelHeader">
             <div>
               <div className="uiPanelTitle">执行控制台</div>
@@ -1149,6 +1149,7 @@ export default function ChatPage() {
         </div>
 
         <div
+          className="uiChatStage"
           ref={listRef}
           onScroll={() => {
             const el = listRef.current
@@ -1164,32 +1165,14 @@ export default function ChatPage() {
             setShowScrollDown(!nearBottom)
             if (nearBottom) setPendingDownCount(0)
           }}
-          style={{
-            height: '62vh',
-            overflow: 'auto',
-            border: '1px solid rgba(0,0,0,.08)',
-            borderRadius: 18,
-            padding: 16,
-            background: 'rgba(255,255,255,.62)',
-            marginTop: 12,
-            position: 'relative',
-          }}
+          style={{ height: '62vh' }}
         >
           {chatBgUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
+              className="uiChatStageBg"
               alt=""
               src={chatBgUrl}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                opacity: 0.14,
-                filter: 'saturate(1.05) contrast(1.05)',
-                pointerEvents: 'none',
-              }}
             />
           )}
           {loadingHistory && <div className="uiHint">正在加载聊天记录...</div>}
@@ -1203,7 +1186,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          <div style={{ position: 'relative' }}>
+          <div className="uiChatStream">
           {messages.map((m, idx) => (
             <div key={m.id || idx} className={`chatRow ${m.role === 'user' ? 'chatRowUser' : 'chatRowAssistant'}`}>
               {m.role === 'assistant' && (
@@ -1229,12 +1212,12 @@ export default function ChatPage() {
               )}
             </div>
           ))}
-          {sending && <div className="uiHint" style={{ marginTop: 8 }}>发送中...</div>}
+          {sending && <div className="uiHint uiChatSendingHint">发送中...</div>}
           </div>
         </div>
 
         {showDetails && (
-          <div className="uiPanel" style={{ marginTop: 12 }}>
+          <div className="uiPanel uiPanelCompactTop">
             <div className="uiPanelHeader">
               <div>
                 <div className="uiPanelTitle">账本 / 记忆</div>
@@ -1323,8 +1306,7 @@ export default function ChatPage() {
 
         {showScrollDown && (
           <button
-            className="uiBtn uiBtnPrimary"
-            style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 30 }}
+            className="uiBtn uiBtnPrimary uiChatJump"
             onClick={() => {
               listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
               setShowScrollDown(false)
@@ -1335,9 +1317,9 @@ export default function ChatPage() {
           </button>
         )}
 
-        {showScrollDown && pendingDownCount > 0 && <div className="uiHint">有 {pendingDownCount} 条新消息</div>}
+        {showScrollDown && pendingDownCount > 0 && <div className="uiHint uiChatPending">有 {pendingDownCount} 条新消息</div>}
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+        <div className="uiChatComposer">
           <input
             className="uiInput"
             value={input}
@@ -1361,23 +1343,13 @@ export default function ChatPage() {
 
       {showUserCard && (
         <div
+          className="uiModalOverlay"
           role="dialog"
           aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,.35)',
-            zIndex: 50,
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            padding: 18,
-          }}
           onClick={() => setShowUserCard(false)}
         >
           <div
-            className="uiPanel"
-            style={{ width: 'min(820px, 100%)', marginTop: 56 }}
+            className="uiPanel uiModalPanel"
             onClick={(e) => {
               e.stopPropagation()
             }}

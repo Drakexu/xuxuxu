@@ -1727,3 +1727,23 @@ pm run -s build -> pass
 - Validation:
   - `npm run lint` passed
   - `npm run build` passed
+
+## 2026-02-17 checkpoint: Candy UI pass #2 (chat surface consolidation)
+- Files changed:
+  - `app/chat/[characterId]/page.tsx`
+  - `app/globals.css`
+- Completed:
+  - Finished class-based migration for chat page so Candy styling can be controlled centrally in CSS:
+    - panel top spacing (`uiPanelCompactTop`)
+    - chat stage shell/background/stream wrappers (`uiChatStage`, `uiChatStageBg`, `uiChatStream`)
+    - sending + pending hints (`uiChatSendingHint`, `uiChatPending`)
+    - return-to-bottom floating action (`uiChatJump`)
+    - composer row layout (`uiChatComposer`)
+    - user-card modal overlay/panel (`uiModalOverlay`, `uiModalPanel`)
+  - Added a dedicated Candy-style utility layer in global styles for chat/modal depth:
+    - richer stage gradient and shadow
+    - modal blur/backdrop treatment
+    - mobile-specific composer and floating-button adjustments
+- Validation:
+  - `npm run -s lint` passed
+  - `npm run -s build` passed
