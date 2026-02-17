@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-17 (checkpoint: prompt alignment core v32)
+Last updated: 2026-02-17 (checkpoint: subject guard hardening v33)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -66,6 +66,20 @@ Repo: `d:/projects/xuxuxu`
     - assistant rewrite instruction text
   - Added machine-readable prompt alignment mirror for tooling:
     - `docs/aibaji/prompt_alignment_map.json`
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Subject guard hardening v33 checkpoint (latest)
+- File changed:
+  - `app/api/chat/route.ts`
+- Completed:
+  - Added speaker whitelist validation in output rewrite guard path:
+    - when multi-cast mode is active, role lines are now checked against `run_state.present_characters`
+    - non-whitelisted speakers trigger rewrite before persistence
+    - user-speaker impersonation remains blocked and now participates in the same guard flow
+  - Reused same guard arguments for first-pass output and rewrite output validation to keep behavior consistent.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

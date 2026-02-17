@@ -175,6 +175,18 @@ function isDialogueLine(text: string) {
   return !!speaker
 }
 
+function getDialogueSpeaker(line: string) {
+  return (String(line || '').trim().match(/^([^:\n：]{1,16})\s*[:：]/)?.[1] || '').trim()
+}
+
+function normalizeSpeakerName(name: string) {
+  return String(name || '')
+    .replace(/^\{/, '')
+    .replace(/\}$/, '')
+    .trim()
+    .toLowerCase()
+}
+
 function isBracketSnippet(text: string) {
   const t = String(text || '').trim()
   if (!t) return false
@@ -185,8 +197,14 @@ function isBracketSnippet(text: string) {
   return line.slice(1, -1).trim().length >= 2
 }
 
-function shouldRewriteAssistantOutput(args: { text: string; inputEvent: InputEvent | null; userMessageForModel?: string }) {
-  const { text, inputEvent, userMessageForModel } = args
+function shouldRewriteAssistantOutput(args: {
+  text: string
+  inputEvent: InputEvent | null
+  userMessageForModel?: string
+  allowedSpeakers?: string[]
+  enforceSpeakerSet?: boolean
+}) {
+  const { text, inputEvent, userMessageForModel, allowedSpeakers = [], enforceSpeakerSet = false } = args
   const s = String(text || '').trim()
   if (!s) return true
 
@@ -207,6 +225,25 @@ function shouldRewriteAssistantOutput(args: { text: string; inputEvent: InputEve
     if (!isBracketSnippet(s)) return true
     const lines = s.split('\n').map((x) => x.trim())
     if (lines.some((line) => isDialogueLine(line))) return true
+  }
+
+  if (enforceSpeakerSet) {
+    const allowed = new Set(
+      allowedSpeakers
+        .map((x) => normalizeSpeakerName(String(x || '')))
+        .filter(Boolean)
+        .filter((x) => x !== 'user'),
+    )
+    const roleLines = s.split('\n').map((x) => x.trim()).filter((line) => isDialogueLine(line))
+    if (roleLines.length) {
+      const unknownSpeaker = roleLines.some((line) => {
+        const speaker = normalizeSpeakerName(getDialogueSpeaker(line))
+        if (!speaker) return false
+        if (speaker === 'user' || speaker === '{user}') return true
+        return allowed.size > 0 && !allowed.has(speaker)
+      })
+      if (unknownSpeaker) return true
+    }
   }
 
   if (typeof userMessageForModel === 'string' && isStrictMultiCast(userMessageForModel)) {
@@ -992,6 +1029,11 @@ export async function POST(req: Request) {
     })
     const promptPolicy = derivePromptOsPolicy({ conversationState, inputEvent })
     const promptOs = buildPromptOs(promptPolicy)
+    const runStateForGuard = asRecord(asRecord(conversationState)['run_state'])
+    const guardAllowedSpeakers = asArray(runStateForGuard['present_characters']).map((x) => String(x || '').trim()).filter(Boolean)
+    const guardEnforceSpeakerSet =
+      String(runStateForGuard['narration_mode'] || '') === 'MULTI_CAST' ||
+      (typeof userMessageForModel === 'string' && isStrictMultiCast(userMessageForModel))
 
     // MiniMax M2-her expects chat-style messages. In practice, multiple `system` messages
     // may be treated as an unsupported "group chat" configuration, so we merge into one.
@@ -1018,7 +1060,15 @@ export async function POST(req: Request) {
     if (!assistantMessage) return NextResponse.json({ error: 'MiniMax returned empty content', raw: mmJson }, { status: 502 })
 
     // Guardrail: rare cases where the model violates output constraints (JSON leak / wrong mode).
-    if (shouldRewriteAssistantOutput({ text: assistantMessage, inputEvent: inputEvent || null, userMessageForModel })) {
+    if (
+      shouldRewriteAssistantOutput({
+        text: assistantMessage,
+        inputEvent: inputEvent || null,
+        userMessageForModel,
+        allowedSpeakers: guardAllowedSpeakers,
+        enforceSpeakerSet: guardEnforceSpeakerSet,
+      })
+    ) {
       try {
         const rewrite = (await callMiniMax(mmBase, mmKey, {
           model: 'M2-her',
@@ -1041,7 +1091,17 @@ export async function POST(req: Request) {
         })) as MiniMaxResponse
 
         const fixed = (rewrite?.choices?.[0]?.message?.content ?? rewrite?.reply ?? rewrite?.output_text ?? '').trim()
-        if (fixed && !shouldRewriteAssistantOutput({ text: fixed, inputEvent: inputEvent || null, userMessageForModel })) assistantMessage = fixed
+        if (
+          fixed &&
+          !shouldRewriteAssistantOutput({
+            text: fixed,
+            inputEvent: inputEvent || null,
+            userMessageForModel,
+            allowedSpeakers: guardAllowedSpeakers,
+            enforceSpeakerSet: guardEnforceSpeakerSet,
+          })
+        )
+          assistantMessage = fixed
       } catch {
         // ignore: fall back to original output
       }
