@@ -1320,3 +1320,17 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v19 checkpoint (latest)
+- Files changed:
+  - `app/home/page.tsx`
+  - `app/home/[characterId]/page.tsx`
+- Completed:
+  - Expanded feed interaction filters:
+    - added `仅看喜欢` on both aggregate and single-character feeds
+    - retained `仅看收藏` filter
+  - Added `喜欢` KPI card beside `收藏` for faster social-state scanning.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass

@@ -75,6 +75,7 @@ export default function HomeFeedPage() {
   const [imgById, setImgById] = useState<Record<string, string>>({})
   const [activeCharId, setActiveCharId] = useState<string>('') // '' => all
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
+  const [likedOnly, setLikedOnly] = useState(false)
   const [savedOnly, setSavedOnly] = useState(false)
   const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
@@ -323,9 +324,10 @@ export default function HomeFeedPage() {
     if (feedTab === 'SCHEDULE') next = next.filter((it) => it.input_event === 'SCHEDULE_TICK')
     const q = feedQuery.trim().toLowerCase()
     if (q) next = next.filter((it) => (it.content || '').toLowerCase().includes(q))
+    if (likedOnly) next = next.filter((it) => !!feedReactions[it.id]?.liked)
     if (savedOnly) next = next.filter((it) => !!feedReactions[it.id]?.saved)
     return next
-  }, [items, activeCharId, feedTab, activated, unlocked, viewMode, feedQuery, savedOnly, feedReactions])
+  }, [items, activeCharId, feedTab, activated, unlocked, viewMode, feedQuery, likedOnly, savedOnly, feedReactions])
 
   const nameById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -511,6 +513,10 @@ export default function HomeFeedPage() {
               <span>日程片段</span>
             </div>
             <div className="uiKpi">
+              <b>{feedStats.liked}</b>
+              <span>喜欢</span>
+            </div>
+            <div className="uiKpi">
               <b>{feedStats.saved}</b>
               <span>收藏</span>
             </div>
@@ -639,6 +645,9 @@ export default function HomeFeedPage() {
                     </button>
                     <button className={`uiPill ${feedTab === 'SCHEDULE' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('SCHEDULE')}>
                       日程
+                    </button>
+                    <button className={`uiPill ${likedOnly ? 'uiPillActive' : ''}`} onClick={() => setLikedOnly((v) => !v)}>
+                      仅看喜欢
                     </button>
                     <button className={`uiPill ${savedOnly ? 'uiPillActive' : ''}`} onClick={() => setSavedOnly((v) => !v)}>
                       仅看收藏

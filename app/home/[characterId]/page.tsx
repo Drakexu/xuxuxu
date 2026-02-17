@@ -102,6 +102,7 @@ export default function CharacterHomePage() {
 
   const [title, setTitle] = useState('')
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
+  const [likedOnly, setLikedOnly] = useState(false)
   const [savedOnly, setSavedOnly] = useState(false)
   const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
@@ -525,9 +526,10 @@ export default function CharacterHomePage() {
     else if (feedTab === 'SCHEDULE') next = next.filter((x) => x.input_event === 'SCHEDULE_TICK')
     const q = feedQuery.trim().toLowerCase()
     if (q) next = next.filter((x) => (x.content || '').toLowerCase().includes(q))
+    if (likedOnly) next = next.filter((x) => !!feedReactions[x.id]?.liked)
     if (savedOnly) next = next.filter((x) => !!feedReactions[x.id]?.saved)
     return next
-  }, [items, feedTab, feedQuery, savedOnly, feedReactions])
+  }, [items, feedTab, feedQuery, likedOnly, savedOnly, feedReactions])
 
   const stats = useMemo(() => {
     const moment = items.filter((x) => x.input_event === 'MOMENT_POST').length
@@ -652,6 +654,10 @@ export default function CharacterHomePage() {
                 <div className="uiKpi">
                   <b>{stats.schedule}</b>
                   <span>日程片段</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{stats.liked}</b>
+                  <span>喜欢</span>
                 </div>
                 <div className="uiKpi">
                   <b>{stats.saved}</b>
@@ -806,6 +812,9 @@ export default function CharacterHomePage() {
                   </button>
                   <button className={`uiPill ${feedTab === 'SCHEDULE' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('SCHEDULE')}>
                     日程
+                  </button>
+                  <button className={`uiPill ${likedOnly ? 'uiPillActive' : ''}`} onClick={() => setLikedOnly((v) => !v)}>
+                    仅看喜欢
                   </button>
                   <button className={`uiPill ${savedOnly ? 'uiPillActive' : ''}`} onClick={() => setSavedOnly((v) => !v)}>
                     仅看收藏
