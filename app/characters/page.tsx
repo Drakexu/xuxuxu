@@ -397,6 +397,9 @@ export default function CharactersPage() {
                     <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/square')}>
                       去广场解锁角色
                     </button>
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wardrobe')}>
+                      去衣柜资产中心
+                    </button>
                     <button className="uiBtn uiBtnGhost" onClick={() => router.push('/home')}>
                       去首页看动态
                     </button>

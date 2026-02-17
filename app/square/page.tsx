@@ -884,6 +884,9 @@ export default function SquarePage() {
                   <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/home')}>
                     打开首页
                   </button>
+                  <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wardrobe')}>
+                    打开衣柜资产中心
+                  </button>
                   <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
                     管理我的角色
                   </button>

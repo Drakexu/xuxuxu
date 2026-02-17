@@ -1258,6 +1258,9 @@ export default function HomeFeedPage() {
                     <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/characters')}>
                       管理角色
                     </button>
+                    <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wardrobe')}>
+                      衣柜资产中心
+                    </button>
                     <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
                       去广场
                     </button>

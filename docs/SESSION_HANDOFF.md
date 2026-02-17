@@ -1911,3 +1911,19 @@ pm run -s build -> pass
   - `npm run -s lint` -> pass
   - `npm run -s build` -> pass
   - `npx tsc --noEmit` -> pass
+
+## 2026-02-17 checkpoint: wardrobe entry loop pass #9
+- Files changed:
+  - `app/home/page.tsx`
+  - `app/square/page.tsx`
+  - `app/characters/page.tsx`
+- Completed:
+  - Added direct `衣柜资产中心` entry actions in major pages:
+    - Home quick actions
+    - Square operations panel
+    - Characters workbench sidebar
+  - This closes the main loop from discovery/chat to wardrobe management.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
