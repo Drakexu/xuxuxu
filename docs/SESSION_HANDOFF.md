@@ -2006,3 +2006,31 @@ pm run -s build -> pass
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run -s build` -> pass
+
+## 2026-02-18 checkpoint: wallet center product loop pass
+- Files changed:
+  - `app/api/wallet/history/route.ts` (new)
+  - `app/wallet/page.tsx` (new)
+  - `lib/wallet.ts`
+  - `app/_components/AppShell.tsx`
+  - `app/square/page.tsx`
+  - `app/square/[characterId]/page.tsx`
+  - `README.md`
+- Completed:
+  - Added wallet history API:
+    - `GET /api/wallet/history`
+    - returns transaction list + unlock receipts + role name mapping
+    - graceful fallback when wallet tables are unavailable
+  - Added top-level wallet center page (`/wallet`):
+    - balance / total spent / total unlocked KPIs
+    - recent debit/credit transaction feed
+    - unlock receipts with direct jump to chat/square detail
+  - Added navigation/product loop entry points:
+    - main sidebar + mobile dock includes `钱包`
+    - square list/detail operations include `钱包中心` jump
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npm run -s build` -> pass
+  - `npx tsc --noEmit` -> pass
+- Note:
+  - after adding new routes, run `npm run -s build` once before standalone `tsc`, because `.next/types` route unions are build-generated.

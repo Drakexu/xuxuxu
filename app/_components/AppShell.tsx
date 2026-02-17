@@ -21,6 +21,7 @@ export default function AppShell(props: {
     () => [
       { href: '/home', label: '首页', desc: '已激活角色与动态流' },
       { href: '/square', label: '广场', desc: '公开角色发现与解锁' },
+      { href: '/wallet', label: '钱包', desc: '星币余额与解锁流水' },
       { href: '/wardrobe', label: '衣柜资产', desc: '跨角色穿搭与资产聚合' },
       { href: '/characters', label: '创建角色', desc: '角色工作台与资产管理' },
     ],

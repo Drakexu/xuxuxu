@@ -55,6 +55,7 @@ npm run start
 
 - `/home`: unlocked/activated character feed (moment/diary/schedule)
 - `/square`: public character discovery + unlock/activate
+- `/wallet`: wallet center (coins, unlock receipts, transaction history)
 - `/characters`: creator studio + role management
 - `/chat/[characterId]`: conversation runtime with state controls
 
@@ -90,6 +91,7 @@ npm run start
 
 - APIs:
   - `GET /api/wallet/summary`
+  - `GET /api/wallet/history`
   - `POST /api/square/unlock`
 - Behavior:
   - Unlock now uses server-side idempotent flow (same user/source will not double charge).

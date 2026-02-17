@@ -979,6 +979,9 @@ export default function SquarePage() {
                   <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/home')}>
                     打开首页
                   </button>
+                  <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wallet')}>
+                    打开钱包中心
+                  </button>
                   <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wardrobe')}>
                     打开衣柜资产中心
                   </button>

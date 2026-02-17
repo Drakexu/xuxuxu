@@ -688,6 +688,9 @@ export default function SquareDetailPage() {
                         <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/characters/new?from=${encodeURIComponent(item.id)}`)}>
                           衍生创建
                         </button>
+                        <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wallet')}>
+                          钱包中心
+                        </button>
                         <button className="uiBtn uiBtnSecondary" disabled={busy} onClick={() => toggleActivation(!unlockedActive)}>
                           {busy ? '处理中...' : unlockedActive ? '取消激活' : '激活到首页'}
                         </button>
@@ -715,6 +718,11 @@ export default function SquareDetailPage() {
                         <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/characters/new?from=${encodeURIComponent(item.id)}`)}>
                           衍生创建
                         </button>
+                        {isLoggedIn ? (
+                          <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wallet')}>
+                            钱包中心
+                          </button>
+                        ) : null}
                         {!isLoggedIn ? (
                           <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
                             去登录
