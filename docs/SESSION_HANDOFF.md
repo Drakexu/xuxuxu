@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-17 (checkpoint: chat ux rhythm v35)
+Last updated: 2026-02-17 (checkpoint: cron catchup playbook v36)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -128,6 +128,22 @@ Repo: `d:/projects/xuxuxu`
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run -s build` -> pass
+
+### Cron catchup playbook v36 checkpoint (latest)
+- File changed:
+  - `docs/cron.md`
+- Completed:
+  - Added explicit backlog recovery runbook for `patch_jobs`:
+    - temporary `PATCH_CRON_BATCH` increase strategy
+    - safe cadence escalation guidance (`*/2` -> `* * * * *` only when needed)
+    - rollback-to-normal guidance after queue recovery
+  - Added ready-to-run SQL monitoring queries:
+    - queue state distribution
+    - recent failed jobs
+    - long-pending/processing detection
+  - Added incident-time manual replay command example for `/api/cron/patch`.
+- Validation:
+  - documentation-only change, no runtime behavior modified.
 
 ### Patch consistency v10 checkpoint (latest)
 - Files changed:

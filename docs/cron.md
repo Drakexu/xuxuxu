@@ -68,6 +68,59 @@ Use the included defaults unless traffic is very high:
 - Keep memory cron at `*/10 * * * *` for stable usage.
 - Keep schedule cron at `0 * * * *` (hourly posts/diary hooks).
 
+### Backlog catch-up playbook
+
+When `patch_jobs` backlog grows (for example after deployment downtime), use this sequence:
+
+1. Increase batch safely:
+- set `PATCH_CRON_BATCH=30` (default is 10, max enforced in route is 50).
+- keep cron at `*/2 * * * *` first; only move to `* * * * *` if backlog is still growing.
+
+2. Watch job state distribution:
+- `pending` should trend down.
+- `failed` should stay low and stable.
+- `processing` should not remain stuck for long windows.
+
+3. Roll back to normal once recovered:
+- reset `PATCH_CRON_BATCH=10`.
+- keep `*/2 * * * *` schedule.
+
+### Suggested monitoring queries
+
+```sql
+-- queue shape
+select status, count(*) as n
+from patch_jobs
+group by status
+order by status;
+
+-- recent failures
+select id, conversation_id, turn_seq, attempts, last_error, updated_at
+from patch_jobs
+where status = 'failed'
+order by updated_at desc
+limit 50;
+
+-- old pending jobs (possible stuck signals)
+select id, conversation_id, turn_seq, attempts, created_at, updated_at
+from patch_jobs
+where status in ('pending', 'processing')
+  and created_at < now() - interval '30 minutes'
+order by created_at asc
+limit 100;
+```
+
+### Manual replay during incident
+
+Use the patch cron endpoint directly (same auth as Vercel cron):
+
+```powershell
+$secret = (Select-String -Path .env.local -Pattern '^CRON_SECRET=' | Select-Object -First 1).Line.Split('=',2)[1].Trim()
+Invoke-WebRequest -Method GET -Uri "http://localhost:3000/api/cron/patch" -Headers @{ Authorization = "Bearer $secret" } | Select-Object -Expand Content
+```
+
+Run it multiple times while observing `processed / ok_count / failed_count`.
+
 ## Local Manual Test
 
 Use `Authorization: Bearer` to avoid putting secrets in URLs:
