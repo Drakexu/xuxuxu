@@ -24,6 +24,9 @@ Behavior:
 - If manual control is `PAUSE`, scheduled auto posts are skipped.
 - If `lock_mode = story_lock` and lock is still active, scheduled auto posts are skipped.
 - If story lock is expired, cron best-effort auto-clears lock and restores `PLAY`.
+- `MOMENT_POST` defaults to strict hourly mode: max 1 post per UTC hour per conversation.
+  - Can be switched to probabilistic mode with `MOMENT_POST_STRICT_HOURLY=false`.
+  - In probabilistic mode, cadence is controlled by `MOMENT_POST_MINUTES` + `MOMENT_POST_PROB`.
 
 Control writes are handled by:
 
@@ -67,6 +70,7 @@ Use the included defaults unless traffic is very high:
 - Keep patch cron at `*/2 * * * *` (every 2 minutes), and scale to `* * * * *` only if needed.
 - Keep memory cron at `*/10 * * * *` for stable usage.
 - Keep schedule cron at `0 * * * *` (hourly posts/diary hooks).
+- Keep `MOMENT_POST_STRICT_HOURLY=true` for "朋友圈每小时一条" behavior.
 
 ### Backlog catch-up playbook
 

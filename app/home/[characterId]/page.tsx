@@ -634,7 +634,7 @@ export default function CharacterHomePage() {
       <AppShell
         title={title ? `${title} · 动态中心` : '角色动态中心'}
         badge="life"
-        subtitle="角色朋友圈 / 日记 / 日程片段 + 账本快照 + 视觉资产"
+        subtitle="角色朋友圈（每小时）/ 日记（每天）/ 日程片段（每小时） + 账本快照 + 视觉资产"
         actions={
           <>
             <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/chat/${characterId}`)}>

@@ -491,7 +491,7 @@ export default function HomeFeedPage() {
       <AppShell
         title="首页"
         badge="feed"
-        subtitle="已激活角色：朋友圈 / 日记 / 日程片段"
+        subtitle="已激活角色：朋友圈（每小时）/ 日记（每天）/ 日程片段（每小时）"
         actions={
           <>
             <button className="uiBtn uiBtnSecondary" onClick={() => setManage((v) => !v)}>
@@ -507,7 +507,7 @@ export default function HomeFeedPage() {
           <div>
             <span className="uiBadge">角色生活流</span>
             <h2 className="uiHeroTitle">首页聚合你已解锁角色的动态</h2>
-            <p className="uiHeroSub">角色会按设定持续生成朋友圈、日记和日程片段。你可以直接切换角色、过滤动态、跳转到单角色动态中心。</p>
+            <p className="uiHeroSub">角色会按设定持续生成朋友圈、日记和日程片段。默认节律为每小时片段/朋友圈、每天一篇日记；你可以切换角色并过滤动态。</p>
             {!feedReactionTableReady ? <p className="uiHint">互动状态当前使用本地缓存（尚未启用 feed_reactions 数据表）。</p> : null}
           </div>
           <div className="uiKpiGrid">

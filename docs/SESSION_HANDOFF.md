@@ -1384,3 +1384,26 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v23 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/api/cron/schedule/route.ts
+  - .env.example
+  - docs/cron.md
+  - pp/home/page.tsx
+  - pp/home/[characterId]/page.tsx
+- Completed:
+  - Enforced hourly rhythm for role social output:
+    - MOMENT_POST now defaults to strict mode (MOMENT_POST_STRICT_HOURLY=true), max 1 post per UTC hour per conversation.
+    - Kept backward compatibility: can switch to old probabilistic mode (MOMENT_POST_STRICT_HOURLY=false) and use MOMENT_POST_MINUTES + MOMENT_POST_PROB.
+  - Updated ops docs and env template for the new scheduler controls.
+  - Updated Home/Character Home subtitles to explicitly display hourly/daily cadence.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass

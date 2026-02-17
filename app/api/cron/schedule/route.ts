@@ -67,8 +67,20 @@ function dayStartUtc(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0))
 }
 
+function hourStartUtc(d: Date) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), 0, 0, 0))
+}
+
 function minutesAgo(d: Date, mins: number) {
   return new Date(d.getTime() - mins * 60 * 1000)
+}
+
+function envFlag(v: string | undefined, fallback = false) {
+  const s = String(v || '').trim().toLowerCase()
+  if (!s) return fallback
+  if (s === '1' || s === 'true' || s === 'yes' || s === 'on') return true
+  if (s === '0' || s === 'false' || s === 'no' || s === 'off') return false
+  return fallback
 }
 
 function pickMiniMaxText(r: MiniMaxResponse) {
@@ -439,6 +451,9 @@ export async function POST(req: Request) {
     const now = new Date()
     const idleMins = clamp(Number(process.env.SCHEDULE_IDLE_MINUTES ?? 60), 10, 24 * 60)
     const maxConversations = clamp(Number(process.env.SCHEDULE_CRON_MAX_CONVERSATIONS ?? 20), 1, 80)
+    const momentStrictHourly = envFlag(process.env.MOMENT_POST_STRICT_HOURLY, true)
+    const momentMinMinutes = clamp(Number(process.env.MOMENT_POST_MINUTES ?? 60), 10, 24 * 60)
+    const momentProb = clamp(Number(process.env.MOMENT_POST_PROB ?? 1), 0, 1)
 
     const convs = await sb.from('conversations').select('id,user_id,character_id,created_at,title').order('created_at', { ascending: false }).limit(300)
     if (convs.error) return NextResponse.json({ error: convs.error.message }, { status: 500 })
@@ -558,22 +573,39 @@ export async function POST(req: Request) {
           })
         }
 
-        // Moments: best-effort, not too frequent.
+        // Moments: default to strict hourly posting (one post per UTC hour per conversation).
+        // Can be switched back to probabilistic mode via MOMENT_POST_STRICT_HOURLY=false.
         try {
           const now2 = new Date()
-          const momentCutoff = minutesAgo(now2, clamp(Number(process.env.MOMENT_POST_MINUTES ?? 60), 10, 24 * 60))
-          const momentRecent = await sb
-            .from('messages')
-            .select('id')
-            .eq('conversation_id', convId)
-            .eq('role', 'assistant')
-            .eq('input_event', 'MOMENT_POST')
-            .gte('created_at', momentCutoff.toISOString())
-            .limit(1)
-            .maybeSingle()
+          let shouldPost = false
+          if (momentStrictHourly) {
+            const hourStart = hourStartUtc(now2)
+            const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000)
+            const momentThisHour = await sb
+              .from('messages')
+              .select('id')
+              .eq('conversation_id', convId)
+              .eq('role', 'assistant')
+              .eq('input_event', 'MOMENT_POST')
+              .gte('created_at', hourStart.toISOString())
+              .lt('created_at', hourEnd.toISOString())
+              .limit(1)
+              .maybeSingle()
+            shouldPost = !momentThisHour.data?.id
+          } else {
+            const momentCutoff = minutesAgo(now2, momentMinMinutes)
+            const momentRecent = await sb
+              .from('messages')
+              .select('id')
+              .eq('conversation_id', convId)
+              .eq('role', 'assistant')
+              .eq('input_event', 'MOMENT_POST')
+              .gte('created_at', momentCutoff.toISOString())
+              .limit(1)
+              .maybeSingle()
+            shouldPost = !momentRecent.data?.id && Math.random() < momentProb
+          }
 
-          const prob = clamp(Number(process.env.MOMENT_POST_PROB ?? 1), 0, 1)
-          const shouldPost = !momentRecent.data?.id && Math.random() < prob
           if (shouldPost) {
             const postTextRaw = await genMomentPost({
               mmBase,
