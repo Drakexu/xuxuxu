@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-17 (checkpoint: cron catchup playbook v36)
+Last updated: 2026-02-17 (checkpoint: candy palette override v37)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -144,6 +144,23 @@ Repo: `d:/projects/xuxuxu`
   - Added incident-time manual replay command example for `/api/cron/patch`.
 - Validation:
   - documentation-only change, no runtime behavior modified.
+
+### Candy palette override v37 checkpoint (latest)
+- File changed:
+  - `app/globals.css`
+- Completed:
+  - Added a Candy.ai-inspired global color override layer:
+    - dark base (`#131313`), wine accents (`#4d1d28` / `#b91923`), gold highlight (`#f9d98e`)
+    - updated root tokens (`--bg`, `--text`, `--muted`, `--accent*`, shadows)
+  - Applied cross-app visual overrides for major surfaces and controls:
+    - shell/header/sidebar/panel/card/input/chat bubbles/mobile dock
+    - primary/ghost buttons, badges/pills, nav active/hover states
+    - hero/auth gradient blocks and muted text channels
+  - Kept layout and interaction logic unchanged; this checkpoint is color-theme focused.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
 
 ### Patch consistency v10 checkpoint (latest)
 - Files changed:

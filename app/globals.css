@@ -1115,3 +1115,174 @@ body {
     animation: none !important;
   }
 }
+
+/* Candy.ai-inspired palette override */
+:root {
+  --bg: #131313;
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.62);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
+
+  --accent: rgba(249, 217, 142, 0.98);
+  --accent-2: rgba(185, 25, 35, 0.98);
+  --accent-border: rgba(249, 217, 142, 0.4);
+  --accent-bg: rgba(77, 29, 40, 0.72);
+  --accent-bg-2: rgba(249, 217, 142, 0.16);
+
+  --shadow-lg: 0 40px 120px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 20px 60px rgba(0, 0, 0, 0.32);
+  --shadow-soft: 0 18px 50px rgba(185, 25, 35, 0.22);
+}
+
+body {
+  background:
+    radial-gradient(1400px 900px at 5% -10%, rgba(77, 29, 40, 0.44) 0%, rgba(77, 29, 40, 0) 58%),
+    radial-gradient(1400px 900px at 95% 0%, rgba(185, 25, 35, 0.3) 0%, rgba(185, 25, 35, 0) 62%),
+    var(--bg);
+  color: var(--text);
+}
+
+.uiSidebar,
+.uiHeader,
+.uiPanel,
+.uiCard,
+.uiLandingHero,
+.uiLandingItem,
+.uiAuthCard,
+.uiKpi,
+.uiRow,
+.uiRoleRailItem,
+.uiInput,
+.uiTextarea,
+.chatBubbleAssistant,
+.chatBubbleUser,
+.uiIconBtn,
+.uiAvatar,
+.uiMobileDock,
+.uiMobileDockItem {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background: rgba(26, 26, 26, 0.82) !important;
+  color: var(--text) !important;
+}
+
+.uiSidebarTop,
+.uiHero,
+.uiAuthPanel,
+.uiRoleRailMedia,
+.uiCardMedia {
+  border-color: rgba(249, 217, 142, 0.26) !important;
+  background: linear-gradient(156deg, rgba(26, 26, 26, 0.95) 8%, rgba(42, 30, 33, 0.96) 86%) !important;
+  color: var(--text);
+}
+
+.uiBtnPrimary {
+  border: 1px solid rgba(249, 217, 142, 0.42);
+  background: linear-gradient(135deg, rgba(77, 29, 40, 0.9) 0%, rgba(58, 21, 30, 0.95) 100%);
+  color: rgba(249, 217, 142, 0.98);
+}
+
+.uiBtnPrimary:hover {
+  border-color: rgba(249, 217, 142, 0.62);
+  background: linear-gradient(135deg, rgba(94, 35, 49, 0.96) 0%, rgba(68, 24, 35, 1) 100%);
+}
+
+.uiBtnGhost,
+.uiBtnSecondary {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.uiBtnGhost:hover,
+.uiBtnSecondary:hover {
+  border-color: rgba(249, 217, 142, 0.44);
+  color: rgba(249, 217, 142, 0.98);
+  background: rgba(77, 29, 40, 0.58);
+}
+
+.uiBadge,
+.uiPillActive,
+.uiMobileDockItemActive {
+  border-color: rgba(249, 217, 142, 0.44) !important;
+  background: rgba(77, 29, 40, 0.72) !important;
+  color: rgba(249, 217, 142, 0.98) !important;
+}
+
+.uiPill {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(19, 19, 19, 0.8);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.uiPill:hover,
+.uiNavItem:hover,
+.uiRoleRailItem:hover {
+  border-color: rgba(249, 217, 142, 0.35) !important;
+  box-shadow: 0 16px 45px rgba(185, 25, 35, 0.25) !important;
+}
+
+.uiNavItem,
+.uiNavItemActive {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(26, 26, 26, 0.72);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.uiNavItemActive {
+  border-color: rgba(249, 217, 142, 0.42);
+  background: rgba(77, 29, 40, 0.76);
+  color: rgba(249, 217, 142, 0.98);
+}
+
+.uiHint,
+.uiSubtitle,
+.uiPanelSub,
+.uiHeroSub,
+.uiAuthSub,
+.uiKpi span,
+.uiCardMeta,
+.uiEmptyDesc,
+.uiRoleRailMeta,
+.uiSidebarMeta,
+.uiBrandSub,
+.uiBrandHint {
+  color: var(--muted) !important;
+}
+
+.uiSkeleton {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.uiEmpty {
+  border-color: rgba(249, 217, 142, 0.3);
+  background: rgba(26, 26, 26, 0.74);
+}
+
+.uiDivider,
+.uiPanelHeader,
+.uiPanelFooter,
+.uiSidebarBottom {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.uiInput:focus,
+.uiTextarea:focus {
+  border-color: rgba(249, 217, 142, 0.5);
+  box-shadow: 0 0 0 4px rgba(77, 29, 40, 0.44);
+}
+
+.uiX::before,
+.uiX::after {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 960px) {
+  .uiMobileDock,
+  .uiMobileDockItem {
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    background: rgba(19, 19, 19, 0.9) !important;
+    color: rgba(255, 255, 255, 0.86) !important;
+  }
+}
