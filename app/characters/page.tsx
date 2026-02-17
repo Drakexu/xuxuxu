@@ -34,6 +34,11 @@ function getSourceCharacterId(c: CharacterRow) {
   return typeof s.source_character_id === 'string' ? s.source_character_id.trim() : ''
 }
 
+function getForkedFromCharacterId(c: CharacterRow) {
+  const s = asRecord(c.settings)
+  return typeof s.forked_from_character_id === 'string' ? s.forked_from_character_id.trim() : ''
+}
+
 function isActivatedForHome(c: CharacterRow) {
   if (!isUnlockedFromSquare(c)) return false
   const s = asRecord(c.settings)
@@ -382,10 +387,11 @@ export default function CharactersPage() {
                 <div className="uiGrid">
                   {filteredCharacters.map((c) => {
                     const unlocked = isUnlockedFromSquare(c)
-                    const sourceCharacterId = unlocked ? getSourceCharacterId(c) : ''
+                    const sourceCharacterId = unlocked ? getSourceCharacterId(c) : getForkedFromCharacterId(c)
                     const active = isActivatedForHome(c)
                     const hidden = unlocked && asRecord(c.settings).home_hidden === true
                     const isCreated = !unlocked
+                    const isForked = isCreated && !!sourceCharacterId
                     const isPublic = c.visibility === 'public'
 
                     return (
@@ -410,7 +416,7 @@ export default function CharactersPage() {
                         <div className="uiCardMeta">
                           {isPublic ? '公开' : '私密'}
                           {unlocked ? ` · 已解锁${active ? ' · 已激活' : ''}` : ' · 我的创作'}
-                          {sourceCharacterId ? ` · 来源广场` : ''}
+                          {sourceCharacterId ? ` · ${unlocked ? '来源广场' : '衍生自广场'}` : ''}
                           {hidden ? ' · 已隐藏' : ''}
                         </div>
 
@@ -443,7 +449,7 @@ export default function CharactersPage() {
                             >
                               编辑
                             </button>
-                            {unlocked && sourceCharacterId ? (
+                            {sourceCharacterId ? (
                               <button
                                 className="uiBtn uiBtnGhost"
                                 onClick={(e) => {
@@ -451,7 +457,7 @@ export default function CharactersPage() {
                                   router.push(`/square/${sourceCharacterId}`)
                                 }}
                               >
-                                原角色详情
+                                模板详情
                               </button>
                             ) : null}
                             {unlocked && (
@@ -523,11 +529,7 @@ export default function CharactersPage() {
                             )}
                             {unlocked && (
                               <>
-                                {sourceCharacterId ? (
-                                  <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/square/${sourceCharacterId}`)}>
-                                    原角色详情
-                                  </button>
-                                ) : null}
+                                {sourceCharacterId ? <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/square/${sourceCharacterId}`)}>模板详情</button> : null}
                                 <button
                                   className="uiBtn uiBtnSecondary"
                                   disabled={busyId === c.id}
@@ -545,6 +547,11 @@ export default function CharactersPage() {
                                 </button>
                               </>
                             )}
+                            {isForked && !unlocked ? (
+                              <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/square/${sourceCharacterId}`)}>
+                                模板详情
+                              </button>
+                            ) : null}
                             <button className="uiBtn uiBtnGhost" disabled={deletingId === c.id} onClick={() => deleteCharacter(c.id)}>
                               {deletingId === c.id ? '删除中...' : '删除'}
                             </button>

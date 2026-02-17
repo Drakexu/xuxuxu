@@ -198,6 +198,7 @@ export default function NewCharacterPage() {
   const [alert, setAlert] = useState<Alert>(null)
   const [userId, setUserId] = useState('')
   const [f, setF] = useState<FormState>(DEFAULT_FORM)
+  const [sourceTemplateId, setSourceTemplateId] = useState('')
   const [sourceTemplateLabel, setSourceTemplateLabel] = useState('')
 
   const canCreate = useMemo(
@@ -215,6 +216,7 @@ export default function NewCharacterPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      setSourceTemplateId('')
       setSourceTemplateLabel('')
       const { data } = await supabase.auth.getUser()
       if (!data.user) {
@@ -239,6 +241,7 @@ export default function NewCharacterPage() {
         if (!src.error && src.data?.id) {
           const source = src.data as SourceCharacter
           setF(formFromSourceCharacter(source))
+          setSourceTemplateId(source.id)
           setSourceTemplateLabel(source.name || sourceFromId)
         }
       }
@@ -285,6 +288,9 @@ export default function NewCharacterPage() {
         romance_mode: resolvedRomanceMode,
         teen_mode: !!f.teenMode,
         age_mode: f.teenMode ? 'teen' : 'adult',
+        forked_from_character_id: sourceTemplateId || undefined,
+        forked_from_square: !!sourceTemplateId || undefined,
+        forked_at: sourceTemplateId ? new Date().toISOString() : undefined,
         plot_granularity: 'BEAT',
         ending_mode: 'MIXED',
         ending_repeat_window: 6,
@@ -401,6 +407,7 @@ export default function NewCharacterPage() {
                 className="uiBtn uiBtnGhost"
                 onClick={() => {
                   setF(DEFAULT_FORM)
+                  setSourceTemplateId('')
                   setSourceTemplateLabel('')
                 }}
               >

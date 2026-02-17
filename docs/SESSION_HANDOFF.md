@@ -1710,3 +1710,20 @@ pm run -s build -> pass
 - Validation:
   - `npm run lint` passed
   - `npm run build` passed
+
+## 2026-02-17 checkpoint: fork lineage persistence
+- Enhanced fork flow persistence in `app/characters/new/page.tsx`:
+  - when creating from `?from=<publicId>`, settings now record lineage fields:
+    - `forked_from_character_id`
+    - `forked_from_square`
+    - `forked_at`
+  - retained current UX (private-by-default fork, prefilled form, clear-template action)
+- Updated workbench lineage display in `app/characters/page.tsx`:
+  - source tracing now supports both:
+    - unlock lineage (`source_character_id`)
+    - fork lineage (`forked_from_character_id`)
+  - creator cards now show `衍生自广场` and expose `模板详情` jump back to square detail
+  - does not change unlocked-vs-created tab semantics
+- Validation:
+  - `npm run lint` passed
+  - `npm run build` passed
