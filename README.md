@@ -30,6 +30,7 @@ npm install
 
 - Run `supabase/schema_v1.sql`
 - Run `supabase/schema_feed_reactions.sql` (enables cross-device persistence for feed like/save)
+- Run `supabase/schema_feed_comments.sql` (enables feed comment persistence)
 
 4. Start dev server:
 
@@ -73,3 +74,13 @@ npm run start
 - Frontend behavior:
   - If `feed_reactions` table exists: sync with backend (cross-device)
   - If table does not exist: graceful fallback to localStorage cache
+
+## Feed Comments
+
+- API:
+  - `GET /api/feed/comments?messageIds=...&limitPerMessage=...`
+  - `POST /api/feed/comments`
+  - `DELETE /api/feed/comments`
+- Frontend behavior:
+  - If `feed_comments` table exists: comments are persisted per user and shown on Home / Character Home feeds
+  - If table does not exist: comments UI degrades gracefully with setup hint

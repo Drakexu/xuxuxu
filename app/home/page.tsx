@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { fetchFeedReactions, mergeFeedReactionMap, saveFeedReaction, type FeedReactionMap } from '@/lib/feedReactions'
+import {
+  createFeedComment,
+  deleteFeedComment,
+  fetchFeedComments,
+  mergeFeedCommentMap,
+  type FeedCommentMap,
+} from '@/lib/feedComments'
 import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import AppShell from '@/app/_components/AppShell'
 
@@ -116,11 +123,17 @@ export default function HomeFeedPage() {
   const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
   const [feedReactions, setFeedReactions] = useState<FeedReactionMap>({})
+  const [feedComments, setFeedComments] = useState<FeedCommentMap>({})
+  const [commentDraftByMessageId, setCommentDraftByMessageId] = useState<Record<string, string>>({})
+  const [commentExpandedByMessageId, setCommentExpandedByMessageId] = useState<Record<string, boolean>>({})
+  const [commentSavingMessageId, setCommentSavingMessageId] = useState('')
+  const [commentDeletingId, setCommentDeletingId] = useState('')
   const [feedAllowedCharacterIds, setFeedAllowedCharacterIds] = useState<string[]>([])
   const [feedCursor, setFeedCursor] = useState('')
   const [feedHasMore, setFeedHasMore] = useState(false)
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
   const [feedReactionTableReady, setFeedReactionTableReady] = useState(true)
+  const [feedCommentTableReady, setFeedCommentTableReady] = useState(true)
 
   const canLoad = useMemo(() => !loading, [loading])
 
@@ -170,6 +183,33 @@ export default function HomeFeedPage() {
     }
   }, [items])
 
+  useEffect(() => {
+    const messageIds = items.map((it) => String(it.id || '').trim()).filter(Boolean).slice(0, 200)
+    if (!messageIds.length) return
+
+    let canceled = false
+    const run = async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (!token) return
+        const out = await fetchFeedComments({ token, messageIds, limitPerMessage: 6 })
+        if (canceled) return
+        setFeedCommentTableReady(out.tableReady)
+        if (out.comments && Object.keys(out.comments).length) {
+          setFeedComments((prev) => mergeFeedCommentMap(prev, out.comments, 8))
+        }
+      } catch {
+        // ignore
+      }
+    }
+    void run()
+
+    return () => {
+      canceled = true
+    }
+  }, [items])
+
   const updateCharacterSettings = async (characterId: string, patch: Record<string, unknown>) => {
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
@@ -198,6 +238,11 @@ export default function HomeFeedPage() {
     setFeedCursor('')
     setFeedHasMore(false)
     setLoadingMoreFeed(false)
+    setFeedComments({})
+    setCommentDraftByMessageId({})
+    setCommentExpandedByMessageId({})
+    setCommentSavingMessageId('')
+    setCommentDeletingId('')
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
@@ -550,9 +595,10 @@ export default function HomeFeedPage() {
       schedules,
       liked: items.filter((it) => !!feedReactions[it.id]?.liked).length,
       saved: items.filter((it) => !!feedReactions[it.id]?.saved).length,
+      comments: Object.values(feedComments).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0),
       total: items.length,
     }
-  }, [items, feedReactions])
+  }, [items, feedReactions, feedComments])
   const digestStats = useMemo(() => {
     let full = 0
     let withConversation = 0
@@ -585,11 +631,12 @@ export default function HomeFeedPage() {
       moment,
       diary,
       schedule,
+      comments: ownItems.reduce((sum, it) => sum + Number(feedComments[it.id]?.length || 0), 0),
       latestAt: latest?.created_at || digest?.latestAt || '',
       latestContent: String(latest?.content || '').trim(),
       ledgerComplete: Number(digest?.complete || 0),
     }
-  }, [items, selectedCharacter, characterDigestById])
+  }, [items, selectedCharacter, characterDigestById, feedComments])
 
   const moveActivated = async (idx: number, direction: 'UP' | 'DOWN') => {
     if (idx < 0 || idx >= activated.length) return
@@ -672,6 +719,53 @@ export default function HomeFeedPage() {
     })()
   }
 
+  const toggleCommentExpanded = (messageId: string) => {
+    setCommentExpandedByMessageId((prev) => ({ ...prev, [messageId]: !prev[messageId] }))
+  }
+
+  const submitComment = async (messageId: string) => {
+    const content = String(commentDraftByMessageId[messageId] || '').trim()
+    if (!content || commentSavingMessageId) return
+    setCommentSavingMessageId(messageId)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) return
+      const out = await createFeedComment({ token, messageId, content })
+      setFeedCommentTableReady(out.tableReady)
+      const comment = out.comment
+      if (comment) {
+        setFeedComments((prev) => mergeFeedCommentMap(prev, { [messageId]: [comment] }, 8))
+        setCommentDraftByMessageId((prev) => ({ ...prev, [messageId]: '' }))
+        setCommentExpandedByMessageId((prev) => ({ ...prev, [messageId]: true }))
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCommentSavingMessageId('')
+    }
+  }
+
+  const removeComment = async (messageId: string, commentId: string) => {
+    if (!commentId || commentDeletingId) return
+    setCommentDeletingId(commentId)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) return
+      const out = await deleteFeedComment({ token, commentId })
+      setFeedCommentTableReady(out.tableReady)
+      setFeedComments((prev) => {
+        const list = (prev[messageId] || []).filter((x) => x.id !== commentId)
+        return { ...prev, [messageId]: list }
+      })
+    } catch {
+      // ignore
+    } finally {
+      setCommentDeletingId('')
+    }
+  }
+
   return (
     <div className="uiPage">
       <AppShell
@@ -695,6 +789,7 @@ export default function HomeFeedPage() {
             <h2 className="uiHeroTitle">首页聚合你已解锁角色的动态</h2>
             <p className="uiHeroSub">角色会按设定持续生成朋友圈、日记和日程片段。默认节律为每小时片段/朋友圈、每天一篇日记；你可以切换角色并过滤动态。</p>
             {!feedReactionTableReady ? <p className="uiHint">互动状态当前使用本地缓存（尚未启用 feed_reactions 数据表）。</p> : null}
+            {!feedCommentTableReady ? <p className="uiHint">评论能力未启用（请执行 feed_comments 建表脚本）。</p> : null}
           </div>
           <div className="uiKpiGrid">
             <div className="uiKpi">
@@ -734,6 +829,10 @@ export default function HomeFeedPage() {
               <span>收藏</span>
             </div>
             <div className="uiKpi">
+              <b>{feedStats.comments}</b>
+              <span>评论</span>
+            </div>
+            <div className="uiKpi">
               <b>{digestStats.withRecentFeed}</b>
               <span>有动态记录角色</span>
             </div>
@@ -764,6 +863,7 @@ export default function HomeFeedPage() {
                       <span className="uiBadge">朋友圈: {selectedCharacterStats.moment}</span>
                       <span className="uiBadge">日记: {selectedCharacterStats.diary}</span>
                       <span className="uiBadge">日程: {selectedCharacterStats.schedule}</span>
+                      <span className="uiBadge">评论: {selectedCharacterStats.comments}</span>
                       <span className={`uiBadge ${selectedCharacterStats.ledgerComplete >= 4 ? 'uiBadgeHealthOk' : 'uiBadgeHealthWarn'}`}>
                         账本完整度: {selectedCharacterStats.ledgerComplete}/4
                       </span>
@@ -924,45 +1024,94 @@ export default function HomeFeedPage() {
 
                   {filtered.length > 0 && (
                     <div style={{ display: 'grid', gap: 12 }}>
-                      {filtered.map((it) => (
-                        <div key={it.id} className="uiPanel" style={{ marginTop: 0 }}>
-                          <div className="uiPanelHeader">
-                            <div>
-                              <div className="uiPanelTitle">
-                                <span className="uiBadge" style={eventBadgeStyle(it.input_event)}>
-                                  {eventTitle(it.input_event)}
-                                </span>
-                                {(() => {
-                                  const cid = String(it.conversations?.character_id || '')
-                                  const nm = cid && nameById[cid] ? nameById[cid] : ''
-                                  return nm ? ` · ${nm}` : ''
-                                })()}
+                      {filtered.map((it) => {
+                        const comments = feedComments[it.id] || []
+                        const commentsExpanded = !!commentExpandedByMessageId[it.id]
+                        return (
+                          <div key={it.id} className="uiPanel" style={{ marginTop: 0 }}>
+                            <div className="uiPanelHeader">
+                              <div>
+                                <div className="uiPanelTitle">
+                                  <span className="uiBadge" style={eventBadgeStyle(it.input_event)}>
+                                    {eventTitle(it.input_event)}
+                                  </span>
+                                  {(() => {
+                                    const cid = String(it.conversations?.character_id || '')
+                                    const nm = cid && nameById[cid] ? nameById[cid] : ''
+                                    return nm ? ` · ${nm}` : ''
+                                  })()}
+                                </div>
+                                <div className="uiPanelSub">{new Date(it.created_at).toLocaleString()}</div>
                               </div>
-                              <div className="uiPanelSub">{new Date(it.created_at).toLocaleString()}</div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <button
+                                  className={`uiPill ${feedReactions[it.id]?.liked ? 'uiPillActive' : ''}`}
+                                  onClick={() => toggleReaction(it.id, 'liked')}
+                                >
+                                  {feedReactions[it.id]?.liked ? '已喜欢' : '喜欢'}
+                                </button>
+                                <button
+                                  className={`uiPill ${feedReactions[it.id]?.saved ? 'uiPillActive' : ''}`}
+                                  onClick={() => toggleReaction(it.id, 'saved')}
+                                >
+                                  {feedReactions[it.id]?.saved ? '已收藏' : '收藏'}
+                                </button>
+                                <button className={`uiPill ${commentsExpanded ? 'uiPillActive' : ''}`} onClick={() => toggleCommentExpanded(it.id)}>
+                                  评论 {comments.length}
+                                </button>
+                                <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${String(it.conversations?.character_id || '')}`)}>
+                                  去聊天
+                                </button>
+                              </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <button
-                                className={`uiPill ${feedReactions[it.id]?.liked ? 'uiPillActive' : ''}`}
-                                onClick={() => toggleReaction(it.id, 'liked')}
-                              >
-                                {feedReactions[it.id]?.liked ? '已喜欢' : '喜欢'}
-                              </button>
-                              <button
-                                className={`uiPill ${feedReactions[it.id]?.saved ? 'uiPillActive' : ''}`}
-                                onClick={() => toggleReaction(it.id, 'saved')}
-                              >
-                                {feedReactions[it.id]?.saved ? '已收藏' : '收藏'}
-                              </button>
-                              <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${String(it.conversations?.character_id || '')}`)}>
-                                去聊天
-                              </button>
+                            <div className="uiForm">
+                              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{it.content}</div>
+                              {commentsExpanded && (
+                                <div style={{ display: 'grid', gap: 10 }}>
+                                  {!feedCommentTableReady ? (
+                                    <div className="uiHint">评论功能未启用，请先执行 `schema_feed_comments.sql`。</div>
+                                  ) : (
+                                    <>
+                                      <div style={{ display: 'grid', gap: 8 }}>
+                                        {comments.length === 0 && <div className="uiHint">还没有评论。</div>}
+                                        {comments.map((c) => (
+                                          <div key={c.id} className="uiRow" style={{ alignItems: 'flex-start' }}>
+                                            <div style={{ minWidth: 0, flex: 1 }}>
+                                              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{c.content}</div>
+                                              <div className="uiHint" style={{ marginTop: 4 }}>
+                                                {c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}
+                                              </div>
+                                            </div>
+                                            <button className="uiBtn uiBtnGhost" disabled={commentDeletingId === c.id} onClick={() => void removeComment(it.id, c.id)}>
+                                              {commentDeletingId === c.id ? '删除中...' : '删除'}
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div style={{ display: 'flex', gap: 10 }}>
+                                        <input
+                                          className="uiInput"
+                                          placeholder="写一条评论（最多 300 字）"
+                                          value={commentDraftByMessageId[it.id] || ''}
+                                          onChange={(e) => setCommentDraftByMessageId((prev) => ({ ...prev, [it.id]: e.target.value.slice(0, 300) }))}
+                                          onKeyDown={(e) => {
+                                            if (e.key !== 'Enter') return
+                                            e.preventDefault()
+                                            void submitComment(it.id)
+                                          }}
+                                        />
+                                        <button className="uiBtn uiBtnPrimary" disabled={commentSavingMessageId === it.id} onClick={() => void submitComment(it.id)}>
+                                          {commentSavingMessageId === it.id ? '发送中...' : '发表评论'}
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <div className="uiForm">
-                            <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{it.content}</div>
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
 

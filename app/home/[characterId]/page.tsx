@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { fetchFeedReactions, mergeFeedReactionMap, saveFeedReaction, type FeedReactionMap } from '@/lib/feedReactions'
+import {
+  createFeedComment,
+  deleteFeedComment,
+  fetchFeedComments,
+  mergeFeedCommentMap,
+  type FeedCommentMap,
+} from '@/lib/feedComments'
 import AppShell from '@/app/_components/AppShell'
 
 type FeedItem = {
@@ -109,10 +116,16 @@ export default function CharacterHomePage() {
   const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
   const [feedReactions, setFeedReactions] = useState<FeedReactionMap>({})
+  const [feedComments, setFeedComments] = useState<FeedCommentMap>({})
+  const [commentDraftByMessageId, setCommentDraftByMessageId] = useState<Record<string, string>>({})
+  const [commentExpandedByMessageId, setCommentExpandedByMessageId] = useState<Record<string, boolean>>({})
+  const [commentSavingMessageId, setCommentSavingMessageId] = useState('')
+  const [commentDeletingId, setCommentDeletingId] = useState('')
   const [feedCursor, setFeedCursor] = useState('')
   const [feedHasMore, setFeedHasMore] = useState(false)
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
   const [feedReactionTableReady, setFeedReactionTableReady] = useState(true)
+  const [feedCommentTableReady, setFeedCommentTableReady] = useState(true)
   const [coverUrl, setCoverUrl] = useState('')
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [snapshot, setSnapshot] = useState<LedgerSnapshot | null>(null)
@@ -168,6 +181,32 @@ export default function CharacterHomePage() {
         }
       } catch {
         // ignore: local cache remains the fallback
+      }
+    }
+    void run()
+    return () => {
+      canceled = true
+    }
+  }, [items])
+
+  useEffect(() => {
+    const messageIds = items.map((it) => String(it.id || '').trim()).filter(Boolean).slice(0, 200)
+    if (!messageIds.length) return
+
+    let canceled = false
+    const run = async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (!token) return
+        const out = await fetchFeedComments({ token, messageIds, limitPerMessage: 6 })
+        if (canceled) return
+        setFeedCommentTableReady(out.tableReady)
+        if (out.comments && Object.keys(out.comments).length) {
+          setFeedComments((prev) => mergeFeedCommentMap(prev, out.comments, 8))
+        }
+      } catch {
+        // ignore
       }
     }
     void run()
@@ -316,6 +355,11 @@ export default function CharacterHomePage() {
     setFeedCursor('')
     setFeedHasMore(false)
     setLoadingMoreFeed(false)
+    setFeedComments({})
+    setCommentDraftByMessageId({})
+    setCommentExpandedByMessageId({})
+    setCommentSavingMessageId('')
+    setCommentDeletingId('')
     setLatestConversationId('')
     setScheduleState('PLAY')
     setLockMode('manual')
@@ -560,8 +604,9 @@ export default function CharacterHomePage() {
     const schedule = items.filter((x) => x.input_event === 'SCHEDULE_TICK').length
     const liked = items.filter((x) => !!feedReactions[x.id]?.liked).length
     const saved = items.filter((x) => !!feedReactions[x.id]?.saved).length
-    return { moment, diary, schedule, liked, saved, total: items.length }
-  }, [items, feedReactions])
+    const comments = Object.values(feedComments).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0)
+    return { moment, diary, schedule, liked, saved, comments, total: items.length }
+  }, [items, feedReactions, feedComments])
 
   const ledgerHealth = useMemo(() => {
     if (!snapshot) {
@@ -629,6 +674,53 @@ export default function CharacterHomePage() {
     })()
   }
 
+  const toggleCommentExpanded = (messageId: string) => {
+    setCommentExpandedByMessageId((prev) => ({ ...prev, [messageId]: !prev[messageId] }))
+  }
+
+  const submitComment = async (messageId: string) => {
+    const content = String(commentDraftByMessageId[messageId] || '').trim()
+    if (!content || commentSavingMessageId) return
+    setCommentSavingMessageId(messageId)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) return
+      const out = await createFeedComment({ token, messageId, content })
+      setFeedCommentTableReady(out.tableReady)
+      const comment = out.comment
+      if (comment) {
+        setFeedComments((prev) => mergeFeedCommentMap(prev, { [messageId]: [comment] }, 8))
+        setCommentDraftByMessageId((prev) => ({ ...prev, [messageId]: '' }))
+        setCommentExpandedByMessageId((prev) => ({ ...prev, [messageId]: true }))
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCommentSavingMessageId('')
+    }
+  }
+
+  const removeComment = async (messageId: string, commentId: string) => {
+    if (!commentId || commentDeletingId) return
+    setCommentDeletingId(commentId)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) return
+      const out = await deleteFeedComment({ token, commentId })
+      setFeedCommentTableReady(out.tableReady)
+      setFeedComments((prev) => {
+        const list = (prev[messageId] || []).filter((x) => x.id !== commentId)
+        return { ...prev, [messageId]: list }
+      })
+    } catch {
+      // ignore
+    } finally {
+      setCommentDeletingId('')
+    }
+  }
+
   return (
     <div className="uiPage">
       <AppShell
@@ -660,6 +752,7 @@ export default function CharacterHomePage() {
                 <h2 className="uiHeroTitle">{title || '该角色'}的生活与记忆控制台</h2>
                 <p className="uiHeroSub">这里聚合这名角色的朋友圈、日记、日程片段，并展示账本快照和资产预览，便于检查角色是否持续“活着”。</p>
                 {!feedReactionTableReady ? <p className="uiHint">互动状态当前使用本地缓存（尚未启用 feed_reactions 数据表）。</p> : null}
+                {!feedCommentTableReady ? <p className="uiHint">评论能力未启用（请执行 feed_comments 建表脚本）。</p> : null}
               </div>
               <div className="uiKpiGrid">
                 <div className="uiKpi">
@@ -685,6 +778,10 @@ export default function CharacterHomePage() {
                 <div className="uiKpi">
                   <b>{stats.saved}</b>
                   <span>收藏</span>
+                </div>
+                <div className="uiKpi">
+                  <b>{stats.comments}</b>
+                  <span>评论</span>
                 </div>
                 <div className="uiKpi">
                   <b>
@@ -860,34 +957,83 @@ export default function CharacterHomePage() {
                   </div>
                 )}
 
-                {filtered.map((it) => (
-                  <div key={it.id} className="uiPanel" style={{ marginTop: 0 }}>
-                    <div className="uiPanelHeader">
-                      <div>
-                        <div className="uiPanelTitle">
-                          <span className="uiBadge" style={eventBadgeStyle(it.input_event)}>
-                            {eventTitle(it.input_event)}
-                          </span>
+                {filtered.map((it) => {
+                  const comments = feedComments[it.id] || []
+                  const commentsExpanded = !!commentExpandedByMessageId[it.id]
+                  return (
+                    <div key={it.id} className="uiPanel" style={{ marginTop: 0 }}>
+                      <div className="uiPanelHeader">
+                        <div>
+                          <div className="uiPanelTitle">
+                            <span className="uiBadge" style={eventBadgeStyle(it.input_event)}>
+                              {eventTitle(it.input_event)}
+                            </span>
+                          </div>
+                          <div className="uiPanelSub">{new Date(it.created_at).toLocaleString()}</div>
                         </div>
-                        <div className="uiPanelSub">{new Date(it.created_at).toLocaleString()}</div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <button className={`uiPill ${feedReactions[it.id]?.liked ? 'uiPillActive' : ''}`} onClick={() => toggleReaction(it.id, 'liked')}>
+                            {feedReactions[it.id]?.liked ? '已喜欢' : '喜欢'}
+                          </button>
+                          <button className={`uiPill ${feedReactions[it.id]?.saved ? 'uiPillActive' : ''}`} onClick={() => toggleReaction(it.id, 'saved')}>
+                            {feedReactions[it.id]?.saved ? '已收藏' : '收藏'}
+                          </button>
+                          <button className={`uiPill ${commentsExpanded ? 'uiPillActive' : ''}`} onClick={() => toggleCommentExpanded(it.id)}>
+                            评论 {comments.length}
+                          </button>
+                          <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${characterId}`)}>
+                            去聊天
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <button className={`uiPill ${feedReactions[it.id]?.liked ? 'uiPillActive' : ''}`} onClick={() => toggleReaction(it.id, 'liked')}>
-                          {feedReactions[it.id]?.liked ? '已喜欢' : '喜欢'}
-                        </button>
-                        <button className={`uiPill ${feedReactions[it.id]?.saved ? 'uiPillActive' : ''}`} onClick={() => toggleReaction(it.id, 'saved')}>
-                          {feedReactions[it.id]?.saved ? '已收藏' : '收藏'}
-                        </button>
-                        <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${characterId}`)}>
-                          去聊天
-                        </button>
+                      <div className="uiForm">
+                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{it.content}</div>
+                        {commentsExpanded && (
+                          <div style={{ display: 'grid', gap: 10 }}>
+                            {!feedCommentTableReady ? (
+                              <div className="uiHint">评论功能未启用，请先执行 `schema_feed_comments.sql`。</div>
+                            ) : (
+                              <>
+                                <div style={{ display: 'grid', gap: 8 }}>
+                                  {comments.length === 0 && <div className="uiHint">还没有评论。</div>}
+                                  {comments.map((c) => (
+                                    <div key={c.id} className="uiRow" style={{ alignItems: 'flex-start' }}>
+                                      <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{c.content}</div>
+                                        <div className="uiHint" style={{ marginTop: 4 }}>
+                                          {c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}
+                                        </div>
+                                      </div>
+                                      <button className="uiBtn uiBtnGhost" disabled={commentDeletingId === c.id} onClick={() => void removeComment(it.id, c.id)}>
+                                        {commentDeletingId === c.id ? '删除中...' : '删除'}
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                  <input
+                                    className="uiInput"
+                                    placeholder="写一条评论（最多 300 字）"
+                                    value={commentDraftByMessageId[it.id] || ''}
+                                    onChange={(e) => setCommentDraftByMessageId((prev) => ({ ...prev, [it.id]: e.target.value.slice(0, 300) }))}
+                                    onKeyDown={(e) => {
+                                      if (e.key !== 'Enter') return
+                                      e.preventDefault()
+                                      void submitComment(it.id)
+                                    }}
+                                  />
+                                  <button className="uiBtn uiBtnPrimary" disabled={commentSavingMessageId === it.id} onClick={() => void submitComment(it.id)}>
+                                    {commentSavingMessageId === it.id ? '发送中...' : '发表评论'}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="uiForm">
-                      <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{it.content}</div>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
 
                 {(feedHasMore || loadingMoreFeed) && (
                   <div style={{ display: 'flex', justifyContent: 'center' }}>

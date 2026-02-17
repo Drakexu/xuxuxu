@@ -1660,3 +1660,24 @@ pm run -s build -> pass
 - Validation:
   - `npm run lint` passed
   - `npm run build` passed
+
+## 2026-02-17 checkpoint: feed comments module
+- Added schema: `supabase/schema_feed_comments.sql`
+- Added API: `app/api/feed/comments/route.ts`
+  - `GET /api/feed/comments?messageIds=...&limitPerMessage=...`
+  - `POST /api/feed/comments`
+  - `DELETE /api/feed/comments`
+  - Uses auth token + RLS, and graceful fallback when table is missing
+- Added client helper: `lib/feedComments.ts`
+- Integrated comments into:
+  - `app/home/page.tsx`
+  - `app/home/[characterId]/page.tsx`
+- New UX:
+  - Per-message comment count button
+  - Expand/collapse comment thread
+  - Create/delete comments inline
+  - KPI shows comment total
+  - Missing-table hint shown when feed_comments schema is not installed
+- Validation:
+  - `npm run lint` passed
+  - `npm run build` passed
