@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { fetchFeedReactions, mergeFeedReactionMap, saveFeedReaction, type FeedReactionMap } from '@/lib/feedReactions'
 import AppShell from '@/app/_components/AppShell'
 
 type FeedItem = {
@@ -14,7 +15,6 @@ type FeedItem = {
 }
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
-type FeedReactionMap = Record<string, { liked?: boolean; saved?: boolean }>
 const CHARACTER_FEED_PAGE_SIZE = 120
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 type ConversationRow = { id: string; created_at?: string | null; state?: unknown }
@@ -109,6 +109,7 @@ export default function CharacterHomePage() {
   const [feedCursor, setFeedCursor] = useState('')
   const [feedHasMore, setFeedHasMore] = useState(false)
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
+  const [feedReactionTableReady, setFeedReactionTableReady] = useState(true)
   const [coverUrl, setCoverUrl] = useState('')
   const [assetUrls, setAssetUrls] = useState<Array<{ kind: string; url: string; path: string }>>([])
   const [snapshot, setSnapshot] = useState<LedgerSnapshot | null>(null)
@@ -145,6 +146,32 @@ export default function CharacterHomePage() {
       // ignore quota/private mode errors
     }
   }, [feedReactionStorageKey, feedReactions])
+
+  useEffect(() => {
+    const messageIds = items.map((it) => String(it.id || '').trim()).filter(Boolean).slice(0, 200)
+    if (!messageIds.length) return
+
+    let canceled = false
+    const run = async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (!token) return
+        const out = await fetchFeedReactions({ token, messageIds })
+        if (canceled) return
+        setFeedReactionTableReady(out.tableReady)
+        if (out.reactions && Object.keys(out.reactions).length) {
+          setFeedReactions((prev) => mergeFeedReactionMap(prev, out.reactions))
+        }
+      } catch {
+        // ignore: local cache remains the fallback
+      }
+    }
+    void run()
+    return () => {
+      canceled = true
+    }
+  }, [items])
 
   const applyControlState = (state: unknown, forceTeen = false) => {
     const root = asRecord(state)
@@ -547,16 +574,34 @@ export default function CharacterHomePage() {
   }, [storyLockUntil])
 
   const toggleReaction = (messageId: string, key: 'liked' | 'saved') => {
+    let nextLiked = false
+    let nextSaved = false
     setFeedReactions((prev) => {
       const curr = prev[messageId] || {}
+      nextLiked = key === 'liked' ? !curr.liked : !!curr.liked
+      nextSaved = key === 'saved' ? !curr.saved : !!curr.saved
+      const next = { liked: nextLiked, saved: nextSaved }
+      if (!next.liked && !next.saved) {
+        const out = { ...prev }
+        delete out[messageId]
+        return out
+      }
       return {
         ...prev,
-        [messageId]: {
-          ...curr,
-          [key]: !curr[key],
-        },
+        [messageId]: next,
       }
     })
+    void (async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (!token) return
+        const out = await saveFeedReaction({ token, messageId, liked: nextLiked, saved: nextSaved })
+        setFeedReactionTableReady(out.tableReady)
+      } catch {
+        // ignore: local cache remains the fallback
+      }
+    })()
   }
 
   return (
@@ -589,6 +634,7 @@ export default function CharacterHomePage() {
                 <span className="uiBadge">角色专属视图</span>
                 <h2 className="uiHeroTitle">{title || '该角色'}的生活与记忆控制台</h2>
                 <p className="uiHeroSub">这里聚合这名角色的朋友圈、日记、日程片段，并展示账本快照和资产预览，便于检查角色是否持续“活着”。</p>
+                {!feedReactionTableReady ? <p className="uiHint">互动状态当前使用本地缓存（尚未启用 feed_reactions 数据表）。</p> : null}
               </div>
               <div className="uiKpiGrid">
                 <div className="uiKpi">

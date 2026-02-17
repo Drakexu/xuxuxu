@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { fetchFeedReactions, mergeFeedReactionMap, saveFeedReaction, type FeedReactionMap } from '@/lib/feedReactions'
 import AppShell from '@/app/_components/AppShell'
 
 type CharacterRow = { id: string; name: string; created_at?: string; settings?: Record<string, unknown> }
@@ -17,7 +18,6 @@ type FeedItem = {
 }
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
-type FeedReactionMap = Record<string, { liked?: boolean; saved?: boolean }>
 const FEED_PAGE_SIZE = 80
 const FEED_REACTION_STORAGE_KEY = 'xuxuxu:feed:reactions:v1'
 
@@ -83,6 +83,7 @@ export default function HomeFeedPage() {
   const [feedCursor, setFeedCursor] = useState('')
   const [feedHasMore, setFeedHasMore] = useState(false)
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
+  const [feedReactionTableReady, setFeedReactionTableReady] = useState(true)
 
   const canLoad = useMemo(() => !loading, [loading])
 
@@ -104,6 +105,33 @@ export default function HomeFeedPage() {
       // ignore quota/private mode errors
     }
   }, [feedReactions])
+
+  useEffect(() => {
+    const messageIds = items.map((it) => String(it.id || '').trim()).filter(Boolean).slice(0, 200)
+    if (!messageIds.length) return
+
+    let canceled = false
+    const run = async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (!token) return
+        const out = await fetchFeedReactions({ token, messageIds })
+        if (canceled) return
+        setFeedReactionTableReady(out.tableReady)
+        if (out.reactions && Object.keys(out.reactions).length) {
+          setFeedReactions((prev) => mergeFeedReactionMap(prev, out.reactions))
+        }
+      } catch {
+        // ignore: local cache remains the fallback
+      }
+    }
+    void run()
+
+    return () => {
+      canceled = true
+    }
+  }, [items])
 
   const updateCharacterSettings = async (characterId: string, patch: Record<string, unknown>) => {
     const { data: userData } = await supabase.auth.getUser()
@@ -403,16 +431,34 @@ export default function HomeFeedPage() {
   }
 
   const toggleReaction = (messageId: string, key: 'liked' | 'saved') => {
+    let nextLiked = false
+    let nextSaved = false
     setFeedReactions((prev) => {
       const curr = prev[messageId] || {}
+      nextLiked = key === 'liked' ? !curr.liked : !!curr.liked
+      nextSaved = key === 'saved' ? !curr.saved : !!curr.saved
+      const next = { liked: nextLiked, saved: nextSaved }
+      if (!next.liked && !next.saved) {
+        const out = { ...prev }
+        delete out[messageId]
+        return out
+      }
       return {
         ...prev,
-        [messageId]: {
-          ...curr,
-          [key]: !curr[key],
-        },
+        [messageId]: next,
       }
     })
+    void (async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token || ''
+        if (!token) return
+        const out = await saveFeedReaction({ token, messageId, liked: nextLiked, saved: nextSaved })
+        setFeedReactionTableReady(out.tableReady)
+      } catch {
+        // ignore: local cache remains the fallback
+      }
+    })()
   }
 
   return (
@@ -437,6 +483,7 @@ export default function HomeFeedPage() {
             <span className="uiBadge">角色生活流</span>
             <h2 className="uiHeroTitle">首页聚合你已解锁角色的动态</h2>
             <p className="uiHeroSub">角色会按设定持续生成朋友圈、日记和日程片段。你可以直接切换角色、过滤动态、跳转到单角色动态中心。</p>
+            {!feedReactionTableReady ? <p className="uiHint">互动状态当前使用本地缓存（尚未启用 feed_reactions 数据表）。</p> : null}
           </div>
           <div className="uiKpiGrid">
             <div className="uiKpi">

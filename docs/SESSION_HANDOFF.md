@@ -1269,3 +1269,27 @@ Repo: `d:/projects/xuxuxu`
   - `npm run lint` -> pass
   - `npx tsc --noEmit` -> pass
   - `npm run build` -> pass
+
+### High-target execution v16 checkpoint (latest)
+- Files changed:
+  - `app/api/feed/reactions/route.ts` (new)
+  - `lib/feedReactions.ts` (new)
+  - `app/home/page.tsx`
+  - `app/home/[characterId]/page.tsx`
+  - `supabase/schema_feed_reactions.sql` (new)
+- Completed:
+  - Added server API for feed interactions:
+    - `GET /api/feed/reactions?messageIds=...`
+    - `POST /api/feed/reactions` (upsert/delete per message)
+  - Added DB schema script for persistent like/save:
+    - table `public.feed_reactions` with RLS + owner policy
+  - Wired both home feeds to remote reaction sync with local fallback:
+    - keep localStorage as fallback cache
+    - when DB table exists, auto-sync like/save state from backend
+    - when DB table missing, app degrades gracefully and shows fallback hint
+- Ops note:
+  - Run `supabase/schema_feed_reactions.sql` in Supabase SQL editor to enable cross-device persistence.
+- Validation:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
