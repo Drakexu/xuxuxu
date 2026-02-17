@@ -1,16 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
-type PubCharacter = {
+type PublicRole = {
   id: string
   name: string
   profile?: Record<string, unknown>
+  settings?: Record<string, unknown>
 }
 
-type CharacterAssetRow = { character_id?: string; kind: string; storage_path: string; created_at?: string | null }
+type CharacterAssetRow = {
+  character_id?: string
+  kind: string
+  storage_path: string
+  created_at?: string | null
+}
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -31,151 +37,158 @@ function pickAssetPath(rows: CharacterAssetRow[]) {
   return ''
 }
 
+function unlockPrice(settings: unknown) {
+  const s = asRecord(settings)
+  const own = Number(s.unlock_price_coins)
+  if (Number.isFinite(own) && own > 0) return Math.max(0, Math.min(Math.floor(own), 200000))
+  const cf = asRecord(s.creation_form)
+  const pub = asRecord(cf.publish)
+  const nested = Number(pub.unlock_price_coins)
+  if (Number.isFinite(nested) && nested > 0) return Math.max(0, Math.min(Math.floor(nested), 200000))
+  return 0
+}
+
 export default function LandingPage() {
   const router = useRouter()
   const [checking, setChecking] = useState(true)
-  const [featured, setFeatured] = useState<PubCharacter[]>([])
+  const [loading, setLoading] = useState(false)
+  const [featured, setFeatured] = useState<PublicRole[]>([])
   const [imgById, setImgById] = useState<Record<string, string>>({})
-  const [loadingFeatured, setLoadingFeatured] = useState(false)
+
+  const stats = useMemo(() => {
+    let paid = 0
+    let free = 0
+    for (const r of featured) {
+      if (unlockPrice(r.settings) > 0) paid += 1
+      else free += 1
+    }
+    return { total: featured.length, paid, free }
+  }, [featured])
 
   useEffect(() => {
-    const checkSession = async () => {
-      setLoadingFeatured(true)
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
+    const run = async () => {
+      setLoading(true)
+      const user = await supabase.auth.getUser()
+      if (user.data.user?.id) {
         router.replace('/home')
         return
       }
       setChecking(false)
 
-      const r1 = await supabase
+      const roles = await supabase
         .from('characters')
-        .select('id,name,profile')
+        .select('id,name,profile,settings')
         .eq('visibility', 'public')
         .order('created_at', { ascending: false })
-        .limit(12)
-      if (!r1.error) {
-        const rows = (r1.data ?? []) as PubCharacter[]
-        setFeatured(rows)
-        try {
-          const ids = rows.map((x) => x.id).filter(Boolean)
-          if (ids.length) {
-            const assets = await supabase
-              .from('character_assets')
-              .select('character_id,kind,storage_path,created_at')
-              .in('character_id', ids)
-              .in('kind', ['cover', 'full_body', 'head'])
-              .order('created_at', { ascending: false })
-              .limit(300)
-            if (!assets.error) {
-              const grouped: Record<string, CharacterAssetRow[]> = {}
-              for (const row of (assets.data ?? []) as CharacterAssetRow[]) {
-                const cid = String(row.character_id || '').trim()
-                if (!cid) continue
-                if (!grouped[cid]) grouped[cid] = []
-                grouped[cid].push(row)
-              }
-              const entries = Object.entries(grouped)
-                .map(([characterId, rows2]) => [characterId, pickAssetPath(rows2)] as const)
-                .filter(([, path]) => !!path)
+        .limit(16)
+      const rows = (roles.data ?? []) as PublicRole[]
+      setFeatured(rows)
 
-              if (entries.length) {
-                const signed = await Promise.all(
-                  entries.map(async ([characterId, path]) => {
-                    const s = await supabase.storage.from('character-assets').createSignedUrl(path, 60 * 60)
-                    return [characterId, s.data?.signedUrl || ''] as const
-                  }),
-                )
-                const map: Record<string, string> = {}
-                for (const [characterId, url] of signed) {
-                  if (url) map[characterId] = url
-                }
-                setImgById(map)
-              }
-            }
-          }
-        } catch {
-          // ignore featured media failures
-        }
+      const ids = rows.map((x) => x.id).filter(Boolean)
+      if (!ids.length) {
+        setLoading(false)
+        return
       }
-      setLoadingFeatured(false)
+      const assets = await supabase
+        .from('character_assets')
+        .select('character_id,kind,storage_path,created_at')
+        .in('character_id', ids)
+        .in('kind', ['cover', 'full_body', 'head'])
+        .order('created_at', { ascending: false })
+        .limit(320)
+      if (!assets.error) {
+        const grouped: Record<string, CharacterAssetRow[]> = {}
+        for (const row of (assets.data ?? []) as CharacterAssetRow[]) {
+          const cid = String(row.character_id || '').trim()
+          if (!cid) continue
+          if (!grouped[cid]) grouped[cid] = []
+          grouped[cid].push(row)
+        }
+        const entries = Object.entries(grouped)
+          .map(([characterId, rs]) => [characterId, pickAssetPath(rs)] as const)
+          .filter(([, path]) => !!path)
+        const signed = await Promise.all(
+          entries.map(async ([characterId, path]) => {
+            const s = await supabase.storage.from('character-assets').createSignedUrl(path, 3600)
+            return [characterId, s.data?.signedUrl || ''] as const
+          }),
+        )
+        const nextMap: Record<string, string> = {}
+        for (const [characterId, url] of signed) if (url) nextMap[characterId] = url
+        setImgById(nextMap)
+      }
+      setLoading(false)
     }
 
-    checkSession().catch(() => {
+    run().catch(() => {
       setChecking(false)
-      setLoadingFeatured(false)
+      setLoading(false)
     })
   }, [router])
 
   return (
     <div className="uiLanding">
       <section className="uiLandingHero">
-        <span className="uiBadge">XuxuXu Web Beta</span>
-        <h1 className="uiLandingTitle">在 Web 上复刻爱巴基（语音除外）</h1>
-        <p className="uiLandingSub">你可以管理已解锁角色、浏览广场公开角色、创建自己的角色设定，并持续查看角色自动生成的朋友圈、日记和日程片段。</p>
+        <span className="uiBadge">AibaJi Web</span>
+        <h1 className="uiLandingTitle">Web Replica Roadmap: Home / Square / Creator / Wardrobe / Wallet</h1>
+        <p className="uiLandingSub">This build focuses on role life simulation, public role unlock loop, creator publishing, static layer dressing, and wallet economy.</p>
         <div className="uiActions">
           <button className="uiBtn uiBtnPrimary" onClick={() => router.push('/login')}>
-            登录开始
+            Login
           </button>
           <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
-            先看广场
+            Browse Square
+          </button>
+          <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters/new')}>
+            Create Role
           </button>
         </div>
-        {checking ? <div className="uiSkeleton">正在检查登录态...</div> : null}
+        {checking ? <div className="uiSkeleton">Checking session...</div> : null}
       </section>
 
       <section className="uiLandingGrid">
-        <div className="uiLandingItem">
-          <b>首页</b>
-          已激活角色的朋友圈、日记、日程片段聚合流，可直接跳转到聊天和单角色动态中心。
-        </div>
-        <div className="uiLandingItem">
-          <b>广场</b>
-          浏览公开角色详情，解锁到自己的可聊天队列，再按需激活到首页。
-        </div>
-        <div className="uiLandingItem">
-          <b>创建角色</b>
-          管理你创建过的角色卡片，继续编辑设定、维护衣柜/资产，并发布到广场。
-        </div>
+        <div className="uiLandingItem"><b>Home</b>Activated roles generate moment/diary/schedule feed continuously.</div>
+        <div className="uiLandingItem"><b>Square</b>Public role discovery, social feedback, paid unlock, and activation queue.</div>
+        <div className="uiLandingItem"><b>Create</b>Role studio for prompt, assets, publish config, and creator metrics.</div>
+        <div className="uiLandingItem"><b>Wardrobe</b>Static stage composer with layer switching and outfit sync.</div>
+        <div className="uiLandingItem"><b>Wallet</b>Coins, unlock receipts, and creator revenue share history.</div>
       </section>
 
       <section className="uiPanel" style={{ marginTop: 0 }}>
         <div className="uiPanelHeader">
           <div>
-            <div className="uiPanelTitle">广场热门角色</div>
-            <div className="uiPanelSub">登录前也可先浏览公开角色，选中后再解锁。</div>
+            <div className="uiPanelTitle">Featured Public Roles</div>
+            <div className="uiPanelSub">
+              total {stats.total} · free {stats.free} · paid {stats.paid}
+            </div>
           </div>
           <button className="uiBtn uiBtnGhost" onClick={() => router.push('/square')}>
-            查看全部
+            View All
           </button>
         </div>
         <div className="uiForm">
-          {(checking || loadingFeatured) && <div className="uiSkeleton">加载角色中...</div>}
-          {!checking && !loadingFeatured && featured.length === 0 && <div className="uiHint">暂无公开角色</div>}
-          {!checking && !loadingFeatured && featured.length > 0 && (
+          {(checking || loading) && <div className="uiSkeleton">Loading roles...</div>}
+          {!checking && !loading && featured.length === 0 && <div className="uiHint">No public roles yet.</div>}
+          {!checking && !loading && featured.length > 0 && (
             <div className="uiGrid">
-              {featured.slice(0, 8).map((c) => {
-                const p = asRecord(c.profile)
-                const meta = [String(p.occupation || '').trim(), String(p.organization || '').trim()].filter(Boolean).join(' · ')
-                return (
-                  <button key={c.id} className="uiCard" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => router.push(`/square/${c.id}`)}>
-                    <div className="uiCardMedia">
-                      {imgById[c.id] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={imgById[c.id]} alt="" />
-                      ) : (
-                        <div className="uiCardMediaFallback">暂无图片</div>
-                      )}
-                    </div>
-                    <div className="uiCardTitle">{c.name}</div>
-                    <div className="uiCardMeta">{meta || '公开角色'}</div>
-                    <div className="uiCardActions">
-                      <span className="uiBadge">公开</span>
-                      <span className="uiBadge">详情</span>
-                    </div>
-                  </button>
-                )
-              })}
+              {featured.slice(0, 10).map((c) => (
+                <button key={c.id} className="uiCard" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => router.push(`/square/${c.id}`)}>
+                  <div className="uiCardMedia">
+                    {imgById[c.id] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={imgById[c.id]} alt="" />
+                    ) : (
+                      <div className="uiCardMediaFallback">No image</div>
+                    )}
+                  </div>
+                  <div className="uiCardTitle">{c.name}</div>
+                  <div className="uiCardMeta">{unlockPrice(c.settings) > 0 ? `${unlockPrice(c.settings)} coins` : 'Free unlock'}</div>
+                  <div className="uiCardActions">
+                    <span className="uiBadge">Public</span>
+                    <span className="uiBadge">Detail</span>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>

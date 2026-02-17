@@ -2313,3 +2313,18 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: landing architecture rewrite
+- Files changed:
+  - app/page.tsx
+- Completed:
+  - Rebuilt landing page around product architecture pillars:
+    - Home / Square / Create / Wardrobe / Wallet
+  - Added clearer entry actions:
+    - login, square browse, create role
+  - Added featured public role showcase with signed assets and free/paid labels.
+  - Added landing-level public role summary (`total/free/paid`) for market snapshot.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
