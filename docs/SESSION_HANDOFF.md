@@ -1583,3 +1583,23 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v32 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/square/[characterId]/page.tsx
+- Completed:
+  - Improved Square detail unlock conversion path:
+    - unlocked-state keeps existing actions
+    - locked-state now provides two explicit CTAs:
+      - 解锁并开聊
+      - 仅解锁
+  - Unlock flow now supports optional immediate chat jump from detail page, aligned with square list conversion behavior.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass

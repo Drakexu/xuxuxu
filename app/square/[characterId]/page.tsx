@@ -302,7 +302,7 @@ export default function SquareDetailPage() {
     load()
   }, [id, router])
 
-  const unlock = async () => {
+  const unlock = async (options?: { startChat?: boolean }) => {
     if (!item || busy) return
     setBusy(true)
     setAlert(null)
@@ -376,7 +376,8 @@ export default function SquareDetailPage() {
       } catch {
         // Best-effort only.
       }
-      setAlert({ type: 'ok', text: '已解锁。' })
+      setAlert({ type: 'ok', text: options?.startChat ? '已解锁，正在进入聊天。' : '已解锁。' })
+      if (options?.startChat) router.push(`/chat/${r2.data.id}`)
       setBusy(false)
       return
     }
@@ -393,7 +394,8 @@ export default function SquareDetailPage() {
     } catch {
       // Best-effort only.
     }
-    setAlert({ type: 'ok', text: '已解锁。' })
+    setAlert({ type: 'ok', text: options?.startChat ? '已解锁，正在进入聊天。' : '已解锁。' })
+    if (options?.startChat) router.push(`/chat/${r1.data.id}`)
     setBusy(false)
   }
 
@@ -604,9 +606,14 @@ export default function SquareDetailPage() {
                       </>
                     ) : (
                       <>
-                        <button className="uiBtn uiBtnPrimary" disabled={!canUnlock || busy} onClick={unlock}>
-                          {busy ? '解锁中...' : isLoggedIn ? '解锁到我的角色' : '登录后解锁'}
+                        <button className="uiBtn uiBtnPrimary" disabled={!canUnlock || busy} onClick={() => void unlock({ startChat: true })}>
+                          {busy ? '解锁中...' : isLoggedIn ? '解锁并开聊' : '登录后解锁'}
                         </button>
+                        {isLoggedIn ? (
+                          <button className="uiBtn uiBtnGhost" disabled={!canUnlock || busy} onClick={() => void unlock()}>
+                            仅解锁
+                          </button>
+                        ) : null}
                         {!isLoggedIn ? (
                           <button className="uiBtn uiBtnGhost" onClick={() => router.push('/login')}>
                             去登录
