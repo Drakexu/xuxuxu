@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v28 - auth surface + motion unification)
+Last updated: 2026-02-16 (checkpoint: high-target execution v29 - home feed pagination)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -395,6 +395,21 @@ Repo: `d:/projects/xuxuxu`
     - auth layout classes (`uiAuth*`)
     - reduced-motion fallback via media query
   - Removed dependence on undefined `uiTopbar` classes in login flow.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Home feed pagination v29 checkpoint (latest)
+- File changed:
+  - `app/home/page.tsx`
+- Completed:
+  - Added feed pagination model on home page dynamic stream:
+    - introduced cursor (`created_at`) based incremental loading
+    - added "加载更多动态" action with loading state
+    - tracks has-more state to avoid unnecessary queries
+  - Home feed now stores allowed role IDs after initial load and applies same filter during pagination.
+  - Added end-of-list hint when current visible dynamic set is fully loaded.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass

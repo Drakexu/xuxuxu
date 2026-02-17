@@ -17,6 +17,7 @@ type FeedItem = {
 }
 
 type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
+const FEED_PAGE_SIZE = 80
 
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
@@ -74,6 +75,10 @@ export default function HomeFeedPage() {
   const [feedTab, setFeedTab] = useState<FeedTab>('ALL')
   const [feedQuery, setFeedQuery] = useState('')
   const [items, setItems] = useState<FeedItem[]>([])
+  const [feedAllowedCharacterIds, setFeedAllowedCharacterIds] = useState<string[]>([])
+  const [feedCursor, setFeedCursor] = useState('')
+  const [feedHasMore, setFeedHasMore] = useState(false)
+  const [loadingMoreFeed, setLoadingMoreFeed] = useState(false)
 
   const canLoad = useMemo(() => !loading, [loading])
 
@@ -100,6 +105,10 @@ export default function HomeFeedPage() {
     setLoading(true)
     setError('')
     setImgById({})
+    setFeedAllowedCharacterIds([])
+    setFeedCursor('')
+    setFeedHasMore(false)
+    setLoadingMoreFeed(false)
 
     const { data: userData } = await supabase.auth.getUser()
     const userId = userData.user?.id
@@ -183,7 +192,7 @@ export default function HomeFeedPage() {
       .eq('user_id', userId)
       .in('input_event', feedEvents)
       .order('created_at', { ascending: false })
-      .limit(80)
+      .limit(FEED_PAGE_SIZE)
 
     if (rFeed.error) {
       setError(rFeed.error.message || '加载动态失败')
@@ -191,7 +200,10 @@ export default function HomeFeedPage() {
     } else {
       const raw = (rFeed.data ?? []) as FeedItem[]
       const fallbackIds = unlockedIdsForFeed.size ? unlockedIdsForFeed : activatedIds
+      setFeedAllowedCharacterIds(Array.from(fallbackIds))
       setItems(raw.filter((it) => fallbackIds.has(String(it.conversations?.character_id || ''))))
+      setFeedCursor(raw.length ? String(raw[raw.length - 1]?.created_at || '') : '')
+      setFeedHasMore(raw.length >= FEED_PAGE_SIZE)
     }
 
     setLoading(false)
@@ -201,6 +213,54 @@ export default function HomeFeedPage() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
+
+  const loadMoreFeed = async () => {
+    if (loading || loadingMoreFeed || !feedHasMore || !feedCursor) return
+    setLoadingMoreFeed(true)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        router.replace('/login')
+        return
+      }
+
+      const allowed = new Set(feedAllowedCharacterIds)
+      const rFeed = await supabase
+        .from('messages')
+        .select('id,created_at,input_event,content,conversation_id,conversations(character_id)')
+        .eq('user_id', userId)
+        .in('input_event', ['DIARY_DAILY', 'MOMENT_POST', 'SCHEDULE_TICK'])
+        .lt('created_at', feedCursor)
+        .order('created_at', { ascending: false })
+        .limit(FEED_PAGE_SIZE)
+
+      if (rFeed.error) {
+        setError(rFeed.error.message || '加载更多动态失败')
+        return
+      }
+
+      const raw = (rFeed.data ?? []) as FeedItem[]
+      const nextFiltered = raw.filter((it) => allowed.has(String(it.conversations?.character_id || '')))
+
+      if (nextFiltered.length) {
+        setItems((prev) => {
+          const seen = new Set(prev.map((x) => x.id))
+          const merged = [...prev]
+          for (const it of nextFiltered) {
+            if (seen.has(it.id)) continue
+            merged.push(it)
+          }
+          return merged
+        })
+      }
+
+      setFeedCursor(raw.length ? String(raw[raw.length - 1]?.created_at || '') : '')
+      if (raw.length < FEED_PAGE_SIZE) setFeedHasMore(false)
+    } finally {
+      setLoadingMoreFeed(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     const visibleIds = new Set((viewMode === 'ACTIVE' ? activated : unlocked).map((c) => c.id))
@@ -478,6 +538,15 @@ export default function HomeFeedPage() {
                       ))}
                     </div>
                   )}
+
+                  {(feedHasMore || loadingMoreFeed) && (
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <button className="uiBtn uiBtnGhost" onClick={() => void loadMoreFeed()} disabled={loadingMoreFeed}>
+                        {loadingMoreFeed ? '加载更多中...' : '加载更多动态'}
+                      </button>
+                    </div>
+                  )}
+                  {!feedHasMore && !loadingMoreFeed && items.length > 0 && <div className="uiHint">已加载当前可见的全部动态。</div>}
                 </div>
               </div>
             </div>
