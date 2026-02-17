@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
@@ -366,6 +367,15 @@ export default function SquareDetailPage() {
       setUnlockedCharId(r2.data.id)
       setUnlockedActive(true)
       setMyUnlockedBySourceId((prev) => ({ ...prev, [item.id]: { localId: r2.data.id, active: true } }))
+      try {
+        await ensureLatestConversationForCharacter({
+          userId,
+          characterId: String(r2.data.id),
+          title: item.name || '对话',
+        })
+      } catch {
+        // Best-effort only.
+      }
       setAlert({ type: 'ok', text: '已解锁。' })
       setBusy(false)
       return
@@ -374,6 +384,15 @@ export default function SquareDetailPage() {
     setUnlockedCharId(r1.data.id)
     setUnlockedActive(true)
     setMyUnlockedBySourceId((prev) => ({ ...prev, [item.id]: { localId: r1.data.id, active: true } }))
+    try {
+      await ensureLatestConversationForCharacter({
+        userId,
+        characterId: String(r1.data.id),
+        title: item.name || '对话',
+      })
+    } catch {
+      // Best-effort only.
+    }
     setAlert({ type: 'ok', text: '已解锁。' })
     setBusy(false)
   }

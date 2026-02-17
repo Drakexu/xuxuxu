@@ -463,7 +463,7 @@ export async function POST(req: Request) {
     let momentOk = 0
     let considered = 0
 
-    type ConvRow = { id: string; user_id: string; character_id: string }
+    type ConvRow = { id: string; user_id: string; character_id: string; created_at?: string | null }
     type MsgRow = { role: string; content: string; created_at?: string | null }
 
     for (const c of (convs.data ?? []) as ConvRow[]) {
@@ -508,9 +508,20 @@ export async function POST(req: Request) {
         .limit(1)
         .maybeSingle()
 
+      const lastMsg = await sb
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
       const lastUserAt = lastUser.data?.created_at ? new Date(String(lastUser.data.created_at)) : null
-      if (!lastUserAt) continue
-      const isIdle = lastUserAt <= minutesAgo(now, idleMins)
+      const lastMsgAt = lastMsg.data?.created_at ? new Date(String(lastMsg.data.created_at)) : null
+      const convCreatedAt = c.created_at ? new Date(String(c.created_at)) : null
+      const idleAnchorAt = lastUserAt || lastMsgAt || convCreatedAt
+      if (!idleAnchorAt || !Number.isFinite(idleAnchorAt.getTime())) continue
+      const isIdle = idleAnchorAt <= minutesAgo(now, idleMins)
 
       const lastTick = await sb
         .from('messages')

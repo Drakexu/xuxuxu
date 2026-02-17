@@ -1451,3 +1451,31 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v26 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - lib/conversationClient.ts (new)
+  - pp/square/page.tsx
+  - pp/square/[characterId]/page.tsx
+  - pp/api/cron/schedule/route.ts
+  - docs/cron.md
+- Completed:
+  - Closed autonomous schedule gap for unlocked roles:
+    - unlock-from-square now best-effort bootstraps a default conversation for the copied role
+    - works for both square list unlock and square detail unlock
+  - Upgraded schedule idle anchor logic:
+    - no longer requires a prior user message
+    - idle baseline now falls back to latest message time, then conversation creation time
+    - enables unlocked-but-silent roles to start hourly schedule ticks after idle window
+  - Preserved safety behavior:
+    - unlock flow remains successful even if conversation bootstrap fails (best-effort)
+    - strict hourly moment cadence remains in effect
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass

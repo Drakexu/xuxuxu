@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
@@ -366,6 +367,18 @@ export default function SquarePage() {
       } else {
         localId = String(r1.data.id)
         setUnlockedInfoBySourceId((prev) => ({ ...prev, [source.id]: { localId, active: true } }))
+      }
+
+      try {
+        if (localId) {
+          await ensureLatestConversationForCharacter({
+            userId,
+            characterId: localId,
+            title: source.name || '对话',
+          })
+        }
+      } catch {
+        // Best-effort: unlock should not fail if conversation bootstrap fails.
       }
 
       setAlert({ type: 'ok', text: options?.startChat ? '已解锁并激活，正在跳转聊天。' : '已解锁并激活到首页队列。' })

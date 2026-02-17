@@ -27,6 +27,11 @@ Behavior:
 - `MOMENT_POST` defaults to strict hourly mode: max 1 post per UTC hour per conversation.
   - Can be switched to probabilistic mode with `MOMENT_POST_STRICT_HOURLY=false`.
   - In probabilistic mode, cadence is controlled by `MOMENT_POST_MINUTES` + `MOMENT_POST_PROB`.
+- Idle detection for schedule generation now uses this anchor priority:
+  - latest user message time
+  - else latest message time
+  - else conversation creation time
+  This allows newly unlocked roles (with bootstrapped conversations) to start autonomous hourly ticks even before first user utterance.
 
 Control writes are handled by:
 
