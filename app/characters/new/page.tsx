@@ -7,6 +7,13 @@ import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import AppShell from '@/app/_components/AppShell'
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
+type SourceCharacter = {
+  id: string
+  name: string
+  system_prompt: string
+  profile?: Record<string, unknown>
+  settings?: Record<string, unknown>
+}
 
 type FormState = {
   name: string
@@ -74,6 +81,10 @@ const DEFAULT_FORM: FormState = {
   authorNote: '',
 }
 
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+}
+
 function clampText(s: string, max: number) {
   const t = (s || '').trim()
   return t.length > max ? t.slice(0, max) : t
@@ -82,6 +93,47 @@ function clampText(s: string, max: number) {
 function effectiveRomanceMode(f: FormState): 'ROMANCE_ON' | 'ROMANCE_OFF' {
   if (f.teenMode) return 'ROMANCE_OFF'
   return f.romanceOn ? 'ROMANCE_ON' : 'ROMANCE_OFF'
+}
+
+function formFromSourceCharacter(source: SourceCharacter): FormState {
+  const profile = asRecord(source.profile)
+  const settings = asRecord(source.settings)
+  const creation = asRecord(settings.creation_form)
+  const world = asRecord(creation.world)
+  const userRelation = asRecord(creation.user_relation)
+  const dialog = asRecord(creation.dialog)
+  const constraints = asRecord(creation.constraints)
+  const publish = asRecord(creation.publish)
+  const teenMode = settings.teen_mode === true || settings.age_mode === 'teen'
+  const romanceOn = !teenMode && settings.romance_mode !== 'ROMANCE_OFF'
+
+  return {
+    ...DEFAULT_FORM,
+    name: `${String(source.name || '').trim()} · 衍生`,
+    visibility: 'private',
+    systemPrompt: String(source.system_prompt || '').trim(),
+    gender: profile.gender === 'male' ? 'male' : profile.gender === 'female' ? 'female' : 'other',
+    age: String(profile.age || ''),
+    occupation: String(profile.occupation || ''),
+    organization: String(profile.organization || ''),
+    summary: String(profile.summary || ''),
+    likes: String(creation.likes || ''),
+    dislikes: String(creation.dislikes || ''),
+    strengths: String(creation.strengths || ''),
+    weaknesses: String(creation.weaknesses || ''),
+    habits: String(creation.habits || ''),
+    worldBackground: String(world.background || ''),
+    userNow: String(userRelation.now || ''),
+    romanceOn,
+    teenMode,
+    outOfWorld: constraints.out_of_world === 'no' ? 'no' : 'yes',
+    outOfWorldNote: String(constraints.note || ''),
+    voice: String(dialog.voice || ''),
+    catchphrase: String(dialog.catchphrase || ''),
+    tone: dialog.tone === 'cool' || dialog.tone === 'warm' ? dialog.tone : 'balanced',
+    sentenceLen: dialog.sentence_len === 'short' || dialog.sentence_len === 'long' ? dialog.sentence_len : 'balanced',
+    authorNote: String(publish.author_note || ''),
+  }
 }
 
 function buildSystemPrompt(f: FormState) {
@@ -146,6 +198,7 @@ export default function NewCharacterPage() {
   const [alert, setAlert] = useState<Alert>(null)
   const [userId, setUserId] = useState('')
   const [f, setF] = useState<FormState>(DEFAULT_FORM)
+  const [sourceTemplateLabel, setSourceTemplateLabel] = useState('')
 
   const canCreate = useMemo(
     () => !loading && !!userId && !creating && f.name.trim().length > 0 && f.systemPrompt.trim().length > 0,
@@ -162,12 +215,34 @@ export default function NewCharacterPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      setSourceTemplateLabel('')
       const { data } = await supabase.auth.getUser()
       if (!data.user) {
         router.replace('/login')
         return
       }
       setUserId(data.user.id)
+
+      const sourceFromId = (() => {
+        if (typeof window === 'undefined') return ''
+        const sp = new URLSearchParams(window.location.search || '')
+        return String(sp.get('from') || sp.get('source') || '').trim()
+      })()
+
+      if (sourceFromId && sourceFromId.length <= 80) {
+        const src = await supabase
+          .from('characters')
+          .select('id,name,system_prompt,profile,settings,visibility')
+          .eq('id', sourceFromId)
+          .eq('visibility', 'public')
+          .maybeSingle()
+        if (!src.error && src.data?.id) {
+          const source = src.data as SourceCharacter
+          setF(formFromSourceCharacter(source))
+          setSourceTemplateLabel(source.name || sourceFromId)
+        }
+      }
+
       setLoading(false)
     }
     load().catch(() => {
@@ -321,6 +396,17 @@ export default function NewCharacterPage() {
             <button className="uiBtn uiBtnSecondary" onClick={onGeneratePrompt} disabled={loading || creating}>
               生成提示词
             </button>
+            {sourceTemplateLabel ? (
+              <button
+                className="uiBtn uiBtnGhost"
+                onClick={() => {
+                  setF(DEFAULT_FORM)
+                  setSourceTemplateLabel('')
+                }}
+              >
+                清空模板
+              </button>
+            ) : null}
             <button className="uiBtn uiBtnGhost" onClick={() => router.push('/characters')}>
               返回工作台
             </button>
@@ -332,6 +418,7 @@ export default function NewCharacterPage() {
             <span className="uiBadge">创作流程</span>
             <h2 className="uiHeroTitle">先定角色，再定规则，最后生成可执行提示词</h2>
             <p className="uiHeroSub">这版覆盖高频字段。更细节的人设和规则可在创建后继续编辑。</p>
+            {sourceTemplateLabel ? <p className="uiHint">已载入广场模板：{sourceTemplateLabel}</p> : null}
           </div>
           <div className="uiKpiGrid">
             <div className="uiKpi">
@@ -357,6 +444,10 @@ export default function NewCharacterPage() {
             <div className="uiKpi">
               <b>{f.outOfWorld === 'yes' ? '允许' : '禁止'}</b>
               <span>越界问答</span>
+            </div>
+            <div className="uiKpi">
+              <b>{sourceTemplateLabel ? '已载入' : '空白'}</b>
+              <span>模板来源</span>
             </div>
           </div>
         </section>

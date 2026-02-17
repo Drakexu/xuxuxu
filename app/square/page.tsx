@@ -620,6 +620,15 @@ export default function SquarePage() {
             >
               详情
             </button>
+            <button
+              className="uiBtn uiBtnGhost"
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/characters/new?from=${encodeURIComponent(c.id)}`)
+              }}
+            >
+              衍生创建
+            </button>
           </div>
         )}
         {!info && (
@@ -658,6 +667,15 @@ export default function SquarePage() {
               }}
             >
               详情
+            </button>
+            <button
+              className="uiBtn uiBtnGhost"
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/characters/new?from=${encodeURIComponent(c.id)}`)
+              }}
+            >
+              衍生创建
             </button>
             {!isLoggedIn ? (
               <button

@@ -1681,3 +1681,16 @@ pm run -s build -> pass
 - Validation:
   - `npm run lint` passed
   - `npm run build` passed
+
+## 2026-02-17 checkpoint: square fork-to-studio flow
+- Added square -> creator fork flow:
+  - `app/square/page.tsx`: each card now has `衍生创建` action
+  - `app/square/[characterId]/page.tsx`: detail operations now include `衍生创建`
+- Added template prefill in creator page:
+  - `app/characters/new/page.tsx` accepts URL query (`?from=<publicCharacterId>` or `?source=`)
+  - Loads public source role and pre-fills creation form (profile + creation_form + prompt)
+  - Defaults fork visibility to `private` and role name to `<原名> · 衍生`
+  - Shows template-loaded hint and supports one-click `清空模板`
+- Validation:
+  - `npm run lint` passed
+  - `npm run build` passed
