@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import AppShell from '@/app/_components/AppShell'
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
@@ -180,7 +181,7 @@ export default function NewCharacterPage() {
     setAlert({ type: 'ok', text: '已根据表单生成提示词。' })
   }
 
-  const onCreate = async () => {
+  const onCreate = async (options?: { startChat?: boolean }) => {
     if (!canCreate) return
     setCreating(true)
     setAlert(null)
@@ -248,6 +249,7 @@ export default function NewCharacterPage() {
       },
     }
 
+    let createdCharacterId = ''
     const r1 = await supabase.from('characters').insert(payloadV2).select('id').single()
     if (r1.error) {
       const msg = r1.error.message || ''
@@ -270,6 +272,35 @@ export default function NewCharacterPage() {
       if (r2.error || !r2.data?.id) {
         setAlert({ type: 'err', text: `创建失败：${r2.error?.message || 'unknown error'}` })
         setCreating(false)
+        return
+      }
+      createdCharacterId = String(r2.data.id)
+    } else {
+      createdCharacterId = String(r1.data?.id || '')
+    }
+
+    if (!createdCharacterId) {
+      setAlert({ type: 'err', text: '创建成功但未获取角色 ID，请刷新后重试。' })
+      setCreating(false)
+      return
+    }
+
+    if (options?.startChat) {
+      try {
+        await ensureLatestConversationForCharacter({
+          userId,
+          characterId: createdCharacterId,
+          title: f.name.trim() || '对话',
+        })
+        setCreating(false)
+        setAlert({ type: 'ok', text: '创建成功，正在进入聊天。' })
+        setTimeout(() => router.replace(`/chat/${createdCharacterId}`), 260)
+        return
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        setCreating(false)
+        setAlert({ type: 'err', text: `角色已创建，但会话初始化失败：${msg}` })
+        setTimeout(() => router.replace('/characters'), 1100)
         return
       }
     }
@@ -522,7 +553,10 @@ export default function NewCharacterPage() {
               <button className="uiBtn uiBtnSecondary" onClick={onGeneratePrompt} disabled={loading || creating}>
                 重新生成提示词
               </button>
-              <button className="uiBtn uiBtnPrimary" onClick={onCreate} disabled={!canCreate}>
+              <button className="uiBtn uiBtnGhost" onClick={() => void onCreate({ startChat: true })} disabled={!canCreate}>
+                {creating ? '创建中...' : '创建并开聊'}
+              </button>
+              <button className="uiBtn uiBtnPrimary" onClick={() => void onCreate()} disabled={!canCreate}>
                 {creating ? '创建中...' : '创建角色'}
               </button>
             </div>

@@ -1563,3 +1563,23 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v31 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/characters/new/page.tsx
+- Completed:
+  - Closed creator -> first-chat conversion gap:
+    - new CTA: 创建并开聊
+    - after role creation, page now bootstraps default conversation and redirects directly to /chat/:characterId
+  - Preserved original flow:
+    - existing 创建角色 still returns to workbench
+  - Added stronger defensive handling when character creation succeeds but role id/conversation bootstrap fails.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass
