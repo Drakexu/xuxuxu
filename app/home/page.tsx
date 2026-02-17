@@ -303,6 +303,28 @@ export default function HomeFeedPage() {
       total: items.length,
     }
   }, [items])
+  const selectedCharacterStats = useMemo(() => {
+    if (!selectedCharacter) return null
+    const targetId = selectedCharacter.id
+    const ownItems = items.filter((it) => String(it.conversations?.character_id || '') === targetId)
+    let moment = 0
+    let diary = 0
+    let schedule = 0
+    for (const it of ownItems) {
+      if (it.input_event === 'MOMENT_POST') moment += 1
+      else if (it.input_event === 'DIARY_DAILY') diary += 1
+      else if (it.input_event === 'SCHEDULE_TICK') schedule += 1
+    }
+    const latest = ownItems[0] || null
+    return {
+      total: ownItems.length,
+      moment,
+      diary,
+      schedule,
+      latestAt: latest?.created_at || '',
+      latestContent: String(latest?.content || '').trim(),
+    }
+  }, [items, selectedCharacter])
 
   const moveActivated = async (idx: number, direction: 'UP' | 'DOWN') => {
     if (idx < 0 || idx >= activated.length) return
@@ -411,6 +433,34 @@ export default function HomeFeedPage() {
         {!loading && (
           <div className="uiHomeWorkspace">
             <div className="uiHomeCol">
+              {selectedCharacter && selectedCharacterStats && (
+                <div className="uiPanel" style={{ marginTop: 0 }}>
+                  <div className="uiPanelHeader">
+                    <div>
+                      <div className="uiPanelTitle">当前角色状态</div>
+                      <div className="uiPanelSub">{selectedCharacter.name} 的动态活跃情况</div>
+                    </div>
+                  </div>
+                  <div className="uiForm" style={{ paddingTop: 14 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span className="uiBadge">动态总数: {selectedCharacterStats.total}</span>
+                      <span className="uiBadge">朋友圈: {selectedCharacterStats.moment}</span>
+                      <span className="uiBadge">日记: {selectedCharacterStats.diary}</span>
+                      <span className="uiBadge">日程: {selectedCharacterStats.schedule}</span>
+                    </div>
+                    <div className="uiHint" style={{ marginTop: 0 }}>
+                      最近更新时间：{selectedCharacterStats.latestAt ? new Date(selectedCharacterStats.latestAt).toLocaleString() : '暂无'}
+                    </div>
+                    {selectedCharacterStats.latestContent ? (
+                      <div className="uiHint" style={{ marginTop: 0 }}>
+                        最近动态：{selectedCharacterStats.latestContent.slice(0, 90)}
+                        {selectedCharacterStats.latestContent.length > 90 ? '...' : ''}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
               <div className="uiPanel" style={{ marginTop: 0 }}>
                 <div className="uiPanelHeader">
                   <div>

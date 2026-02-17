@@ -1,6 +1,6 @@
 # SESSION HANDOFF (xuxuxu)
 
-Last updated: 2026-02-16 (checkpoint: high-target execution v30 - character home feed pagination)
+Last updated: 2026-02-16 (checkpoint: high-target execution v31 - selected character status card on home)
 Repo: `d:/projects/xuxuxu`
 
 ## 1) Product Goal (current)
@@ -424,6 +424,21 @@ Repo: `d:/projects/xuxuxu`
     - added "加载更多动态" interaction with loading state and dedupe merge
   - Added end-of-list hint for role dynamic stream when no more rows are available.
   - Kept existing role runtime-control panel and ledger/asset modules unchanged.
+- Validation:
+  - `npm run -s lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run -s build` -> pass
+
+### Home selected-role status v31 checkpoint (latest)
+- File changed:
+  - `app/home/page.tsx`
+- Completed:
+  - Added selected-role status panel on home right column:
+    - total dynamic count for selected role
+    - moment/diary/schedule split
+    - latest dynamic timestamp
+    - latest dynamic text preview
+  - This closes the “selected role health glance” gap without opening role detail page.
 - Validation:
   - `npm run -s lint` -> pass
   - `npx tsc --noEmit` -> pass
