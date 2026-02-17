@@ -2163,3 +2163,21 @@ pm run -s build -> pass
   - npm run -s build -> pass
 - Ops note:
   - run `supabase/schema_square_social.sql` to enable square social persistence.
+
+## 2026-02-18 checkpoint: studio social analytics pass
+- Files changed:
+  - app/api/wallet/creator-metrics/route.ts
+  - app/characters/page.tsx
+- Completed:
+  - Extended creator metrics API roleMetrics with social dimensions:
+    - likes, saves, comments, hot
+    - socialReady flag in API response
+  - Studio page now supports business+social operation sorting:
+    - added HOT sort mode
+    - created public role cards now show hot/comment/like/save badges
+    - sidebar shows social ledger readiness hint when square social schema is missing
+  - This closes social growth feedback from square -> creator workbench.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

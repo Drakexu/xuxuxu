@@ -23,6 +23,16 @@ type TxRow = {
   amount?: number | null
 }
 
+type SocialReactionRow = {
+  source_character_id?: string | null
+  liked?: boolean | null
+  saved?: boolean | null
+}
+
+type SocialCommentRow = {
+  source_character_id?: string | null
+}
+
 function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
 }
@@ -155,6 +165,30 @@ export async function GET(req: Request) {
       throw new Error(txRes.error.message)
     }
 
+    const reactionsRes = await sb
+      .from('square_reactions')
+      .select('source_character_id,liked,saved')
+      .in('source_character_id', sourceIds)
+      .limit(12000)
+    const reactionTableReady = !reactionsRes.error
+    if (reactionsRes.error && !isWalletUnavailableError(reactionsRes.error.message || '')) {
+      const msg = String(reactionsRes.error.message || '').toLowerCase()
+      const missingSquareSocial = msg.includes('square_reactions') && (msg.includes('does not exist') || msg.includes('relation') || msg.includes('schema cache'))
+      if (!missingSquareSocial) throw new Error(reactionsRes.error.message)
+    }
+
+    const commentsRes = await sb
+      .from('square_comments')
+      .select('source_character_id')
+      .in('source_character_id', sourceIds)
+      .limit(12000)
+    const commentTableReady = !commentsRes.error
+    if (commentsRes.error && !isWalletUnavailableError(commentsRes.error.message || '')) {
+      const msg = String(commentsRes.error.message || '').toLowerCase()
+      const missingSquareSocial = msg.includes('square_comments') && (msg.includes('does not exist') || msg.includes('relation') || msg.includes('schema cache'))
+      if (!missingSquareSocial) throw new Error(commentsRes.error.message)
+    }
+
     const unlockBySource: Record<string, number> = {}
     const unlockPriceSumBySource: Record<string, number> = {}
     const latestUnlockAtBySource: Record<string, string> = {}
@@ -172,6 +206,26 @@ export async function GET(req: Request) {
       const sid = String(row.source_character_id || '').trim()
       if (!sid) continue
       revenueBySource[sid] = Number(revenueBySource[sid] || 0) + Number(row.amount || 0)
+    }
+
+    const likesBySource: Record<string, number> = {}
+    const savesBySource: Record<string, number> = {}
+    if (reactionTableReady) {
+      for (const row of (reactionsRes.data ?? []) as SocialReactionRow[]) {
+        const sid = String(row.source_character_id || '').trim()
+        if (!sid) continue
+        if (row.liked === true) likesBySource[sid] = Number(likesBySource[sid] || 0) + 1
+        if (row.saved === true) savesBySource[sid] = Number(savesBySource[sid] || 0) + 1
+      }
+    }
+
+    const commentsBySource: Record<string, number> = {}
+    if (commentTableReady) {
+      for (const row of (commentsRes.data ?? []) as SocialCommentRow[]) {
+        const sid = String(row.source_character_id || '').trim()
+        if (!sid) continue
+        commentsBySource[sid] = Number(commentsBySource[sid] || 0) + 1
+      }
     }
 
     const nameById: Record<string, string> = {}
@@ -198,6 +252,15 @@ export async function GET(req: Request) {
         creatorShareBp: parseCreatorShareBp(settingsById[id]),
         latestUnlockAt: latestUnlockAtBySource[id] || '',
         createdAt: createdAtById[id] || '',
+        likes: Number(likesBySource[id] || 0),
+        saves: Number(savesBySource[id] || 0),
+        comments: Number(commentsBySource[id] || 0),
+        hot:
+          Number(unlockBySource[id] || 0) * 2 +
+          Number(revenueBySource[id] || 0) / 50 +
+          Number(likesBySource[id] || 0) +
+          Number(savesBySource[id] || 0) * 2 +
+          Number(commentsBySource[id] || 0) * 2,
       }))
       .sort((a, b) => {
         if (b.revenue !== a.revenue) return b.revenue - a.revenue
@@ -212,6 +275,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       ok: true,
       walletReady: true,
+      socialReady: reactionTableReady && commentTableReady,
       publicRoleCount: createdPublic.length,
       totalUnlocks,
       totalRevenue,

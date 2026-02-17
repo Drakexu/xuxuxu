@@ -19,7 +19,7 @@ type CharacterAssetRow = { character_id: string; kind: string; storage_path: str
 type Alert = { type: 'ok' | 'err'; text: string } | null
 type StudioTab = 'CREATED' | 'UNLOCKED' | 'ALL'
 type VisibilityFilter = 'ALL' | 'PUBLIC' | 'PRIVATE'
-type CreatorSort = 'NEWEST' | 'REVENUE' | 'UNLOCKS' | 'NAME'
+type CreatorSort = 'NEWEST' | 'REVENUE' | 'UNLOCKS' | 'HOT' | 'NAME'
 type CreatorRoleMetric = {
   sourceCharacterId: string
   name: string
@@ -30,9 +30,14 @@ type CreatorRoleMetric = {
   creatorShareBp: number
   latestUnlockAt: string
   createdAt: string
+  likes: number
+  saves: number
+  comments: number
+  hot: number
 }
 type CreatorMetrics = {
   walletReady: boolean
+  socialReady: boolean
   publicRoleCount: number
   totalUnlocks: number
   totalRevenue: number
@@ -98,6 +103,7 @@ export default function CharactersPage() {
   const [query, setQuery] = useState('')
   const [creatorMetrics, setCreatorMetrics] = useState<CreatorMetrics>({
     walletReady: false,
+    socialReady: false,
     publicRoleCount: 0,
     totalUnlocks: 0,
     totalRevenue: 0,
@@ -153,6 +159,16 @@ export default function CharactersPage() {
           const ua = Number(ma?.unlocks || 0)
           const ub = Number(mb?.unlocks || 0)
           if (ub !== ua) return ub - ua
+        } else if (creatorSort === 'HOT') {
+          const ha = Number(ma?.hot || 0)
+          const hb = Number(mb?.hot || 0)
+          if (hb !== ha) return hb - ha
+          const ca = Number(ma?.comments || 0)
+          const cb = Number(mb?.comments || 0)
+          if (cb !== ca) return cb - ca
+          const ra = Number(ma?.revenue || 0)
+          const rb = Number(mb?.revenue || 0)
+          if (rb !== ra) return rb - ra
         } else if (creatorSort === 'UNLOCKS') {
           const ua = Number(ma?.unlocks || 0)
           const ub = Number(mb?.unlocks || 0)
@@ -184,6 +200,7 @@ export default function CharactersPage() {
     setImgById({})
     setCreatorMetrics({
       walletReady: false,
+      socialReady: false,
       publicRoleCount: 0,
       totalUnlocks: 0,
       totalRevenue: 0,
@@ -215,6 +232,7 @@ export default function CharactersPage() {
           const data = (await mr.json().catch(() => ({}))) as Record<string, unknown>
           setCreatorMetrics({
             walletReady: data.walletReady !== false,
+            socialReady: data.socialReady !== false,
             publicRoleCount: Number(data.publicRoleCount || 0),
             totalUnlocks: Number(data.totalUnlocks || 0),
             totalRevenue: Number(data.totalRevenue || 0),
@@ -480,6 +498,7 @@ export default function CharactersPage() {
                     <span className="uiBadge">累计解锁: {creatorMetrics.totalUnlocks}</span>
                     <span className="uiBadge">累计收益: {creatorMetrics.totalRevenue}</span>
                     {!creatorMetrics.walletReady ? <span className="uiBadge">收益账本未启用</span> : null}
+                    {!creatorMetrics.socialReady ? <span className="uiBadge">广场互动账本未启用</span> : null}
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className={`uiPill ${studioTab === 'CREATED' ? 'uiPillActive' : ''}`} onClick={() => setStudioTab('CREATED')}>
@@ -506,6 +525,7 @@ export default function CharactersPage() {
                   <select className="uiInput" value={creatorSort} onChange={(e) => setCreatorSort(e.target.value as CreatorSort)}>
                     <option value="REVENUE">经营排序：收益优先</option>
                     <option value="UNLOCKS">经营排序：解锁优先</option>
+                    <option value="HOT">经营排序：热度优先</option>
                     <option value="NEWEST">经营排序：最新创建</option>
                     <option value="NAME">经营排序：角色名</option>
                   </select>
@@ -599,6 +619,10 @@ export default function CharactersPage() {
                             <span className="uiBadge">收益 {Number(creatorRole?.revenue || 0)} 币</span>
                             <span className="uiBadge">定价 {Number(creatorRole?.unlockPrice || 0)} 币</span>
                             <span className="uiBadge">分成 {Math.floor(Number(creatorRole?.creatorShareBp || 7000) / 100)}%</span>
+                            <span className="uiBadge">热度 {Math.floor(Number(creatorRole?.hot || 0))}</span>
+                            <span className="uiBadge">评论 {Number(creatorRole?.comments || 0)}</span>
+                            <span className="uiBadge">喜欢 {Number(creatorRole?.likes || 0)}</span>
+                            <span className="uiBadge">收藏 {Number(creatorRole?.saves || 0)}</span>
                           </div>
                         ) : null}
 
