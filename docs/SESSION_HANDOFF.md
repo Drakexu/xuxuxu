@@ -1537,3 +1537,29 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v30 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/api/cron/conversations/route.ts (new)
+  - ercel.json
+  - .env.example
+  - docs/cron.md
+- Completed:
+  - Added new cron route GET/POST /api/cron/conversations:
+    - scans unlocked-from-square roles and backfills one default conversation for roles that have none
+    - supports guarded replay controls: dryRun, scanLimit, createLimit
+    - keeps CRON_SECRET auth contract aligned with other cron routes
+  - Added Vercel schedule for conversation bootstrap cron (*/30 * * * *).
+  - Added env knobs:
+    - CONVERSATION_BOOTSTRAP_SCAN_LIMIT
+    - CONVERSATION_BOOTSTRAP_CREATE_LIMIT
+  - Updated cron runbook docs with conversation bootstrap behavior and rollout guidance.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass

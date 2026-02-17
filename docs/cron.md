@@ -9,6 +9,7 @@ This project uses scheduled API routes to run background work (patching, memory 
 - `/api/cron/patch` every 2 minutes
 - `/api/cron/memory` every 10 minutes
 - `/api/cron/schedule` hourly
+- `/api/cron/conversations` every 30 minutes
 
 ## Schedule Control Integration
 
@@ -50,6 +51,23 @@ On Vercel, set `CRON_SECRET` in **Project Settings -> Environment Variables** (P
 - `CRON_SECRET`
 - `SUPABASE_SERVICE_ROLE_KEY` (admin client for cron routes)
 - `MINIMAX_API_KEY`, `MINIMAX_BASE_URL` (for memory/schedule generation)
+- `CONVERSATION_BOOTSTRAP_SCAN_LIMIT` (optional; default `1200`)
+- `CONVERSATION_BOOTSTRAP_CREATE_LIMIT` (optional; default `240`)
+
+## Conversation Bootstrap Cron
+
+`/api/cron/conversations` backfills one default conversation for unlocked roles that currently have none.
+
+Purpose:
+
+- ensure historical unlocked roles (created before conversation bootstrap logic) can enter autonomous schedule flow
+- avoid requiring manual re-unlock or first user utterance for schedule startup
+
+Behavior:
+
+- scans recent characters, filters unlocked-from-square roles, checks existing `conversations`
+- creates one conversation per missing role (best effort)
+- supports `dryRun`, `scanLimit`, `createLimit` query params for controlled replay
 
 ## Patch Job Recovery Model
 
@@ -75,6 +93,7 @@ Use the included defaults unless traffic is very high:
 - Keep patch cron at `*/2 * * * *` (every 2 minutes), and scale to `* * * * *` only if needed.
 - Keep memory cron at `*/10 * * * *` for stable usage.
 - Keep schedule cron at `0 * * * *` (hourly posts/diary hooks).
+- Keep conversations bootstrap cron at `*/30 * * * *`.
 - Keep `MOMENT_POST_STRICT_HOURLY=true` for "朋友圈每小时一条" behavior.
 
 ### Backlog catch-up playbook
