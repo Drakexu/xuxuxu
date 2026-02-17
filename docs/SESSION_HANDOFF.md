@@ -1518,3 +1518,22 @@ pm run -s lint -> pass
 px tsc --noEmit -> pass
   - 
 pm run -s build -> pass
+
+### High-target execution v29 checkpoint (latest)
+- Date:
+  - 2026-02-17
+- Files changed:
+  - pp/page.tsx
+- Completed:
+  - Upgraded landing page from static intro to discover-first entry:
+    - still keeps login-state redirect to /home
+    - added public role preview rail (featured cards) loaded from Square data
+    - each card shows cover media + role meta and supports direct jump to /square/:id
+  - This improves pre-login conversion path and aligns better with candy-style browse-first UX.
+- Validation:
+  - 
+pm run -s lint -> pass
+  - 
+px tsc --noEmit -> pass
+  - 
+pm run -s build -> pass
