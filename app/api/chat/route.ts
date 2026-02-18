@@ -235,7 +235,63 @@ type GuardIssue =
   | 'FUNC_DBL_DIALOGUE'
   | 'SCHEDULE_FORMAT'
   | 'SPEAKER_OUTSIDE_SET'
+  | 'DUPLICATE_ANSWER'
   | 'STRICT_MULTICAST_FORMAT'
+
+function normalizeTextForSimilarity(text: string) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[.,!?;:'"`~\-_=+*(){}\[\]<>/\\|@#$%^&，。！？；：“”‘’、·…]/g, '')
+}
+
+function toBigramSet(text: string) {
+  const s = normalizeTextForSimilarity(text)
+  const out = new Set<string>()
+  if (!s) return out
+  if (s.length < 2) {
+    out.add(s)
+    return out
+  }
+  for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2))
+  return out
+}
+
+function bigramJaccard(a: string, b: string) {
+  const sa = toBigramSet(a)
+  const sb = toBigramSet(b)
+  if (!sa.size || !sb.size) return 0
+  let inter = 0
+  for (const x of sa) {
+    if (sb.has(x)) inter += 1
+  }
+  const union = sa.size + sb.size - inter
+  return union > 0 ? inter / union : 0
+}
+
+function looksLikeDuplicateAssistantAnswer(text: string, recentAssistantTexts: string[]) {
+  const curr = String(text || '').trim()
+  if (!curr) return false
+  if (curr.length < 18) return false
+  const currNorm = normalizeTextForSimilarity(curr)
+  if (!currNorm) return false
+
+  const recent = (recentAssistantTexts || [])
+    .map((x) => String(x || '').trim())
+    .filter(Boolean)
+    .slice(-4)
+
+  for (const prev of recent) {
+    if (prev.length < 18) continue
+    const prevNorm = normalizeTextForSimilarity(prev)
+    if (!prevNorm) continue
+    if (currNorm === prevNorm) return true
+    if (currNorm.length > 32 && prevNorm.length > 32 && (currNorm.includes(prevNorm) || prevNorm.includes(currNorm))) return true
+    if (bigramJaccard(curr, prev) >= 0.88) return true
+  }
+
+  return false
+}
 
 function getAssistantOutputGuardIssues(args: {
   text: string
@@ -243,8 +299,9 @@ function getAssistantOutputGuardIssues(args: {
   userMessageForModel?: string
   allowedSpeakers?: string[]
   enforceSpeakerSet?: boolean
+  recentAssistantTexts?: string[]
 }) {
-  const { text, inputEvent, userMessageForModel, allowedSpeakers = [], enforceSpeakerSet = false } = args
+  const { text, inputEvent, userMessageForModel, allowedSpeakers = [], enforceSpeakerSet = false, recentAssistantTexts = [] } = args
   const s = String(text || '').trim()
   const issues: GuardIssue[] = []
   const push = (issue: GuardIssue) => {
@@ -298,6 +355,10 @@ function getAssistantOutputGuardIssues(args: {
     const roleLines = lines.filter((line) => isDialogueLine(line))
     if (roleLines.length < 2) push('STRICT_MULTICAST_FORMAT')
     if (roleLines.some((line) => hasUserSpeechMarker(line))) push('STRICT_MULTICAST_FORMAT')
+  }
+
+  if (inputEvent !== 'SCHEDULE_TICK' && looksLikeDuplicateAssistantAnswer(s, recentAssistantTexts)) {
+    push('DUPLICATE_ANSWER')
   }
 
   return issues
@@ -397,6 +458,9 @@ function buildGuardRewriteConstraints(args: {
   }
   if (issues.includes('STRICT_MULTICAST_FORMAT')) {
     lines.push('- In strict multi-cast, output at least two dialogue lines with visible turn rotation.')
+  }
+  if (issues.includes('DUPLICATE_ANSWER')) {
+    lines.push('- Do not repeat prior assistant phrasing. Move plot/state forward with concrete new detail.')
   }
   return lines.join('\n')
 }
@@ -1193,6 +1257,11 @@ export async function POST(req: Request) {
 
     let assistantMessage = mmJson?.choices?.[0]?.message?.content ?? mmJson?.reply ?? mmJson?.output_text ?? ''
     if (!assistantMessage) return NextResponse.json({ error: 'MiniMax returned empty content', raw: mmJson }, { status: 502 })
+    const recentAssistantTexts = recentMessages
+      .filter((m) => String(m.role || '').toLowerCase() === 'assistant')
+      .map((m) => String(m.content || '').trim())
+      .filter(Boolean)
+      .slice(-4)
 
     // Guardrail: rare cases where the model violates output constraints (JSON leak / wrong mode).
     let guardIssues = getAssistantOutputGuardIssues({
@@ -1201,6 +1270,7 @@ export async function POST(req: Request) {
       userMessageForModel,
       allowedSpeakers: guardAllowedSpeakers,
       enforceSpeakerSet: guardEnforceSpeakerSet,
+      recentAssistantTexts,
     })
     const guardTriggered = guardIssues.length > 0
     let guardRewriteUsed = false
@@ -1225,7 +1295,13 @@ export async function POST(req: Request) {
                 `Your previous output broke the hard output constraints. Rewrite now and output only the final user-facing character text.\n` +
                 `${rewriteConstraints}\n`,
             },
-            { role: 'user', name: 'User', content: `INPUT_EVENT=${inputEvent || 'TALK_HOLD'}\nUSER_INPUT=${userMessageForModel}\nORIGINAL_OUTPUT:\n${assistantMessage}` },
+            {
+              role: 'user',
+              name: 'User',
+              content:
+                `INPUT_EVENT=${inputEvent || 'TALK_HOLD'}\nUSER_INPUT=${userMessageForModel}\nORIGINAL_OUTPUT:\n${assistantMessage}\n` +
+                `RECENT_ASSISTANT_TAIL:\n${recentAssistantTexts.join('\n---\n')}`,
+            },
           ],
           temperature: 0.2,
           top_p: 0.7,
@@ -1240,6 +1316,7 @@ export async function POST(req: Request) {
             userMessageForModel,
             allowedSpeakers: guardAllowedSpeakers,
             enforceSpeakerSet: guardEnforceSpeakerSet,
+            recentAssistantTexts,
           })
           if (fixedIssues.length === 0) {
             guardRewriteUsed = true
@@ -1251,6 +1328,56 @@ export async function POST(req: Request) {
         }
       } catch {
         // ignore: fall back to original output
+      }
+    }
+
+    // If still near-duplicate, force a continuation-style rewrite that adds concrete new progression.
+    if (guardIssues.includes('DUPLICATE_ANSWER')) {
+      try {
+        const dedupeRewrite = (await callMiniMax(mmBase, mmKey, {
+          model: 'M2-her',
+          messages: [
+            {
+              role: 'system',
+              name: 'System',
+              content:
+                `${promptOs}\n\n` +
+                `Rewrite the assistant output to avoid repetition. Keep voice/style, but add at least one concrete new progression detail.\n` +
+                `Hard constraints: no JSON/meta text; never write user speaker lines.`,
+            },
+            {
+              role: 'user',
+              name: 'User',
+              content:
+                `USER_INPUT=${userMessageForModel}\nORIGINAL_OUTPUT:\n${assistantMessage}\n` +
+                `RECENT_ASSISTANT_TAIL:\n${recentAssistantTexts.join('\n---\n')}`,
+            },
+          ],
+          temperature: 0.3,
+          top_p: 0.75,
+          max_completion_tokens: 1200,
+        })) as MiniMaxResponse
+
+        const fixed2 = (dedupeRewrite?.choices?.[0]?.message?.content ?? dedupeRewrite?.reply ?? dedupeRewrite?.output_text ?? '').trim()
+        if (fixed2) {
+          const fixedIssues2 = getAssistantOutputGuardIssues({
+            text: fixed2,
+            inputEvent: inputEvent || null,
+            userMessageForModel,
+            allowedSpeakers: guardAllowedSpeakers,
+            enforceSpeakerSet: guardEnforceSpeakerSet,
+            recentAssistantTexts,
+          })
+          if (fixedIssues2.length === 0) {
+            assistantMessage = fixed2
+            guardIssues = []
+            guardRewriteUsed = true
+          } else {
+            guardIssues = fixedIssues2
+          }
+        }
+      } catch {
+        // ignore
       }
     }
 

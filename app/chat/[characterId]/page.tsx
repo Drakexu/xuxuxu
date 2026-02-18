@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -15,6 +15,8 @@ type InputEvent =
   | 'SCHEDULE_TICK'
   | 'SCHEDULE_PLAY'
   | 'SCHEDULE_PAUSE'
+
+type QuickSendMode = 'TALK' | 'NARRATE' | 'CG'
 
 type Msg = { id?: string; created_at?: string; role: 'user' | 'assistant'; content: string; input_event?: string | null }
 type DbMessageRow = { id: string; role: string; content: string; created_at: string; input_event?: string | null }
@@ -102,6 +104,7 @@ export default function ChatPage() {
   const [conversationList, setConversationList] = useState<Array<{ id: string; created_at?: string }>>([])
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
+  const [quickSendMode, setQuickSendMode] = useState<QuickSendMode>('TALK')
 
   const [assistantAvatarUrl, setAssistantAvatarUrl] = useState('')
   const [chatBgUrl, setChatBgUrl] = useState('')
@@ -159,9 +162,20 @@ export default function ChatPage() {
 
   const canSend = useMemo(() => input.trim().length > 0 && !sending, [input, sending])
   const convKey = useMemo(() => `xuxuxu:conversationId:${characterId}`, [characterId])
+  const draftKey = useMemo(() => `xuxuxu:chatDraft:${characterId}`, [characterId])
   const bgKey = useMemo(() => `xuxuxu:chatBgPath:${characterId}`, [characterId])
   const roleKey = useMemo(() => `xuxuxu:chatRolePath:${characterId}`, [characterId])
   const tsKey = useMemo(() => `xuxuxu:showTimestamps:${characterId}`, [characterId])
+  const defaultSendEvent = useMemo<InputEvent>(() => {
+    if (quickSendMode === 'NARRATE') return 'FUNC_HOLD'
+    if (quickSendMode === 'CG') return 'FUNC_DBL'
+    return 'TALK_HOLD'
+  }, [quickSendMode])
+  const composerHint = useMemo(() => {
+    if (quickSendMode === 'NARRATE') return 'Narration mode (FUNC_HOLD)'
+    if (quickSendMode === 'CG') return 'Visual/camera mode (FUNC_DBL)'
+    return 'Dialogue mode (TALK_HOLD)'
+  }, [quickSendMode])
 
   const assistantInitial = useMemo(() => {
     const t = (title || 'AI').trim()
@@ -171,19 +185,19 @@ export default function ChatPage() {
   const ledgerHealth = useMemo(() => {
     if (!details) {
       return [
-        { key: 'wardrobe', label: '服装', ok: false },
-        { key: 'inventory', label: '物品', ok: false },
+        { key: 'wardrobe', label: '鏈嶈', ok: false },
+        { key: 'inventory', label: '鐗╁搧', ok: false },
         { key: 'npc', label: 'NPC', ok: false },
-        { key: 'highlights', label: '高光事件', ok: false },
-        { key: 'events', label: '事件日志', ok: false },
+        { key: 'highlights', label: '楂樺厜浜嬩欢', ok: false },
+        { key: 'events', label: '浜嬩欢鏃ュ織', ok: false },
       ]
     }
     return [
-      { key: 'wardrobe', label: '服装', ok: !!details.outfit },
-      { key: 'inventory', label: '物品', ok: details.inventory.length > 0 },
+      { key: 'wardrobe', label: '鏈嶈', ok: !!details.outfit },
+      { key: 'inventory', label: '鐗╁搧', ok: details.inventory.length > 0 },
       { key: 'npc', label: 'NPC', ok: details.npcs.length > 0 },
-      { key: 'highlights', label: '高光事件', ok: details.highlights.length > 0 },
-      { key: 'events', label: '事件日志', ok: details.eventLog.length > 0 },
+      { key: 'highlights', label: '楂樺厜浜嬩欢', ok: details.highlights.length > 0 },
+      { key: 'events', label: '浜嬩欢鏃ュ織', ok: details.eventLog.length > 0 },
     ]
   }, [details])
 
@@ -260,11 +274,11 @@ export default function ChatPage() {
     const t = Date.parse(storyLockUntil)
     if (!Number.isFinite(t)) return ''
     const mins = Math.ceil((t - Date.now()) / 60000)
-    if (mins <= 0) return '已到期'
-    if (mins < 60) return `${mins} 分钟后解锁`
+    if (mins <= 0) return 'Unlocked'
+    if (mins < 60) return `Unlocks in ${mins}m`
     const h = Math.floor(mins / 60)
     const m = mins % 60
-    return `${h}小时${m ? `${m}分钟` : ''}后解锁`
+    return `Unlocks in ${h}h${m ? `${m}m` : ''}`
   }, [storyLockUntil])
 
   const applyControlState = (state: unknown) => {
@@ -405,7 +419,7 @@ export default function ChatPage() {
 
       const { data: c, error: ce } = await supabase.from('characters').select('name').eq('id', characterId).eq('user_id', userId).single()
       if (ce || !c) {
-        setError('角色不存在或无权限。')
+        setError('Character not found or no permission.')
         setLoading(false)
         return
       }
@@ -568,7 +582,7 @@ export default function ChatPage() {
       const ledger = asRecord(st.ledger)
       const wardrobe = asRecord(ledger.wardrobe)
       const outfit = typeof wardrobe.current_outfit === 'string' ? wardrobe.current_outfit.trim() : ''
-      setOutfitHint(outfit ? `当前穿搭：${outfit}` : '')
+      setOutfitHint(outfit ? `褰撳墠绌挎惌锛?{outfit}` : '')
     } catch {
       // ignore (table may not exist)
     }
@@ -660,7 +674,7 @@ export default function ChatPage() {
     try {
       const { data: sess } = await supabase.auth.getSession()
       const token = sess.session?.access_token
-      if (!token) throw new Error('登录态失效，请重新登录。')
+      if (!token) throw new Error('Session expired, please login again.')
 
       const resp = await fetch('/api/state/wardrobe', {
         method: 'POST',
@@ -669,14 +683,14 @@ export default function ChatPage() {
       })
       if (!resp.ok) {
         const t = await resp.text()
-        throw new Error(t || `请求失败：${resp.status}`)
+        throw new Error(t || `Request failed (${resp.status})`)
       }
 
       setManualOutfit(v)
       const { data: userData } = await supabase.auth.getUser()
       const userId = userData.user?.id
       if (!userId) {
-        setError('登录已失效，请重新登录')
+        setError('Login expired, please login again.')
         return
       }
       await loadOutfitHint(conversationId, userId)
@@ -791,7 +805,7 @@ export default function ChatPage() {
     try {
       const { data: sess } = await supabase.auth.getSession()
       const token = sess.session?.access_token
-      if (!token) throw new Error('登录态失效，请重新登录。')
+      if (!token) throw new Error('Session expired, please login again.')
 
       const payload: Record<string, unknown> = { conversationId, action }
       if (action === 'LOCK') {
@@ -805,7 +819,7 @@ export default function ChatPage() {
         body: JSON.stringify(payload),
       })
       const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+      if (!resp.ok) throw new Error(String(data.error || `璇锋眰澶辫触锛?{resp.status}`))
 
       setScheduleState(normalizeSchedule(data.scheduleState))
       setLockMode(String(data.lockMode || 'manual'))
@@ -826,7 +840,7 @@ export default function ChatPage() {
     try {
       const { data: sess } = await supabase.auth.getSession()
       const token = sess.session?.access_token
-      if (!token) throw new Error('登录态失效，请重新登录。')
+      if (!token) throw new Error('Session expired, please login again.')
 
       const payload: Record<string, unknown> = {
         conversationId,
@@ -841,7 +855,7 @@ export default function ChatPage() {
         body: JSON.stringify(payload),
       })
       const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+      if (!resp.ok) throw new Error(String(data.error || `璇锋眰澶辫触锛?{resp.status}`))
 
       if (data.relationshipStage) setRelationshipStage(normalizeStage(data.relationshipStage))
       if (data.romanceMode) setRomanceMode(normalizeRomance(data.romanceMode))
@@ -860,7 +874,7 @@ export default function ChatPage() {
     try {
       const { data: sess } = await supabase.auth.getSession()
       const token = sess.session?.access_token
-      if (!token) throw new Error('登录态失效，请重新登录。')
+      if (!token) throw new Error('Session expired, please login again.')
 
       const nextEndingsPrefer =
         endingMode === 'QUESTION'
@@ -886,7 +900,7 @@ export default function ChatPage() {
         body: JSON.stringify(payload),
       })
       const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+      if (!resp.ok) throw new Error(String(data.error || `璇锋眰澶辫触锛?{resp.status}`))
 
       setPlotGranularity(normalizePlotGranularity(data.plotGranularity))
       setEndingMode(normalizeEndingMode(data.endingMode))
@@ -923,6 +937,24 @@ export default function ChatPage() {
   }, [showTimestamps, tsKey])
 
   useEffect(() => {
+    try {
+      const draft = localStorage.getItem(draftKey) || ''
+      setInput(draft)
+    } catch {
+      setInput('')
+    }
+  }, [draftKey])
+
+  useEffect(() => {
+    try {
+      if (input.trim()) localStorage.setItem(draftKey, input.slice(0, 4000))
+      else localStorage.removeItem(draftKey)
+    } catch {
+      // ignore
+    }
+  }, [draftKey, input])
+
+  useEffect(() => {
     const el = listRef.current
     const tail = messageTailKey(messages[messages.length - 1])
     const prevTail = messageTailRef.current
@@ -953,9 +985,9 @@ export default function ChatPage() {
         router.replace('/login')
         return
       }
-      const title2 = (title || '对话').slice(0, 80)
+      const title2 = (title || '瀵硅瘽').slice(0, 80)
       const ins = await supabase.from('conversations').insert({ user_id: userId, character_id: characterId, title: title2 }).select('id,created_at').single()
-      if (ins.error || !ins.data?.id) throw new Error(ins.error?.message || '创建会话失败')
+      if (ins.error || !ins.data?.id) throw new Error(ins.error?.message || '鍒涘缓浼氳瘽澶辫触')
       const id2 = String(ins.data.id)
       setConversationId(id2)
       messageTailRef.current = ''
@@ -996,7 +1028,7 @@ export default function ChatPage() {
     const { data: sess } = await supabase.auth.getSession()
     const token = sess.session?.access_token
     if (!token) {
-      setError('登录态失效，请重新登录。')
+      setError('Session expired, please login again.')
       setSending(false)
       return
     }
@@ -1015,7 +1047,7 @@ export default function ChatPage() {
 
     if (!resp.ok) {
       const t = await resp.text()
-      setError(t || `请求失败：${resp.status}`)
+      setError(t || `璇锋眰澶辫触锛?{resp.status}`)
       setSending(false)
       return
     }
@@ -1035,14 +1067,14 @@ export default function ChatPage() {
       let assistantText = String(data.assistantMessage)
       const uiGuardHit = hasAssistantUserSpeech(assistantText)
       if (uiGuardHit) {
-        assistantText = stripAssistantUserSpeech(assistantText) || '我只会从角色视角回复，不会代替你发言。'
+        assistantText = stripAssistantUserSpeech(assistantText) || 'I will reply only from character perspective.'
       }
       const guardTriggered = data?.guardTriggered === true || uiGuardHit
       if (guardTriggered) {
         const notes: string[] = []
-        if (data?.guardRewriteUsed === true) notes.push('已自动重写一次')
-        if (data?.guardFallbackUsed === true || uiGuardHit) notes.push('已启用防代用户护栏')
-        setGuardWarn(`主语护栏触发：${notes.join('，') || '已修正输出'}`)
+        if (data?.guardRewriteUsed === true) notes.push('auto rewrite')
+        if (data?.guardFallbackUsed === true || uiGuardHit) notes.push('anti-user-speech fallback')
+        setGuardWarn(`Guard triggered: ${notes.join(' / ') || 'output fixed'}`)
       }
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }])
       if (bgAutoEnabled && backgroundAssets.length > 0) {
@@ -1073,25 +1105,26 @@ export default function ChatPage() {
     setSending(false)
   }
 
-  const send = async () => {
-    if (!canSend) return
-    const text = input.trim()
-    setInput('')
+  const send = async (opts?: { event?: InputEvent; presetText?: string }) => {
+    if (sending) return
+    const event = opts?.event || defaultSendEvent
+    const text = String(opts?.presetText ?? input).trim()
+    if (!text) return
+    if (!opts?.presetText && !canSend) return
+    if (!opts?.presetText) setInput('')
     setMessages((prev) => [...prev, { role: 'user', content: text }])
-    await post(text, 'TALK_HOLD')
+    await post(text, event)
   }
 
   const pushStory = async () => {
-    if (sending) return
-    setMessages((prev) => [...prev, { role: 'user', content: '(推进剧情)' }])
-    await post('(推进剧情)', 'TALK_DBL')
+    await send({ event: 'TALK_DBL', presetText: '(推进剧情)' })
   }
 
   if (loading) {
     return (
       <div className="uiPage">
-        <AppShell title="对话" badge="m2-her">
-          <div className="uiSkeleton">加载中...</div>
+        <AppShell title="瀵硅瘽" badge="m2-her">
+          <div className="uiSkeleton">鍔犺浇涓?..</div>
         </AppShell>
       </div>
     )
@@ -1100,9 +1133,9 @@ export default function ChatPage() {
   return (
     <div className="uiPage">
       <AppShell
-        title={title || '对话'}
+        title={title || '瀵硅瘽'}
         badge="m2-her"
-        subtitle={outfitHint || '对话会自动保存。旁白请用括号输入。'}
+        subtitle={outfitHint || 'Chat is auto-saved. Use parentheses for narration as needed.'}
         actions={
           <>
             {conversationList.length > 0 && (
@@ -1142,8 +1175,7 @@ export default function ChatPage() {
               </select>
             )}
             <button className="uiBtn uiBtnSecondary" onClick={createNewConversation} disabled={sending}>
-              新会话
-            </button>
+              鏂颁細璇?            </button>
             <button
               className="uiBtn uiBtnGhost"
                 onClick={() => {
@@ -1161,51 +1193,49 @@ export default function ChatPage() {
                   })()
                 }}
               >
-                {showDetails ? '收起账本' : '账本详情'}
+                {showDetails ? '鏀惰捣璐︽湰' : '璐︽湰璇︽儏'}
             </button>
             <button className="uiBtn uiBtnGhost" onClick={() => setShowSceneDock((v) => !v)}>
               {showSceneDock ? 'Scene Dock Off' : 'Scene Dock On'}
             </button>
             <button className="uiBtn uiBtnGhost" onClick={() => setShowTimestamps((v) => !v)}>
-              {showTimestamps ? '隐藏时间' : '显示时间'}
+              {showTimestamps ? '闅愯棌鏃堕棿' : '鏄剧ず鏃堕棿'}
             </button>
             <button className="uiBtn uiBtnGhost" onClick={() => setShowUserCard(true)}>
-              身份卡
-            </button>
+              韬唤鍗?            </button>
             <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${characterId}`)}>
-              动态中心
-            </button>
+              鍔ㄦ€佷腑蹇?            </button>
           </>
         }
       >
         <section className="uiHero">
           <div>
-            <span className="uiBadge">实时对话</span>
-            <h2 className="uiHeroTitle">角色对话与账本联动工作区</h2>
-            <p className="uiHeroSub">支持会话切换、上滑加载历史、身份卡注入、换装写回和聊天背景切换。聊天内容会持续驱动角色记忆与动态。</p>
+            <span className="uiBadge">瀹炴椂瀵硅瘽</span>
+            <h2 className="uiHeroTitle">瑙掕壊瀵硅瘽涓庤处鏈仈鍔ㄥ伐浣滃尯</h2>
+            <p className="uiHeroSub">Switch conversations, load history, inject profile card, sync outfit state, and manage scene layers while chatting.</p>
           </div>
           <div className="uiKpiGrid">
             <div className="uiKpi">
               <b>{conversationList.length}</b>
-              <span>可选会话</span>
+              <span>Conversations</span>
             </div>
             <div className="uiKpi">
               <b>{messageStats.total}</b>
-              <span>当前消息数</span>
+              <span>Messages</span>
             </div>
             <div className="uiKpi">
               <b>{messageStats.user}</b>
-              <span>你发送</span>
+              <span>User Sent</span>
             </div>
             <div className="uiKpi">
               <b>{messageStats.assistant}</b>
-              <span>角色回复</span>
+              <span>瑙掕壊鍥炲</span>
             </div>
             <div className="uiKpi">
               <b>
                 {ledgerSummary.ok}/{ledgerSummary.total}
               </b>
-              <span>账本完整度</span>
+              <span>Ledger Health</span>
             </div>
             <div className="uiKpi">
               <b>{backgroundAssets.length}</b>
@@ -1220,38 +1250,39 @@ export default function ChatPage() {
 
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
         {guardWarn && <div className="uiAlert uiAlertWarn">{guardWarn}</div>}
-        {patchOk === false && patchError && <div className="uiAlert uiAlertErr">状态补丁错误：{patchError}</div>}
+        {patchOk === false && patchError && <div className="uiAlert uiAlertErr">鐘舵€佽ˉ涓侀敊璇細{patchError}</div>}
 
         <div className="uiPanel uiPanelCompactTop">
           <div className="uiPanelHeader">
             <div>
-              <div className="uiPanelTitle">执行控制台</div>
-              <div className="uiPanelSub">控制日程执行状态、关系阶段和背景自动切换。</div>
+              <div className="uiPanelTitle">Control Panel</div>
+              <div className="uiPanelSub">Manage schedule state, relationship stage, and auto scene switching.</div>
             </div>
           </div>
           <div className="uiForm" style={{ paddingTop: 14 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span className="uiBadge">日程：{scheduleState === 'PAUSE' ? '暂停' : '运行中'}</span>
-              <span className="uiBadge">锁模式：{lockMode || 'manual'}</span>
-              <span className="uiBadge">关系阶段：{relationshipStage}</span>
-              <span className="uiBadge">恋爱：{romanceMode === 'ROMANCE_OFF' ? '关闭' : '开启'}</span>
-              <span className="uiBadge">背景：{bgAutoEnabled ? `自动${bgCue ? ` (${bgCue})` : ''}` : '手动'}</span>
-              <span className="uiBadge">剧情颗粒度：{plotGranularity}</span>
-              <span className="uiBadge">结尾策略：{endingMode}/{endingRepeatWindow}</span>              {!!storyLockUntil && <span className="uiBadge">剧情锁：{storyLockLabel || storyLockUntil}</span>}
+              <span className="uiBadge">Schedule: {scheduleState === 'PAUSE' ? 'Paused' : 'Running'}</span>
+              <span className="uiBadge">Lock mode: {lockMode || 'manual'}</span>
+              <span className="uiBadge">Relationship: {relationshipStage}</span>
+              <span className="uiBadge">Romance: {romanceMode === 'ROMANCE_OFF' ? 'Off' : 'On'}</span>
+              <span className="uiBadge">Background: {bgAutoEnabled ? `Auto${bgCue ? ` (${bgCue})` : ''}` : 'Manual'}</span>
+              <span className="uiBadge">Granularity: {plotGranularity}</span>
+              <span className="uiBadge">Ending: {endingMode}/{endingRepeatWindow}</span>
+              {!!storyLockUntil && <span className="uiBadge">Story lock: {storyLockLabel || storyLockUntil}</span>}
             </div>
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingSchedule} onClick={() => updateScheduleControl('PLAY')}>
-                恢复日程
+                鎭㈠鏃ョ▼
               </button>
               <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingSchedule} onClick={() => updateScheduleControl('PAUSE')}>
-                暂停日程
+                鏆傚仠鏃ョ▼
               </button>
               <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingSchedule} onClick={() => updateScheduleControl('LOCK', 120)}>
-                锁剧情 2h
+                閿佸墽鎯?2h
               </button>
               <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingSchedule} onClick={() => updateScheduleControl('UNLOCK')}>
-                解锁剧情
+                瑙ｉ攣鍓ф儏
               </button>
             </div>
 
@@ -1269,7 +1300,7 @@ export default function ChatPage() {
               >
                 {['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].map((s) => (
                   <option key={s} value={s}>
-                    阶段 {s}
+                    闃舵 {s}
                   </option>
                 ))}
               </select>
@@ -1282,23 +1313,23 @@ export default function ChatPage() {
                   void updateRelationshipControl({ romance: next })
                 }}
               >
-                {romanceMode === 'ROMANCE_OFF' ? '开启恋爱模式' : '关闭恋爱模式'}
+                {romanceMode === 'ROMANCE_OFF' ? 'Turn Romance On' : 'Turn Romance Off'}
               </button>
               <button className="uiBtn uiBtnGhost" onClick={() => setBgAutoEnabled(true)}>
-                开启背景自动
+                Enable Auto BG
               </button>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <select className="uiInput" style={{ width: 150 }} value={plotGranularity} onChange={(e) => setPlotGranularity(normalizePlotGranularity(e.target.value))}>
-                <option value="LINE">剧情颗粒度 LINE</option>
-                <option value="BEAT">剧情颗粒度 BEAT</option>
-                <option value="SCENE">剧情颗粒度 SCENE</option>
+                <option value="LINE">鍓ф儏棰楃矑搴?LINE</option>
+                <option value="BEAT">鍓ф儏棰楃矑搴?BEAT</option>
+                <option value="SCENE">鍓ф儏棰楃矑搴?SCENE</option>
               </select>
               <select className="uiInput" style={{ width: 170 }} value={endingMode} onChange={(e) => setEndingMode(normalizeEndingMode(e.target.value))}>
-                <option value="MIXED">结尾策略 MIXED</option>
-                <option value="QUESTION">结尾策略 QUESTION</option>
-                <option value="ACTION">结尾策略 ACTION</option>
-                <option value="CLIFF">结尾策略 CLIFF</option>
+                <option value="MIXED">缁撳熬绛栫暐 MIXED</option>
+                <option value="QUESTION">缁撳熬绛栫暐 QUESTION</option>
+                <option value="ACTION">缁撳熬绛栫暐 ACTION</option>
+                <option value="CLIFF">缁撳熬绛栫暐 CLIFF</option>
               </select>
               <select
                 className="uiInput"
@@ -1309,14 +1340,14 @@ export default function ChatPage() {
                   setEndingRepeatWindow(Number.isFinite(n) ? Math.max(3, Math.min(Math.floor(n), 12)) : 6)
                 }}
               >
-                <option value="4">防复读窗口 4</option>
-                <option value="6">防复读窗口 6</option>
-                <option value="8">防复读窗口 8</option>
-                <option value="10">防复读窗口 10</option>
-                <option value="12">防复读窗口 12</option>
+                <option value="4">闃插璇荤獥鍙?4</option>
+                <option value="6">闃插璇荤獥鍙?6</option>
+                <option value="8">闃插璇荤獥鍙?8</option>
+                <option value="10">闃插璇荤獥鍙?10</option>
+                <option value="12">闃插璇荤獥鍙?12</option>
               </select>
               <button className="uiBtn uiBtnGhost" disabled={!conversationId || updatingPromptPolicy} onClick={updatePromptPolicyControl}>
-                {updatingPromptPolicy ? '保存中...' : '保存叙事策略'}
+                {updatingPromptPolicy ? '淇濆瓨涓?..' : '淇濆瓨鍙欎簨绛栫暐'}
               </button>
             </div>
           </div>
@@ -1455,14 +1486,14 @@ export default function ChatPage() {
               style={{ transform: `translate(-50%, ${chatRoleYOffset}px) scale(${chatRoleScale / 100})` }}
             />
           )}
-          {loadingHistory && <div className="uiHint uiChatLoadHint">正在加载聊天记录...</div>}
-          {!loadingHistory && hasMore && messages.length > 0 && <div className="uiHint uiChatLoadHint">上滑加载更早消息</div>}
-          {loadingOlder && <div className="uiHint uiChatLoadHint">加载更早消息...</div>}
+          {loadingHistory && <div className="uiHint uiChatLoadHint">姝ｅ湪鍔犺浇鑱婂ぉ璁板綍...</div>}
+          {!loadingHistory && hasMore && messages.length > 0 && <div className="uiHint uiChatLoadHint">涓婃粦鍔犺浇鏇存棭娑堟伅</div>}
+          {loadingOlder && <div className="uiHint uiChatLoadHint">鍔犺浇鏇存棭娑堟伅...</div>}
 
           {messages.length === 0 && (
             <div className="uiEmpty" style={{ marginTop: 0 }}>
-              <div className="uiEmptyTitle">开始对话</div>
-              <div className="uiEmptyDesc">先打个招呼，或用括号旁白推进剧情。</div>
+              <div className="uiEmptyTitle">Start Chat</div>
+              <div className="uiEmptyDesc">Send a greeting or use narration text to move story forward.</div>
             </div>
           )}
 
@@ -1487,12 +1518,12 @@ export default function ChatPage() {
 
               {m.role === 'user' && (
                 <div className="uiAvatar" aria-hidden="true">
-                  <div className="uiAvatarFallback">我</div>
+                    <div className="uiAvatarFallback">Me</div>
                 </div>
               )}
             </div>
           ))}
-          {sending && <div className="uiHint uiChatSendingHint">发送中...</div>}
+          {sending && <div className="uiHint uiChatSendingHint">鍙戦€佷腑...</div>}
           </div>
         </div>
 
@@ -1500,12 +1531,12 @@ export default function ChatPage() {
           <div className="uiPanel uiPanelCompactTop">
             <div className="uiPanelHeader">
               <div>
-                <div className="uiPanelTitle">账本 / 记忆</div>
-                <div className="uiPanelSub">NPC、物品、服装、高光事件（来自状态账本）</div>
+                <div className="uiPanelTitle">璐︽湰 / 璁板繂</div>
+                <div className="uiPanelSub">NPC銆佺墿鍝併€佹湇瑁呫€侀珮鍏変簨浠讹紙鏉ヨ嚜鐘舵€佽处鏈級</div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="uiBtn uiBtnSecondary" onClick={() => router.push(`/characters/${characterId}/assets`)}>
-                  资产
+                  璧勪骇
                 </button>
                 <button
                   className="uiBtn uiBtnGhost"
@@ -1519,7 +1550,7 @@ export default function ChatPage() {
                     })()
                   }}
                 >
-                  刷新
+                  鍒锋柊
                 </button>
               </div>
             </div>
@@ -1527,13 +1558,13 @@ export default function ChatPage() {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {ledgerHealth.map((h) => (
                   <span key={h.key} className={`uiBadge ${h.ok ? 'uiBadgeHealthOk' : 'uiBadgeHealthWarn'}`}>
-                    {h.label}: {h.ok ? '完整' : '缺失'}
+                    {h.label}: {h.ok ? '瀹屾暣' : '缂哄け'}
                   </span>
                 ))}
               </div>
               {backgroundAssets.length > 0 && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div className="uiHint">聊天背景：</div>
+                  <div className="uiHint">Chat background:</div>
                   {backgroundPresets.map((p) => (
                     <button key={`preset:${p.id}`} className="uiBtn uiBtnSecondary" onClick={() => setChatBgPath(p.path, { manual: true })}>
                       Preset {p.label}
@@ -1546,10 +1577,10 @@ export default function ChatPage() {
                   ))}
                 </div>
               )}
-              {!details && <div className="uiHint">暂无数据（可能状态补丁尚未写入，或未创建 conversation_states 表）。</div>}
+              {!details && <div className="uiHint">No ledger data yet (state patch may still be pending).</div>}
               {details && (
                 <>
-                  <div className="uiHint">当前穿搭：{details.outfit || '(none)'}</div>
+                  <div className="uiHint">Current outfit: {details.outfit || '(none)'}</div>
 
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                     {(details.wardrobeItems || []).slice(0, 16).map((x) => (
@@ -1557,7 +1588,7 @@ export default function ChatPage() {
                         {x}
                       </button>
                     ))}
-                    {details.wardrobeItems.length === 0 && <div className="uiHint">衣柜条目为空。</div>}
+                    {details.wardrobeItems.length === 0 && <div className="uiHint">Wardrobe list is empty.</div>}
                   </div>
 
                   <div style={{ display: 'flex', gap: 10 }}>
@@ -1565,19 +1596,19 @@ export default function ChatPage() {
                       className="uiInput"
                       value={manualOutfit}
                       onChange={(e) => setManualOutfit(e.target.value)}
-                      placeholder="手动设置 outfit"
+                      placeholder="鎵嬪姩璁剧疆 outfit"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') setOutfit(manualOutfit)
                       }}
                     />
                     <button className="uiBtn uiBtnPrimary" onClick={() => setOutfit(manualOutfit)} disabled={savingOutfit}>
-                      {savingOutfit ? '保存中...' : '保存'}
+                      {savingOutfit ? '淇濆瓨涓?..' : '淇濆瓨'}
                     </button>
                   </div>
-                  <div className="uiHint">物品：{details.inventory.length ? details.inventory.map((x) => `${x.name}${typeof x.count === 'number' ? `x${x.count}` : ''}`).join(' | ') : '(empty)'}</div>
-                  <div className="uiHint">NPC：{details.npcs.length ? details.npcs.join(' | ') : '(empty)'}</div>
-                  <div className="uiHint">高光事件：{details.highlights.length ? details.highlights.map((x) => x.item || '').join(' | ') : '(empty)'}</div>
-                  <div className="uiHint">事件日志：{details.eventLog.length ? details.eventLog.join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">Inventory: {details.inventory.length ? details.inventory.map((x) => `${x.name}${typeof x.count === 'number' ? `x${x.count}` : ''}`).join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">NPC: {details.npcs.length ? details.npcs.join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">Highlights: {details.highlights.length ? details.highlights.map((x) => x.item || '').join(' | ') : '(empty)'}</div>
+                  <div className="uiHint">Event log: {details.eventLog.length ? details.eventLog.join(' | ') : '(empty)'}</div>
                 </>
               )}
             </div>
@@ -1593,29 +1624,53 @@ export default function ChatPage() {
               setPendingDownCount(0)
             }}
           >
-            {pendingDownCount > 0 ? `回到底部 · ${pendingDownCount}` : '回到底部'}
+            {pendingDownCount > 0 ? `鍥炲埌搴曢儴 路 ${pendingDownCount}` : '鍥炲埌搴曢儴'}
           </button>
         )}
 
         <div className="uiChatComposer">
-          <input
-            className="uiInput"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="输入消息（旁白请用括号）"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                send()
-              }
-            }}
-          />
-          <button className="uiBtn uiBtnSecondary" disabled={sending} onClick={pushStory}>
-            推进剧情
-          </button>
-          <button className="uiBtn uiBtnPrimary" disabled={!canSend} onClick={send}>
-            {sending ? '发送中...' : '发送'}
-          </button>
+          <div className="uiChatComposerMain">
+            <textarea
+              className="uiTextarea uiChatComposerTextarea"
+              value={input}
+              onChange={(e) => setInput(e.target.value.slice(0, 4000))}
+              placeholder="Input message... (Ctrl/Cmd+Enter to send)"
+              rows={3}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  void send()
+                }
+              }}
+            />
+            <div className="uiChatComposerMeta">
+              <span className="uiHint">{composerHint}</span>
+              <span className="uiHint">{input.trim().length}/4000 · Ctrl/Cmd+Enter</span>
+            </div>
+            <div className="uiChatComposerTools">
+              <button className={`uiPill ${quickSendMode === 'TALK' ? 'uiPillActive' : ''}`} onClick={() => setQuickSendMode('TALK')}>
+                Talk
+              </button>
+              <button className={`uiPill ${quickSendMode === 'NARRATE' ? 'uiPillActive' : ''}`} onClick={() => setQuickSendMode('NARRATE')}>
+                Narrate
+              </button>
+              <button className={`uiPill ${quickSendMode === 'CG' ? 'uiPillActive' : ''}`} onClick={() => setQuickSendMode('CG')}>
+                Visual
+              </button>
+              <button className="uiPill" disabled={sending} onClick={() => void pushStory()}>
+                Story+
+              </button>
+              <button className="uiPill" disabled={sending} onClick={() => void send({ event: 'SCHEDULE_TICK', presetText: '(schedule_tick)' })}>
+                Schedule Tick
+              </button>
+            </div>
+          </div>
+
+          <div className="uiChatComposerActions">
+            <button className="uiBtn uiBtnPrimary" disabled={sending || !canSend} onClick={() => void send()}>
+              {sending ? 'Sending...' : 'Send'}
+            </button>
+          </div>
         </div>
       </AppShell>
 
@@ -1634,8 +1689,8 @@ export default function ChatPage() {
           >
             <div className="uiPanelHeader">
               <div>
-                <div className="uiPanelTitle">身份卡（注入 prompt）</div>
-                <div className="uiPanelSub">每个角色一份，最多 300 字，保存在本地浏览器。</div>
+                <div className="uiPanelTitle">Identity Card (prompt injection)</div>
+                <div className="uiPanelSub">One card per role, max 300 chars, stored in local browser.</div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button
@@ -1645,21 +1700,20 @@ export default function ChatPage() {
                     setShowUserCard(false)
                   }}
                 >
-                  保存
+                  淇濆瓨
                 </button>
                 <button className="uiBtn uiBtnGhost" onClick={() => setShowUserCard(false)}>
-                  关闭
+                  鍏抽棴
                 </button>
               </div>
             </div>
             <div className="uiForm">
               <label className="uiLabel">
-                身份卡
-                <textarea
+                韬唤鍗?                <textarea
                   className="uiTextarea"
                   value={userCardDraft}
                   onChange={(e) => setUserCardDraft(e.target.value.slice(0, 300))}
-                  placeholder="例如：你希望TA重点知道的事、你们的关系定位、禁区、偏好等。"
+                  placeholder="Example: boundaries, preference, relationship positioning, and hard constraints."
                 />
               </label>
             </div>
@@ -1669,3 +1723,5 @@ export default function ChatPage() {
     </div>
   )
 }
+
+

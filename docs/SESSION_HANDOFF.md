@@ -2328,3 +2328,27 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: chat UI + capability hardening pass
+- Files changed:
+  - app/chat/[characterId]/page.tsx
+  - app/api/chat/route.ts
+  - app/globals.css
+- Completed:
+  - Chat capability hardening (server):
+    - Added duplicate-answer detection using normalized text + bigram similarity against recent assistant tail.
+    - Integrated duplicate guard into output validation and rewrite flow.
+    - Added a second dedupe-focused rewrite pass when duplicate issue persists.
+    - Guard rewrite now includes `RECENT_ASSISTANT_TAIL` context for better anti-repeat behavior.
+  - Chat UI optimization (client):
+    - Upgraded composer from single-line input to multiline textarea.
+    - Added quick send modes (`Talk` / `Narrate` / `Visual`) mapped to input events.
+    - Added quick action pills (`Story+`, `Schedule Tick`).
+    - Added draft persistence per character in localStorage.
+    - Added composer mode hint + char counter + Ctrl/Cmd+Enter shortcut.
+  - Stability cleanup:
+    - Repaired multiple historical encoding-damaged strings/tags in chat page to restore parser/build stability.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
