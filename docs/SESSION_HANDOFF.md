@@ -2352,3 +2352,22 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: chat anti-repeat ending guard + composer polish
+- Files changed:
+  - app/api/chat/route.ts
+  - app/chat/[characterId]/page.tsx
+- Completed:
+  - Chat capability hardening:
+    - Added `ENDING_REPEAT` guard issue based on ending-tail similarity against recent assistant replies.
+    - Integrated ending-repeat checks into guard constraints and rewrite flow.
+    - Expanded second-pass dedupe rewrite to also handle repeated ending patterns.
+  - Chat UI optimization:
+    - Added per-role persisted quick-send mode (`TALK` / `NARRATE` / `CG`).
+    - Send button label now reflects mode (`Send Dialogue` / `Send Narration` / `Send Visual`).
+    - Composer now supports Enter-send and Shift+Enter newline, with updated hint text.
+    - Added `Clear Draft` quick action.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

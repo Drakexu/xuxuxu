@@ -163,6 +163,7 @@ export default function ChatPage() {
   const canSend = useMemo(() => input.trim().length > 0 && !sending, [input, sending])
   const convKey = useMemo(() => `xuxuxu:conversationId:${characterId}`, [characterId])
   const draftKey = useMemo(() => `xuxuxu:chatDraft:${characterId}`, [characterId])
+  const sendModeKey = useMemo(() => `xuxuxu:chatSendMode:${characterId}`, [characterId])
   const bgKey = useMemo(() => `xuxuxu:chatBgPath:${characterId}`, [characterId])
   const roleKey = useMemo(() => `xuxuxu:chatRolePath:${characterId}`, [characterId])
   const tsKey = useMemo(() => `xuxuxu:showTimestamps:${characterId}`, [characterId])
@@ -176,6 +177,12 @@ export default function ChatPage() {
     if (quickSendMode === 'CG') return 'Visual/camera mode (FUNC_DBL)'
     return 'Dialogue mode (TALK_HOLD)'
   }, [quickSendMode])
+  const sendPrimaryLabel = useMemo(() => {
+    if (sending) return 'Sending...'
+    if (quickSendMode === 'NARRATE') return 'Send Narration'
+    if (quickSendMode === 'CG') return 'Send Visual'
+    return 'Send Dialogue'
+  }, [quickSendMode, sending])
 
   const assistantInitial = useMemo(() => {
     const t = (title || 'AI').trim()
@@ -938,6 +945,24 @@ export default function ChatPage() {
 
   useEffect(() => {
     try {
+      const raw = localStorage.getItem(sendModeKey) || ''
+      if (raw === 'NARRATE' || raw === 'CG' || raw === 'TALK') setQuickSendMode(raw as QuickSendMode)
+      else setQuickSendMode('TALK')
+    } catch {
+      setQuickSendMode('TALK')
+    }
+  }, [sendModeKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(sendModeKey, quickSendMode)
+    } catch {
+      // ignore
+    }
+  }, [quickSendMode, sendModeKey])
+
+  useEffect(() => {
+    try {
       const draft = localStorage.getItem(draftKey) || ''
       setInput(draft)
     } catch {
@@ -1634,10 +1659,15 @@ export default function ChatPage() {
               className="uiTextarea uiChatComposerTextarea"
               value={input}
               onChange={(e) => setInput(e.target.value.slice(0, 4000))}
-              placeholder="Input message... (Ctrl/Cmd+Enter to send)"
+              placeholder="Input message... (Enter to send, Shift+Enter newline)"
               rows={3}
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  void send()
+                  return
+                }
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault()
                   void send()
                 }
@@ -1645,7 +1675,7 @@ export default function ChatPage() {
             />
             <div className="uiChatComposerMeta">
               <span className="uiHint">{composerHint}</span>
-              <span className="uiHint">{input.trim().length}/4000 · Ctrl/Cmd+Enter</span>
+              <span className="uiHint">{input.trim().length}/4000 · Enter send / Shift+Enter newline</span>
             </div>
             <div className="uiChatComposerTools">
               <button className={`uiPill ${quickSendMode === 'TALK' ? 'uiPillActive' : ''}`} onClick={() => setQuickSendMode('TALK')}>
@@ -1663,12 +1693,15 @@ export default function ChatPage() {
               <button className="uiPill" disabled={sending} onClick={() => void send({ event: 'SCHEDULE_TICK', presetText: '(schedule_tick)' })}>
                 Schedule Tick
               </button>
+              <button className="uiPill" disabled={sending || !input.trim()} onClick={() => setInput('')}>
+                Clear Draft
+              </button>
             </div>
           </div>
 
           <div className="uiChatComposerActions">
             <button className="uiBtn uiBtnPrimary" disabled={sending || !canSend} onClick={() => void send()}>
-              {sending ? 'Sending...' : 'Send'}
+              {sendPrimaryLabel}
             </button>
           </div>
         </div>

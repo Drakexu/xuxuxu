@@ -236,6 +236,7 @@ type GuardIssue =
   | 'SCHEDULE_FORMAT'
   | 'SPEAKER_OUTSIDE_SET'
   | 'DUPLICATE_ANSWER'
+  | 'ENDING_REPEAT'
   | 'STRICT_MULTICAST_FORMAT'
 
 function normalizeTextForSimilarity(text: string) {
@@ -290,6 +291,44 @@ function looksLikeDuplicateAssistantAnswer(text: string, recentAssistantTexts: s
     if (bigramJaccard(curr, prev) >= 0.88) return true
   }
 
+  return false
+}
+
+function extractEndingTail(text: string) {
+  const raw = String(text || '').trim()
+  if (!raw) return ''
+  const lines = raw
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  const tailLine = lines[lines.length - 1] || raw
+  const segs = tailLine
+    .split(/(?<=[。！？.!?])/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+  const tailSentence = segs[segs.length - 1] || tailLine
+  return tailSentence.slice(-120)
+}
+
+function looksLikeRepeatedEnding(text: string, recentAssistantTexts: string[]) {
+  const currTail = extractEndingTail(text)
+  if (!currTail || currTail.length < 8) return false
+  const currNorm = normalizeTextForSimilarity(currTail)
+  if (!currNorm || currNorm.length < 6) return false
+
+  const recent = (recentAssistantTexts || [])
+    .map((x) => String(x || '').trim())
+    .filter(Boolean)
+    .slice(-6)
+
+  for (const prev of recent) {
+    const prevTail = extractEndingTail(prev)
+    if (!prevTail || prevTail.length < 8) continue
+    const prevNorm = normalizeTextForSimilarity(prevTail)
+    if (!prevNorm || prevNorm.length < 6) continue
+    if (currNorm === prevNorm) return true
+    if (bigramJaccard(currTail, prevTail) >= 0.92) return true
+  }
   return false
 }
 
@@ -359,6 +398,9 @@ function getAssistantOutputGuardIssues(args: {
 
   if (inputEvent !== 'SCHEDULE_TICK' && looksLikeDuplicateAssistantAnswer(s, recentAssistantTexts)) {
     push('DUPLICATE_ANSWER')
+  }
+  if (inputEvent !== 'SCHEDULE_TICK' && looksLikeRepeatedEnding(s, recentAssistantTexts)) {
+    push('ENDING_REPEAT')
   }
 
   return issues
@@ -461,6 +503,9 @@ function buildGuardRewriteConstraints(args: {
   }
   if (issues.includes('DUPLICATE_ANSWER')) {
     lines.push('- Do not repeat prior assistant phrasing. Move plot/state forward with concrete new detail.')
+  }
+  if (issues.includes('ENDING_REPEAT')) {
+    lines.push('- Avoid repeating previous ending sentence pattern; choose a different ending action/question tone.')
   }
   return lines.join('\n')
 }
@@ -1332,7 +1377,7 @@ export async function POST(req: Request) {
     }
 
     // If still near-duplicate, force a continuation-style rewrite that adds concrete new progression.
-    if (guardIssues.includes('DUPLICATE_ANSWER')) {
+    if (guardIssues.includes('DUPLICATE_ANSWER') || guardIssues.includes('ENDING_REPEAT')) {
       try {
         const dedupeRewrite = (await callMiniMax(mmBase, mmKey, {
           model: 'M2-her',
@@ -1342,7 +1387,7 @@ export async function POST(req: Request) {
               name: 'System',
               content:
                 `${promptOs}\n\n` +
-                `Rewrite the assistant output to avoid repetition. Keep voice/style, but add at least one concrete new progression detail.\n` +
+                `Rewrite the assistant output to avoid repetition and ending-pattern reuse. Keep voice/style, but add at least one concrete new progression detail.\n` +
                 `Hard constraints: no JSON/meta text; never write user speaker lines.`,
             },
             {
