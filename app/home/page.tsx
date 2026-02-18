@@ -46,6 +46,7 @@ const FEED_REACTION_STORAGE_KEY = 'xuxuxu:feed:reactions:v1'
 const FEED_LIVE_REFRESH_STORAGE_KEY = 'xuxuxu:feed:live_refresh:v1'
 const FEED_LIVE_POLL_MS = 60 * 1000
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
+const ONE_HOUR_MS = 60 * 60 * 1000
 
 const LIFE_EVENT_CONFIG: Array<{ event: LifeEvent; tab: FeedTab; title: string; cadence: string; emptyHint: string }> = [
   { event: 'MOMENT_POST', tab: 'MOMENT', title: '朋友圈', cadence: '每小时', emptyHint: '还没有朋友圈动态' },
@@ -73,6 +74,16 @@ function relativeTimeLabel(iso: string) {
   if (hours < 24) return `${hours} 小时前`
   const days = Math.floor(hours / 24)
   return `${days} 天前`
+}
+
+function cadenceDelayLabel(ms: number) {
+  if (ms <= 0) return '节奏正常'
+  const mins = Math.floor(ms / 60000)
+  if (mins < 60) return `延迟 ${mins} 分钟`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `延迟 ${hours} 小时`
+  const days = Math.floor(hours / 24)
+  return `延迟 ${days} 天`
 }
 
 function isUnlockedFromSquare(c: CharacterRow) {
@@ -155,6 +166,7 @@ export default function HomeFeedPage() {
   const [feedCommentTableReady, setFeedCommentTableReady] = useState(true)
   const [feedLiveRefresh, setFeedLiveRefresh] = useState(true)
   const [feedLiveSyncAt, setFeedLiveSyncAt] = useState('')
+  const [triggeringScheduleCharacterId, setTriggeringScheduleCharacterId] = useState('')
   const feedAllowedCharacterIdsRef = useRef<string[]>([])
   const latestFeedAtRef = useRef('')
 
@@ -779,6 +791,10 @@ export default function HomeFeedPage() {
     return LIFE_EVENT_CONFIG.map((cfg) => {
       const scoped = focusItems.filter((it) => it.input_event === cfg.event)
       const latest = scoped[0] || null
+      const latestTs = latest?.created_at ? Date.parse(String(latest.created_at || '')) : NaN
+      const expectedMs = cfg.event === 'DIARY_DAILY' ? ONE_DAY_MS : ONE_HOUR_MS
+      const graceMs = Math.min(Math.floor(expectedMs * 0.2), 2 * ONE_HOUR_MS)
+      const delayMs = Number.isFinite(latestTs) ? Math.max(0, now - (latestTs + expectedMs + graceMs)) : expectedMs
       const recent24h = scoped.filter((it) => {
         const ts = Date.parse(String(it.created_at || ''))
         return Number.isFinite(ts) && now - ts <= ONE_DAY_MS
@@ -789,9 +805,16 @@ export default function HomeFeedPage() {
         recent24h,
         latestAt: String(latest?.created_at || ''),
         latestPreview: compactPreview(String(latest?.content || ''), 92),
+        cadenceStatus: latest ? (delayMs > 0 ? 'late' : 'ok') : 'missing',
+        cadenceLabel: latest ? cadenceDelayLabel(delayMs) : '等待首条',
       }
     })
   }, [focusItems])
+  const focusCharacterForOps = useMemo(() => {
+    if (selectedCharacter) return selectedCharacter
+    if (activated.length > 0) return activated[0]
+    return null
+  }, [selectedCharacter, activated])
 
   const moveActivated = async (idx: number, direction: 'UP' | 'DOWN') => {
     if (idx < 0 || idx >= activated.length) return
@@ -921,6 +944,60 @@ export default function HomeFeedPage() {
     }
   }
 
+  const triggerScheduleTickForFocus = async () => {
+    const target = focusCharacterForOps
+    if (!target || triggeringScheduleCharacterId) return
+    setTriggeringScheduleCharacterId(target.id)
+    setError('')
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData.user?.id
+      if (!userId) {
+        router.push('/login')
+        return
+      }
+
+      const convIdHint = String(characterDigestById[target.id]?.conversationId || '').trim()
+      let convId = convIdHint
+      if (!convId) {
+        const ensured = await ensureLatestConversationForCharacter({
+          userId,
+          characterId: target.id,
+          title: target.name || '对话',
+        })
+        convId = String(ensured.conversationId || '').trim()
+      }
+      if (!convId) throw new Error('未找到可用会话，请先进入聊天页。')
+
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
+        return
+      }
+
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          characterId: target.id,
+          conversationId: convId,
+          message: '(schedule_tick)',
+          inputEvent: 'SCHEDULE_TICK',
+        }),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+
+      setFeedTab('SCHEDULE')
+      await load()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setTriggeringScheduleCharacterId('')
+    }
+  }
+
   return (
     <div className="uiPage">
       <AppShell
@@ -1005,10 +1082,16 @@ export default function HomeFeedPage() {
               <p className="uiHint" style={{ marginTop: 6 }}>
                 {selectedCharacter ? `当前焦点：${selectedCharacter.name}` : '当前焦点：全部角色'}。点击卡片可切换动态流类型。
               </p>
+              <p className="uiHint" style={{ marginTop: 6 }}>
+                {focusCharacterForOps ? `操作角色：${focusCharacterForOps.name}` : '操作角色：暂无（请先激活角色）'}
+              </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className={`uiPill ${feedTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('ALL')}>
                 查看全部
+              </button>
+              <button className="uiPill" disabled={!focusCharacterForOps || !!triggeringScheduleCharacterId} onClick={() => void triggerScheduleTickForFocus()}>
+                {triggeringScheduleCharacterId ? '补发中...' : '补一条日程片段'}
               </button>
               <button className="uiPill" onClick={() => setFeedQuery('')}>
                 清空搜索
@@ -1042,6 +1125,19 @@ export default function HomeFeedPage() {
                   <div className="uiHomeLifeCardMeta">24 小时内 {card.recent24h} 条</div>
                   <div className="uiHomeLifeCardMeta">
                     {card.latestAt ? `最近：${relativeTimeLabel(card.latestAt)}` : card.emptyHint}
+                  </div>
+                  <div
+                    className="uiHomeLifeCardMeta"
+                    style={{
+                      color:
+                        card.cadenceStatus === 'ok'
+                          ? 'rgba(166,245,184,.95)'
+                          : card.cadenceStatus === 'late'
+                            ? 'rgba(255,217,166,.95)'
+                            : 'rgba(255,171,171,.95)',
+                    }}
+                  >
+                    {card.cadenceLabel}
                   </div>
                   {card.latestPreview ? <div className="uiHomeLifeCardPreview">{card.latestPreview}</div> : null}
                 </button>

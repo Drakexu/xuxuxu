@@ -785,6 +785,30 @@ export default function SquarePage() {
       paid,
     }
   }, [items, unlockedInfoBySourceId])
+  const queuePreview = useMemo(() => {
+    return items
+      .filter((it) => !!unlockedInfoBySourceId[it.id])
+      .map((it) => {
+        const info = unlockedInfoBySourceId[it.id]
+        const metrics = squareMetricsBySourceId[it.id]
+        const ts = it.created_at ? Date.parse(it.created_at) : 0
+        return {
+          sourceId: it.id,
+          localId: String(info?.localId || ''),
+          name: it.name || '角色',
+          active: !!info?.active,
+          price: unlockPrice(it.settings),
+          hot: Number(metrics?.hot || 0),
+          ts: Number.isFinite(ts) ? ts : 0,
+        }
+      })
+      .sort((a, b) => {
+        if (Number(b.active) !== Number(a.active)) return Number(b.active) - Number(a.active)
+        if (b.hot !== a.hot) return b.hot - a.hot
+        return b.ts - a.ts
+      })
+      .slice(0, 8)
+  }, [items, unlockedInfoBySourceId, squareMetricsBySourceId])
   const marketStats = useMemo(() => {
     let totalHot = 0
     let totalRevenue = 0
@@ -1290,12 +1314,49 @@ export default function SquarePage() {
                       <span className="uiBadge">累计消费: {walletSpent}</span>
                       <span className="uiBadge">全站成交: {marketStats.totalSales}</span>
                       <span className="uiBadge">全站营收: {marketStats.totalRevenue} 币</span>
+                      <span className="uiBadge">可聊天队列: {stats.unlocked}</span>
+                      <span className="uiBadge">首页激活: {stats.active}</span>
                       {!walletReady ? <span className="uiBadge">钱包未初始化（可继续免费解锁）</span> : null}
+                    </div>
+                  ) : null}
+                  {isLoggedIn && queuePreview.length > 0 ? (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div className="uiHint">你的可聊天队列（最近/热门优先）</div>
+                      <div style={{ display: 'grid', gap: 6 }}>
+                        {queuePreview.map((q) => (
+                          <div key={q.localId || q.sourceId} className="uiRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 600 }}>{q.name}</div>
+                              <div className="uiHint">
+                                {q.active ? '已激活到首页' : '仅解锁未激活'} · {q.price > 0 ? `${q.price} 币` : '免费'} · 热度 {q.hot}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/chat/${q.localId}`)}>
+                                开聊
+                              </button>
+                              <button className="uiBtn uiBtnGhost" onClick={() => router.push(`/home/${q.localId}`)}>
+                                动态
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ) : null}
                   <button className="uiBtn uiBtnSecondary" onClick={() => router.push('/home')}>
                     打开首页
                   </button>
+                  {isLoggedIn ? (
+                    <button className="uiBtn uiBtnGhost" onClick={() => setFilter('UNLOCKED')}>
+                      仅看我的队列
+                    </button>
+                  ) : null}
+                  {isLoggedIn ? (
+                    <button className="uiBtn uiBtnGhost" onClick={() => setFilter('ACTIVE')}>
+                      仅看已激活
+                    </button>
+                  ) : null}
                   <button className="uiBtn uiBtnGhost" onClick={() => router.push('/wallet')}>
                     打开钱包中心
                   </button>

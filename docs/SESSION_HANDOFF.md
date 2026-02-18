@@ -2469,3 +2469,21 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: home/square visibility uplift
+- Files changed:
+  - app/home/page.tsx
+  - app/square/page.tsx
+- Completed:
+  - Home page upgrades:
+    - life-hub cards now include cadence health (`节奏正常 / 延迟 / 等待首条`) based on expected hourly/daily rhythm.
+    - added one-click `补一条日程片段` action for current focus role (uses `SCHEDULE_TICK`, then reloads feed).
+    - added operation-role hint (`操作角色`) to make manual actions explicit.
+  - Square page upgrades:
+    - added queue preview block in 操作入口 showing unlocked roles with active state, price, and hot score.
+    - added direct quick actions for queue items (`开聊` / `动态`).
+    - added quick filters for `仅看我的队列` and `仅看已激活`.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
