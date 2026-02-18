@@ -994,6 +994,12 @@ function isTransientMiniMaxStatus(status: number) {
   return status === 408 || status === 409 || status === 425 || status === 429 || (status >= 500 && status <= 599)
 }
 
+function isTransientMiniMaxBaseResp(statusCode: number, statusMsg: string) {
+  if (statusCode === 429 || statusCode === 500 || statusCode === 502 || statusCode === 503 || statusCode === 504) return true
+  const m = String(statusMsg || '').toLowerCase()
+  return /rate|limit|too many|timeout|timed out|temporar|busy|overload|retry/.test(m)
+}
+
 async function callMiniMaxWithRetry(
   mmBase: string,
   mmKey: string,
@@ -1027,13 +1033,23 @@ async function callMiniMaxWithRetry(
         }
         throw new Error(msg)
       }
+      let parsed: unknown
       try {
-        return JSON.parse(text)
+        parsed = JSON.parse(text)
       } catch {
         const j = safeExtractJsonObject(text)
         if (!j) throw new Error('MiniMax returned non-JSON response')
-        return j
+        parsed = j
       }
+      const root = asRecord(parsed)
+      const baseResp = asRecord(root['base_resp'])
+      const baseCode = Number(baseResp['status_code'] ?? 0)
+      const baseMsg = String(baseResp['status_msg'] ?? '')
+      if (baseCode && attempt < retries && isTransientMiniMaxBaseResp(baseCode, baseMsg)) {
+        await sleep(220 * (attempt + 1))
+        continue
+      }
+      return parsed
     } catch (e: unknown) {
       const msg = formatErr(e)
       const aborted = msg.toLowerCase().includes('abort')

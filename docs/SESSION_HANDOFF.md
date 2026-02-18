@@ -2395,3 +2395,20 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: chat retry polish + regenerate shortcut
+- Files changed:
+  - app/api/chat/route.ts
+  - app/chat/[characterId]/page.tsx
+- Completed:
+  - MiniMax retry polish:
+    - retry helper now also inspects `base_resp.status_code/status_msg` on HTTP 200 responses.
+    - transient base errors (rate-limit/timeout/busy/overload style) now trigger bounded retries.
+  - Chat UI polish:
+    - added `Alt+R` shortcut in composer to regenerate last reply.
+    - composer hint now documents regenerate shortcut.
+    - regenerate button label now reflects in-flight state (`Working...`).
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

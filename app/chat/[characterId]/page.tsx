@@ -205,6 +205,7 @@ export default function ChatPage() {
     return null
   }, [defaultSendEvent, messages])
   const canRegenerate = useMemo(() => !!conversationId && !!lastUserTurn && !sending, [conversationId, lastUserTurn, sending])
+  const regenerateLabel = useMemo(() => (sending ? 'Working...' : 'Regenerate Last'), [sending])
 
   const assistantInitial = useMemo(() => {
     const t = (title || 'AI').trim()
@@ -1692,6 +1693,11 @@ export default function ChatPage() {
               placeholder="Input message... (Enter to send, Shift+Enter newline)"
               rows={3}
               onKeyDown={(e) => {
+                if (e.altKey && (e.key === 'r' || e.key === 'R')) {
+                  e.preventDefault()
+                  if (canRegenerate) void regenerateLastReply()
+                  return
+                }
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                   e.preventDefault()
                   void send()
@@ -1705,7 +1711,7 @@ export default function ChatPage() {
             />
             <div className="uiChatComposerMeta">
               <span className="uiHint">{composerHint}</span>
-              <span className="uiHint">{input.trim().length}/4000 · Enter send / Shift+Enter newline</span>
+              <span className="uiHint">{input.trim().length}/4000 · Enter send / Shift+Enter newline · Alt+R regenerate</span>
             </div>
             <div className="uiChatComposerTools">
               <button className={`uiPill ${quickSendMode === 'TALK' ? 'uiPillActive' : ''}`} onClick={() => setQuickSendMode('TALK')}>
@@ -1734,7 +1740,7 @@ export default function ChatPage() {
               {sendPrimaryLabel}
             </button>
             <button className="uiBtn uiBtnGhost" disabled={!canRegenerate} onClick={() => void regenerateLastReply()}>
-              Regenerate Last
+              {regenerateLabel}
             </button>
           </div>
         </div>
