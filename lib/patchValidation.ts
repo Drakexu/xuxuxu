@@ -1,5 +1,5 @@
 export type JsonObject = Record<string, unknown>
-type SanitizePatchOptions = { evidenceText?: string; conversationState?: unknown; recentMessages?: unknown }
+type SanitizePatchOptions = { evidenceText?: string; conversationState?: unknown; recentMessages?: unknown; assistantText?: string }
 
 const MAX_ARRAY_ITEMS = 160
 const MAX_TEXT_LEN = 1_000
@@ -55,6 +55,56 @@ function uniqueStrings(rows: unknown[], limit: number): string[] {
 
 function normalizeLc(v: unknown) {
   return String(v || '').trim().toLowerCase()
+}
+
+function isDialogueLine(text: string) {
+  const line = String(text || '').trim()
+  if (!line) return false
+  if (/^[\(\[]/.test(line)) return false
+  if (!/^.{1,24}[:：]/.test(line)) return false
+  const speaker = (line.match(/^([^:\n：]{1,16})\s*[:：]/)?.[1] || '').trim()
+  return !!speaker
+}
+
+function getDialogueSpeaker(line: string) {
+  return (String(line || '').trim().match(/^([^:\n：]{1,16})\s*[:：]/)?.[1] || '').trim()
+}
+
+function extractDialogueSpeakers(text: string) {
+  const out: string[] = []
+  const seen = new Set<string>()
+  const lines = String(text || '')
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  for (const line of lines) {
+    if (!isDialogueLine(line)) continue
+    const speaker = getDialogueSpeaker(line).slice(0, MAX_SHORT_TEXT_LEN)
+    if (!speaker) continue
+    const key = normalizeLc(speaker)
+    if (!key || key === 'user' || key === '{user}' || key === '用户' || key === '你') continue
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(speaker)
+    if (out.length >= 8) break
+  }
+  return out
+}
+
+function mergeNamesPreserveCase(base: string[], extra: string[], limit: number) {
+  const out: string[] = []
+  const seen = new Set<string>()
+  const push = (v: unknown) => {
+    const s = asString(v)
+    if (!s) return
+    const key = normalizeLc(s)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    out.push(s.slice(0, MAX_SHORT_TEXT_LEN))
+  }
+  for (const x of base) push(x)
+  for (const x of extra) push(x)
+  return out.slice(0, Math.max(0, limit))
 }
 
 function hasAnyCue(textLc: string, cues: string[]) {
@@ -301,6 +351,53 @@ function indexNpcByNameFromState(state: unknown) {
   return map
 }
 
+function ensureNpcRowsForAssistantSpeakers(
+  rows: Array<Record<string, unknown>>,
+  args: {
+    assistantSpeakers: string[]
+    state: unknown
+    runPresentBefore: string[]
+    currentMainRole: string
+  },
+) {
+  const { assistantSpeakers, state, runPresentBefore, currentMainRole } = args
+  if (!assistantSpeakers.length) return rows
+
+  const prevNpcMap = indexNpcByNameFromState(state)
+  const out = rows.slice(0, 120)
+  const existingNames = new Set<string>()
+  for (const row of out) {
+    const name = asString(row['name']) || asString(row['npc']) || asString(row['id'])
+    if (!name) continue
+    existingNames.add(normalizeLc(name))
+  }
+
+  const presentBefore = new Set(
+    runPresentBefore
+      .map((x) => normalizeLc(x))
+      .filter(Boolean),
+  )
+  const mainRoleLc = normalizeLc(currentMainRole)
+
+  for (const speaker of assistantSpeakers) {
+    if (out.length >= 120) break
+    const key = normalizeLc(speaker)
+    if (!key) continue
+    if (key === 'user' || key === '{user}' || key === '用户' || key === '你') continue
+    if (mainRoleLc && key === mainRoleLc) continue
+    if (presentBefore.has(key)) continue
+    if (existingNames.has(key) || prevNpcMap.has(key)) continue
+    out.push({
+      name: speaker.slice(0, MAX_SHORT_TEXT_LEN),
+      confirmed: false,
+      summary: 'appeared in multi-cast dialogue turn',
+    })
+    existingNames.add(key)
+  }
+
+  return out
+}
+
 function reconcileNpcAgainstState(rows: Array<Record<string, unknown>>, args: { state: unknown; evidenceLc: string }) {
   const existingMap = indexNpcByNameFromState(args.state)
   const stableKeys = ['role', 'identity', 'faction', 'relationship', 'relation', 'job', 'title'] as const
@@ -441,7 +538,16 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
   if (!narrationMode || !ALLOWED_NARRATION_MODES.has(narrationMode)) delete sanitizedRun['narration_mode']
 
   const present = asArray(sanitizedRun['present_characters'])
-  const presentCharacters = uniqueStrings(present, ALLOWED_PRESENT_CHAR_LIMIT)
+  const runBefore = asRecord(stateBefore['run_state'])
+  const runPresentBefore = uniqueStrings(asArray(runBefore['present_characters']), ALLOWED_PRESENT_CHAR_LIMIT)
+  const assistantSpeakers = extractDialogueSpeakers(String(opts.assistantText || ''))
+  let presentCharacters = uniqueStrings(present, ALLOWED_PRESENT_CHAR_LIMIT)
+  if (assistantSpeakers.length >= 2) {
+    presentCharacters = mergeNamesPreserveCase(presentCharacters, assistantSpeakers, ALLOWED_PRESENT_CHAR_LIMIT)
+  }
+  if (!presentCharacters.includes('{user}')) {
+    presentCharacters = mergeNamesPreserveCase(['{user}'], presentCharacters, ALLOWED_PRESENT_CHAR_LIMIT)
+  }
   sanitizedRun['present_characters'] = presentCharacters
 
   const currentMainRole = asString(sanitizedRun['current_main_role'])
@@ -494,12 +600,21 @@ export function sanitizePatchOutput(raw: unknown, opts: SanitizePatchOptions = {
   )
   sanitizedLedger['npc_db_add_or_update'] = sanitizeNpcAddOrUpdate(downgradeUnverifiedConfirmedInArray(ledgerPatch['npc_db_add_or_update'], evidenceLc), {
     evidenceLc,
-    presentCharacters,
+    presentCharacters: runPresentBefore,
   })
   sanitizedLedger['npc_db_add_or_update'] = reconcileNpcAgainstState(asArray(sanitizedLedger['npc_db_add_or_update']) as Array<Record<string, unknown>>, {
     state: stateBefore,
     evidenceLc,
   })
+  sanitizedLedger['npc_db_add_or_update'] = ensureNpcRowsForAssistantSpeakers(
+    asArray(sanitizedLedger['npc_db_add_or_update']) as Array<Record<string, unknown>>,
+    {
+      assistantSpeakers,
+      state: stateBefore,
+      runPresentBefore,
+      currentMainRole: String(runBefore['current_main_role'] || ''),
+    },
+  )
   sanitizedLedger['inventory_delta'] = reconcileInventoryDeltaWithState(sanitizeInventoryDelta(ledgerPatch['inventory_delta']), stateBefore)
   sanitizedLedger['wardrobe_update'] = (() => {
     const w = sanitizeWardrobe(ledgerPatch['wardrobe_update'])

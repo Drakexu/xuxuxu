@@ -243,6 +243,8 @@ type GuardIssue =
   | 'DUPLICATE_ANSWER'
   | 'ENDING_REPEAT'
   | 'STRICT_MULTICAST_FORMAT'
+  | 'MULTI_CAST_FORMAT'
+  | 'MULTI_CAST_ORDER'
 
 function normalizeTextForSimilarity(text: string) {
   return String(text || '')
@@ -343,9 +345,20 @@ function getAssistantOutputGuardIssues(args: {
   userMessageForModel?: string
   allowedSpeakers?: string[]
   enforceSpeakerSet?: boolean
+  requireMultiCastFormat?: boolean
+  multiCastExpectedSpeaker?: string
   recentAssistantTexts?: string[]
 }) {
-  const { text, inputEvent, userMessageForModel, allowedSpeakers = [], enforceSpeakerSet = false, recentAssistantTexts = [] } = args
+  const {
+    text,
+    inputEvent,
+    userMessageForModel,
+    allowedSpeakers = [],
+    enforceSpeakerSet = false,
+    requireMultiCastFormat = false,
+    multiCastExpectedSpeaker = '',
+    recentAssistantTexts = [],
+  } = args
   const s = String(text || '').trim()
   const issues: GuardIssue[] = []
   const push = (issue: GuardIssue) => {
@@ -365,13 +378,14 @@ function getAssistantOutputGuardIssues(args: {
 
   if (hasUserSpeechMarker(s)) push('USER_SPEECH')
 
+  const lines = s.split('\n').map((x) => x.trim()).filter(Boolean)
+  const roleLines = lines.filter((line) => isDialogueLine(line))
+
   if (inputEvent === 'FUNC_DBL') {
-    const lines = s.split('\n').map((x) => x.trim())
     if (lines.some((line) => isDialogueLine(line))) push('FUNC_DBL_DIALOGUE')
   }
   if (inputEvent === 'SCHEDULE_TICK') {
     if (!isBracketSnippet(s)) push('SCHEDULE_FORMAT')
-    const lines = s.split('\n').map((x) => x.trim())
     if (lines.some((line) => isDialogueLine(line))) push('SCHEDULE_FORMAT')
   }
 
@@ -382,7 +396,6 @@ function getAssistantOutputGuardIssues(args: {
         .filter(Boolean)
         .filter((x) => x !== 'user'),
     )
-    const roleLines = s.split('\n').map((x) => x.trim()).filter((line) => isDialogueLine(line))
     if (roleLines.length) {
       const unknownSpeaker = roleLines.some((line) => {
         const speaker = normalizeSpeakerName(getDialogueSpeaker(line))
@@ -394,9 +407,16 @@ function getAssistantOutputGuardIssues(args: {
     }
   }
 
+  if (requireMultiCastFormat) {
+    if (roleLines.length < 2) push('MULTI_CAST_FORMAT')
+    const expected = normalizeSpeakerName(multiCastExpectedSpeaker)
+    if (expected && roleLines.length > 0) {
+      const firstSpeaker = normalizeSpeakerName(getDialogueSpeaker(roleLines[0] || ''))
+      if (firstSpeaker && firstSpeaker !== expected) push('MULTI_CAST_ORDER')
+    }
+  }
+
   if (typeof userMessageForModel === 'string' && isStrictMultiCast(userMessageForModel)) {
-    const lines = s.split('\n').map((x) => x.trim()).filter(Boolean)
-    const roleLines = lines.filter((line) => isDialogueLine(line))
     if (roleLines.length < 2) push('STRICT_MULTICAST_FORMAT')
     if (roleLines.some((line) => hasUserSpeechMarker(line))) push('STRICT_MULTICAST_FORMAT')
   }
@@ -483,8 +503,9 @@ function buildGuardRewriteConstraints(args: {
   inputEvent: InputEvent | null
   allowedSpeakers?: string[]
   enforceSpeakerSet?: boolean
+  multiCastExpectedSpeaker?: string
 }) {
-  const { issues, inputEvent, allowedSpeakers = [], enforceSpeakerSet = false } = args
+  const { issues, inputEvent, allowedSpeakers = [], enforceSpeakerSet = false, multiCastExpectedSpeaker = '' } = args
   const lines: string[] = [
     '- Output plain user-facing character text only. No JSON, no meta explanations, no policy text.',
     '- Never write lines for the user (forbidden patterns include `User:`, `用户:`, `你:` speaker lines).',
@@ -506,6 +527,13 @@ function buildGuardRewriteConstraints(args: {
   if (issues.includes('STRICT_MULTICAST_FORMAT')) {
     lines.push('- In strict multi-cast, output at least two dialogue lines with visible turn rotation.')
   }
+  if (issues.includes('MULTI_CAST_FORMAT')) {
+    lines.push('- In multi-cast mode, output at least two `Name:` dialogue lines.')
+  }
+  if (issues.includes('MULTI_CAST_ORDER')) {
+    const expected = String(multiCastExpectedSpeaker || '').trim()
+    if (expected) lines.push(`- Multi-cast turn order: first dialogue line must start with \`${expected}:\`.`)
+  }
   if (issues.includes('DUPLICATE_ANSWER')) {
     lines.push('- Do not repeat prior assistant phrasing. Move plot/state forward with concrete new detail.')
   }
@@ -513,6 +541,19 @@ function buildGuardRewriteConstraints(args: {
     lines.push('- Avoid repeating previous ending sentence pattern; choose a different ending action/question tone.')
   }
   return lines.join('\n')
+}
+
+function buildMultiCastFallback(args: { allowedSpeakers?: string[]; expectedSpeaker?: string }) {
+  const allowed = (args.allowedSpeakers || [])
+    .map((x) => String(x || '').trim())
+    .filter(Boolean)
+    .filter((x) => normalizeSpeakerName(x) !== 'user')
+  const expected = String(args.expectedSpeaker || '').trim()
+  const first = expected && allowed.some((x) => normalizeSpeakerName(x) === normalizeSpeakerName(expected)) ? expected : allowed[0] || '角色A'
+  const second =
+    allowed.find((x) => normalizeSpeakerName(x) !== normalizeSpeakerName(first)) ||
+    (normalizeSpeakerName(first) === '角色A' ? '角色B' : '角色A')
+  return `${first}: 我先接住这一轮，按你的节奏推进。\n${second}: 收到，我会接着这个线索往下走。`
 }
 
 function stableKey(x: unknown) {
@@ -1364,10 +1405,12 @@ export async function POST(req: Request) {
     const promptPolicy = derivePromptOsPolicy({ conversationState, inputEvent })
     const promptOs = buildPromptOs(promptPolicy)
     const runStateForGuard = asRecord(asRecord(conversationState)['run_state'])
+    const guardNarrationMode = String(runStateForGuard['narration_mode'] || '').trim().toUpperCase()
     const guardAllowedSpeakers = asArray(runStateForGuard['present_characters']).map((x) => String(x || '').trim()).filter(Boolean)
     const guardEnforceSpeakerSet =
-      String(runStateForGuard['narration_mode'] || '') === 'MULTI_CAST' ||
-      (typeof userMessageForModel === 'string' && isStrictMultiCast(userMessageForModel))
+      guardNarrationMode === 'MULTI_CAST' || (typeof userMessageForModel === 'string' && isStrictMultiCast(userMessageForModel))
+    const guardRequireMultiCastFormat = guardNarrationMode === 'MULTI_CAST'
+    const guardExpectedSpeaker = guardRequireMultiCastFormat ? String(runStateForGuard['multi_cast_next_speaker'] || '').trim() : ''
 
     // MiniMax M2-her expects chat-style messages. In practice, multiple `system` messages
     // may be treated as an unsupported "group chat" configuration, so we merge into one.
@@ -1410,6 +1453,8 @@ export async function POST(req: Request) {
       userMessageForModel,
       allowedSpeakers: guardAllowedSpeakers,
       enforceSpeakerSet: guardEnforceSpeakerSet,
+      requireMultiCastFormat: guardRequireMultiCastFormat,
+      multiCastExpectedSpeaker: guardExpectedSpeaker,
       recentAssistantTexts,
     })
     const guardTriggered = guardIssues.length > 0
@@ -1423,6 +1468,7 @@ export async function POST(req: Request) {
           inputEvent: inputEvent || null,
           allowedSpeakers: guardAllowedSpeakers,
           enforceSpeakerSet: guardEnforceSpeakerSet,
+          multiCastExpectedSpeaker: guardExpectedSpeaker,
         })
         const rewrite = (await callMiniMaxWithRetry(
           mmBase,
@@ -1461,6 +1507,8 @@ export async function POST(req: Request) {
             userMessageForModel,
             allowedSpeakers: guardAllowedSpeakers,
             enforceSpeakerSet: guardEnforceSpeakerSet,
+            requireMultiCastFormat: guardRequireMultiCastFormat,
+            multiCastExpectedSpeaker: guardExpectedSpeaker,
             recentAssistantTexts,
           })
           if (fixedIssues.length === 0) {
@@ -1516,6 +1564,8 @@ export async function POST(req: Request) {
             userMessageForModel,
             allowedSpeakers: guardAllowedSpeakers,
             enforceSpeakerSet: guardEnforceSpeakerSet,
+            requireMultiCastFormat: guardRequireMultiCastFormat,
+            multiCastExpectedSpeaker: guardExpectedSpeaker,
             recentAssistantTexts,
           })
           if (fixedIssues2.length === 0) {
@@ -1531,10 +1581,19 @@ export async function POST(req: Request) {
       }
     }
 
-    // Safety-first fallback: never allow "assistant speaking for user" or off-stage speakers to pass through.
-    if (guardIssues.includes('USER_SPEECH') || guardIssues.includes('SPEAKER_OUTSIDE_SET')) {
+    // Safety-first fallback: never allow hard-format violations to pass through.
+    if (
+      guardIssues.includes('USER_SPEECH') ||
+      guardIssues.includes('SPEAKER_OUTSIDE_SET') ||
+      guardIssues.includes('MULTI_CAST_FORMAT') ||
+      guardIssues.includes('MULTI_CAST_ORDER')
+    ) {
       guardFallbackUsed = true
-      assistantMessage = '我听到了。你来决定下一步，我会按你的指令继续。'
+      if (guardIssues.includes('MULTI_CAST_FORMAT') || guardIssues.includes('MULTI_CAST_ORDER')) {
+        assistantMessage = buildMultiCastFallback({ allowedSpeakers: guardAllowedSpeakers, expectedSpeaker: guardExpectedSpeaker })
+      } else {
+        assistantMessage = '我听到了。你来决定下一步，我会按你的指令继续。'
+      }
       guardIssues = []
     }
 
@@ -1736,6 +1795,7 @@ export async function POST(req: Request) {
               evidenceText: patchEvidenceText,
               conversationState: conversationStateNow,
               recentMessages: asArray(patchInput['recent_messages']),
+              assistantText: String(asRecord(asRecord(patchInput)['turn'])['assistant_text'] || ''),
             })
             if (!patchObj) throw new Error('Patch schema invalid')
 

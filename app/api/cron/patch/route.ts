@@ -521,6 +521,7 @@ export async function POST(req: Request) {
               evidenceText: patchEvidenceText,
               conversationState,
               recentMessages: asArray(pi['recent_messages']),
+              assistantText: String(turn['assistant_text'] || ''),
             })
             if (!patch) throw new Error('Patch schema invalid')
 

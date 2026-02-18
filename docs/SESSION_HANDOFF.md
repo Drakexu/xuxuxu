@@ -2525,3 +2525,25 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+## 2026-02-18 checkpoint: chat multi-cast guard + patch consistency hardening
+- Files changed:
+  - app/api/chat/route.ts
+  - app/api/cron/patch/route.ts
+  - lib/patchValidation.ts
+- Completed:
+  - Strengthened server-side chat output guardrails for multi-cast mode:
+    - added hard issues: `MULTI_CAST_FORMAT`, `MULTI_CAST_ORDER`
+    - enforces at least two `Name:` dialogue lines in multi-cast mode
+    - enforces first speaker order by `run_state.multi_cast_next_speaker`
+    - guard rewrite constraints now include explicit multi-cast order/format rules
+    - when hard multi-cast issues remain after rewrite, uses safe multi-cast fallback lines instead of passing invalid output
+  - Strengthened PatchScribe sanitize gate with assistant-output awareness:
+    - `sanitizePatchOutput` now accepts `assistantText`
+    - when assistant output clearly uses multi-speaker dialogue, auto-merges those speakers into `run_state_patch.present_characters`
+    - keeps `{user}` present and preserves compact participant list
+    - if a new dialogue speaker appears and is not already staged/NPC, auto-appends an unconfirmed NPC placeholder row
+  - Applied the new sanitize option in both real-time patch path and cron replay patch path.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
