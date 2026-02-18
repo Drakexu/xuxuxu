@@ -2453,3 +2453,19 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: character-home cadence monitor
+- Files changed:
+  - app/home/[characterId]/page.tsx
+- Completed:
+  - Added cadence monitor panel on character home page:
+    - tracks latest `MOMENT_POST`, `SCHEDULE_TICK`, `DIARY_DAILY`
+    - shows whether each stream is on-time / delayed / missing based on expected cadence
+  - Added one-click manual schedule generation action:
+    - `补一条日程片段` calls `/api/chat` with `SCHEDULE_TICK` for current conversation
+    - auto-reloads page data after trigger to reflect new feed content
+  - Kept existing feed filtering/sorting/reaction/comment flows unchanged.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

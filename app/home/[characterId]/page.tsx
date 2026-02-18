@@ -25,6 +25,13 @@ type FeedTab = 'ALL' | 'MOMENT' | 'DIARY' | 'SCHEDULE'
 type FeedSort = 'NEWEST' | 'LIKED_FIRST' | 'SAVED_FIRST' | 'COMMENT_FIRST' | 'HOT_FIRST'
 const CHARACTER_FEED_PAGE_SIZE = 120
 const CHARACTER_FEED_LIVE_POLL_MS = 60 * 1000
+const HOURLY_MS = 60 * 60 * 1000
+const DAILY_MS = 24 * HOURLY_MS
+const CADENCE_CONFIG = [
+  { event: 'MOMENT_POST', label: '朋友圈', expectedMs: HOURLY_MS },
+  { event: 'SCHEDULE_TICK', label: '日程片段', expectedMs: HOURLY_MS },
+  { event: 'DIARY_DAILY', label: '日记', expectedMs: DAILY_MS },
+] as const
 type CharacterAssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 type ConversationRow = { id: string; created_at?: string | null; state?: unknown }
 type RelationshipStage = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7'
@@ -101,6 +108,30 @@ function normalizeEndingMode(v: unknown): EndingMode {
   return (s === 'QUESTION' || s === 'ACTION' || s === 'CLIFF' || s === 'MIXED' ? s : 'MIXED') as EndingMode
 }
 
+function formatAgo(iso: string) {
+  const t = Date.parse(String(iso || ''))
+  if (!Number.isFinite(t)) return '无数据'
+  const diff = Date.now() - t
+  if (diff < 0) return '刚刚'
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return '刚刚'
+  if (m < 60) return `${m} 分钟前`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h} 小时前`
+  const d = Math.floor(h / 24)
+  return `${d} 天前`
+}
+
+function formatDelay(ms: number) {
+  if (ms <= 0) return '按节奏'
+  const m = Math.floor(ms / 60000)
+  if (m < 60) return `延迟 ${m} 分钟`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `延迟 ${h} 小时`
+  const d = Math.floor(h / 24)
+  return `延迟 ${d} 天`
+}
+
 export default function CharacterHomePage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -146,6 +177,7 @@ export default function CharacterHomePage() {
   const [updatingSchedule, setUpdatingSchedule] = useState(false)
   const [updatingRelationship, setUpdatingRelationship] = useState(false)
   const [updatingPromptPolicy, setUpdatingPromptPolicy] = useState(false)
+  const [triggeringScheduleSnippet, setTriggeringScheduleSnippet] = useState(false)
   const feedReactionStorageKey = useMemo(() => `xuxuxu:feed:reactions:v1:${characterId}`, [characterId])
   const feedLiveStorageKey = useMemo(() => `xuxuxu:feed:live_refresh:v1:${characterId}`, [characterId])
 
@@ -714,6 +746,47 @@ export default function CharacterHomePage() {
     return { moment, diary, schedule, liked, saved, comments, total: items.length }
   }, [items, feedReactions, feedComments])
 
+  const cadence = useMemo(() => {
+    const now = Date.now()
+    return CADENCE_CONFIG.map((cfg) => {
+      let latestIso = ''
+      let latestTs = 0
+      for (const it of items) {
+        if (it.input_event !== cfg.event) continue
+        const ts = Date.parse(String(it.created_at || ''))
+        if (!Number.isFinite(ts)) continue
+        if (ts > latestTs) {
+          latestTs = ts
+          latestIso = String(it.created_at || '')
+        }
+      }
+      if (!latestTs) {
+        return {
+          ...cfg,
+          hasData: false,
+          latestIso: '',
+          latestLabel: '无数据',
+          status: 'missing' as const,
+          delayMs: cfg.expectedMs,
+          delayLabel: '等待首条',
+        }
+      }
+      const graceMs = Math.min(Math.floor(cfg.expectedMs * 0.2), 2 * HOURLY_MS)
+      const dueAt = latestTs + cfg.expectedMs + graceMs
+      const delayMs = Math.max(0, now - dueAt)
+      const isLate = delayMs > 0
+      return {
+        ...cfg,
+        hasData: true,
+        latestIso,
+        latestLabel: formatAgo(latestIso),
+        status: isLate ? ('late' as const) : ('ok' as const),
+        delayMs,
+        delayLabel: isLate ? formatDelay(delayMs) : '按节奏',
+      }
+    })
+  }, [items])
+
   const ledgerHealth = useMemo(() => {
     if (!snapshot) {
       return [
@@ -827,6 +900,32 @@ export default function CharacterHomePage() {
     }
   }
 
+  const triggerScheduleNow = async () => {
+    if (!latestConversationId || triggeringScheduleSnippet) return
+    setTriggeringScheduleSnippet(true)
+    setError('')
+    try {
+      const token = await getAccessToken()
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          characterId,
+          conversationId: latestConversationId,
+          message: '(schedule_tick)',
+          inputEvent: 'SCHEDULE_TICK',
+        }),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
+      await load()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setTriggeringScheduleSnippet(false)
+    }
+  }
+
   return (
     <div className="uiPage">
       <AppShell
@@ -901,6 +1000,39 @@ export default function CharacterHomePage() {
                 </div>
               </div>
             </section>
+
+            <div className="uiPanel" style={{ marginTop: 0 }}>
+              <div className="uiPanelHeader">
+                <div>
+                  <div className="uiPanelTitle">生活节奏监控</div>
+                  <div className="uiPanelSub">检查朋友圈/日程是否每小时更新、日记是否每日更新</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="uiBtn uiBtnGhost" disabled={!latestConversationId || triggeringScheduleSnippet} onClick={() => void triggerScheduleNow()}>
+                    {triggeringScheduleSnippet ? '触发中...' : '补一条日程片段'}
+                  </button>
+                </div>
+              </div>
+              <div className="uiForm">
+                <div className="uiKpiGrid">
+                  {cadence.map((c) => {
+                    const tone =
+                      c.status === 'ok'
+                        ? { borderColor: 'rgba(126,211,147,.35)', background: 'rgba(33,56,38,.58)', color: 'rgba(203,251,214,.95)' }
+                        : c.status === 'late'
+                          ? { borderColor: 'rgba(255,164,122,.4)', background: 'rgba(64,38,28,.62)', color: 'rgba(255,226,205,.95)' }
+                          : { borderColor: 'rgba(255,120,120,.4)', background: 'rgba(64,26,26,.64)', color: 'rgba(255,215,215,.95)' }
+                    return (
+                      <div key={c.event} className="uiKpi" style={tone}>
+                        <b>{c.label}</b>
+                        <span>最近：{c.latestLabel}</span>
+                        <span>{c.delayLabel}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
 
             <div className="uiPanel" style={{ marginTop: 0 }}>
               <div className="uiPanelHeader">
