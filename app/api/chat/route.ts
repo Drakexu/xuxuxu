@@ -7,7 +7,7 @@ import { buildPromptOs, derivePromptOsPolicy } from '@/lib/prompt/promptOs'
 
 type JsonObject = Record<string, unknown>
 
-type DbMessageRow = { role: string; content: string; created_at?: string | null }
+type DbMessageRow = { role: string; content: string; created_at?: string | null; input_event?: string | null }
 type MemoryBEpisodeRow = { bucket_start?: string | null; time_range?: string | null; summary?: string | null; open_loops?: unknown; tags?: unknown }
 
 type MiniMaxMessage = { role: 'system' | 'user' | 'assistant'; content: string; name?: string }
@@ -40,6 +40,7 @@ type ChatReq = {
   message: string
   inputEvent?: InputEvent
   userCard?: string
+  regenerate?: boolean
 }
 
 // "20-30 rounds" => ~40-60 messages (user+assistant). Use 60 as a sane default.
@@ -47,6 +48,9 @@ const MEMORY_A_MESSAGES_LIMIT = 60
 const MEMORY_B_EPISODES_LIMIT = 20
 const PATCH_APPLY_MAX_RETRIES = 5
 const PATCH_APPLY_RETRY_BASE_MS = 80
+const MINIMAX_PRIMARY_TIMEOUT_MS = 45_000
+const MINIMAX_REWRITE_TIMEOUT_MS = 30_000
+const MINIMAX_PATCH_TIMEOUT_MS = 35_000
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -986,28 +990,65 @@ function applyPatchToMemoryStates(args: {
   return { memoryEpisode }
 }
 
-async function callMiniMax(mmBase: string, mmKey: string, body: JsonObject) {
+function isTransientMiniMaxStatus(status: number) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || (status >= 500 && status <= 599)
+}
+
+async function callMiniMaxWithRetry(
+  mmBase: string,
+  mmKey: string,
+  body: JsonObject,
+  opts?: { timeoutMs?: number; retries?: number },
+) {
+  const timeoutMs = Math.max(2_000, Number(opts?.timeoutMs || MINIMAX_PRIMARY_TIMEOUT_MS))
+  const retries = Math.max(0, Math.min(Number(opts?.retries ?? 1), 2))
   const url = joinUrl(mmBase, '/v1/text/chatcompletion_v2')
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${mmKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-  const text = await resp.text()
-  if (!resp.ok) {
-    throw new Error(`MiniMax error: ${resp.status} ${text}`)
+  let lastErr: Error | null = null
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctl = new AbortController()
+    const timer = setTimeout(() => ctl.abort(), timeoutMs)
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${mmKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: ctl.signal,
+      })
+      const text = await resp.text()
+      if (!resp.ok) {
+        const msg = `MiniMax error: ${resp.status} ${text}`
+        if (attempt < retries && isTransientMiniMaxStatus(resp.status)) {
+          await sleep(220 * (attempt + 1))
+          continue
+        }
+        throw new Error(msg)
+      }
+      try {
+        return JSON.parse(text)
+      } catch {
+        const j = safeExtractJsonObject(text)
+        if (!j) throw new Error('MiniMax returned non-JSON response')
+        return j
+      }
+    } catch (e: unknown) {
+      const msg = formatErr(e)
+      const aborted = msg.toLowerCase().includes('abort')
+      const transientNet = /network|timed?\s*out|socket|econn|undici|fetch failed/i.test(msg)
+      if (attempt < retries && (aborted || transientNet)) {
+        await sleep(220 * (attempt + 1))
+        continue
+      }
+      lastErr = e instanceof Error ? e : new Error(msg)
+    } finally {
+      clearTimeout(timer)
+    }
   }
-  try {
-    return JSON.parse(text)
-  } catch {
-    // Some gateways might return JSON but with leading BOM, etc.
-    const j = safeExtractJsonObject(text)
-    if (!j) throw new Error('MiniMax returned non-JSON response')
-    return j
-  }
+
+  throw lastErr || new Error('MiniMax request failed')
 }
 
 async function optimisticUpdateConversationState(args: {
@@ -1102,12 +1143,14 @@ export async function POST(req: Request) {
     const conversationId = body.conversationId ?? null
     const userMessageRaw = typeof body.message === 'string' ? body.message : ''
     const userMessageTrim = userMessageRaw.trim()
-    const inputEvent = normInputEvent(body.inputEvent)
+    let inputEvent = normInputEvent(body.inputEvent)
     const userCardInput = typeof body.userCard === 'string' ? body.userCard : ''
+    const regenerate = body.regenerate === true
 
     if (!characterId) return NextResponse.json({ error: 'characterId is required' }, { status: 400 })
+    if (regenerate && !conversationId) return NextResponse.json({ error: 'conversationId is required for regenerate' }, { status: 400 })
     // Allow empty message for event-driven turns like CG / schedule ticks.
-    if (!userMessageTrim && !inputEvent) return NextResponse.json({ error: 'message or inputEvent is required' }, { status: 400 })
+    if (!userMessageTrim && !inputEvent && !regenerate) return NextResponse.json({ error: 'message or inputEvent is required' }, { status: 400 })
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -1153,9 +1196,13 @@ export async function POST(req: Request) {
     let convId = conversationId
     if (convId) {
       const { data: convCheck, error: convCheckErr } = await sb.from('conversations').select('id').eq('id', convId).eq('user_id', userId).maybeSingle()
-      if (convCheckErr || !convCheck) convId = null
+      if (convCheckErr || !convCheck) {
+        if (regenerate) return NextResponse.json({ error: 'Conversation not found for regenerate' }, { status: 404 })
+        convId = null
+      }
     }
     if (!convId) {
+      if (regenerate) return NextResponse.json({ error: 'conversationId is required for regenerate' }, { status: 400 })
       const { data: conv, error: convErr } = await sb
         .from('conversations')
         .insert({ user_id: userId, character_id: characterId, title: character.name })
@@ -1220,7 +1267,7 @@ export async function POST(req: Request) {
     // IMPORTANT: load latest messages, then reverse to chronological order.
     const { data: msgRowsDesc } = await sb
       .from('messages')
-      .select('role,content,created_at')
+      .select('role,content,created_at,input_event')
       .eq('conversation_id', convIdFinal)
       .order('created_at', { ascending: false })
       .limit(MEMORY_A_MESSAGES_LIMIT)
@@ -1236,11 +1283,30 @@ export async function POST(req: Request) {
     const recentMessages = msgRows as unknown as DbMessageRow[]
     const recentEpisodes = (bRows ?? []) as unknown as MemoryBEpisodeRow[]
 
-    const userMessageForModel = userMessageTrim || (inputEvent ? inputEventPlaceholder(inputEvent) : '')
-    const userMessageToSave = userMessageRaw || userMessageForModel
+    let userMessageForModelRaw = userMessageRaw
+    let userMessageForModelTrim = userMessageTrim
+    if (regenerate && !userMessageForModelTrim && !inputEvent) {
+      for (let i = recentMessages.length - 1; i >= 0; i -= 1) {
+        const row = recentMessages[i]
+        if (String(row.role || '').toLowerCase() !== 'user') continue
+        const txt = String(row.content || '')
+        if (!txt.trim()) continue
+        userMessageForModelRaw = txt
+        userMessageForModelTrim = txt.trim()
+        inputEvent = inputEvent || normInputEvent(row.input_event)
+        break
+      }
+    }
 
-    // Write user message (legacy-safe input_event). Always persist a row so raw logs are complete.
-    {
+    if (!userMessageForModelTrim && !inputEvent) {
+      return NextResponse.json({ error: regenerate ? 'No user turn available for regenerate' : 'message or inputEvent is required' }, { status: 400 })
+    }
+
+    const userMessageForModel = userMessageForModelTrim || (inputEvent ? inputEventPlaceholder(inputEvent) : '')
+    const userMessageToSave = userMessageForModelRaw || userMessageForModel
+
+    // Write user message (legacy-safe input_event). Skip on regenerate to avoid duplicate user turns.
+    if (!regenerate) {
       const payloadV2: {
         user_id: string
         conversation_id: string
@@ -1268,7 +1334,13 @@ export async function POST(req: Request) {
       characterSettings: character.settings,
       conversationState,
       characterState,
-      memoryA: recentMessages.map((m) => ({ role: m.role, content: m.content })),
+      memoryA: (() => {
+        const src = recentMessages.slice()
+        if (regenerate) {
+          while (src.length && String(src[src.length - 1]?.role || '').toLowerCase() === 'assistant') src.pop()
+        }
+        return src.map((m) => ({ role: m.role, content: m.content }))
+      })(),
       memoryB: recentEpisodes,
     })
     const promptPolicy = derivePromptOsPolicy({ conversationState, inputEvent })
@@ -1286,13 +1358,18 @@ export async function POST(req: Request) {
       ...(userMessageForModel ? [{ role: 'user' as const, name: 'User', content: userMessageForModel }] : []),
     ]
 
-    const mmJson = (await callMiniMax(mmBase, mmKey, {
+    const mmJson = (await callMiniMaxWithRetry(
+      mmBase,
+      mmKey,
+      {
       model: 'M2-her',
       messages: mmMessages,
       temperature: 1,
       top_p: 0.9,
       max_completion_tokens: 2048,
-    })) as MiniMaxResponse
+      },
+      { timeoutMs: MINIMAX_PRIMARY_TIMEOUT_MS, retries: 1 },
+    )) as MiniMaxResponse
 
     const baseCode = Number(mmJson?.base_resp?.status_code ?? 0)
     const baseMsg = String(mmJson?.base_resp?.status_msg ?? '')
@@ -1329,7 +1406,10 @@ export async function POST(req: Request) {
           allowedSpeakers: guardAllowedSpeakers,
           enforceSpeakerSet: guardEnforceSpeakerSet,
         })
-        const rewrite = (await callMiniMax(mmBase, mmKey, {
+        const rewrite = (await callMiniMaxWithRetry(
+          mmBase,
+          mmKey,
+          {
           model: 'M2-her',
           messages: [
             {
@@ -1351,7 +1431,9 @@ export async function POST(req: Request) {
           temperature: 0.2,
           top_p: 0.7,
           max_completion_tokens: 1200,
-        })) as MiniMaxResponse
+          },
+          { timeoutMs: MINIMAX_REWRITE_TIMEOUT_MS, retries: 1 },
+        )) as MiniMaxResponse
 
         const fixed = (rewrite?.choices?.[0]?.message?.content ?? rewrite?.reply ?? rewrite?.output_text ?? '').trim()
         if (fixed) {
@@ -1379,7 +1461,10 @@ export async function POST(req: Request) {
     // If still near-duplicate, force a continuation-style rewrite that adds concrete new progression.
     if (guardIssues.includes('DUPLICATE_ANSWER') || guardIssues.includes('ENDING_REPEAT')) {
       try {
-        const dedupeRewrite = (await callMiniMax(mmBase, mmKey, {
+        const dedupeRewrite = (await callMiniMaxWithRetry(
+          mmBase,
+          mmKey,
+          {
           model: 'M2-her',
           messages: [
             {
@@ -1401,7 +1486,9 @@ export async function POST(req: Request) {
           temperature: 0.3,
           top_p: 0.75,
           max_completion_tokens: 1200,
-        })) as MiniMaxResponse
+          },
+          { timeoutMs: MINIMAX_REWRITE_TIMEOUT_MS, retries: 1 },
+        )) as MiniMaxResponse
 
         const fixed2 = (dedupeRewrite?.choices?.[0]?.message?.content ?? dedupeRewrite?.reply ?? dedupeRewrite?.output_text ?? '').trim()
         if (fixed2) {
@@ -1464,7 +1551,7 @@ export async function POST(req: Request) {
         region: 'GLOBAL',
         turn_seq: turnSeqForTurn,
         input_event: inputEvent || 'TALK_HOLD',
-        user_input: userMessageRaw,
+        user_input: userMessageForModelRaw,
         assistant_text: assistantMessage,
         user_card: effectiveUserCard ? effectiveUserCard.slice(0, 520) : '',
       },
@@ -1552,7 +1639,10 @@ export async function POST(req: Request) {
     if (!patchJobId || patchJobClaimed) {
       void (async () => {
         try {
-          const pJson = (await callMiniMax(mmBase, mmKey, {
+          const pJson = (await callMiniMaxWithRetry(
+            mmBase,
+            mmKey,
+            {
             model: patchModel,
             messages: [
               { role: 'system', name: 'System', content: patchSystemPrompt() },
@@ -1561,7 +1651,9 @@ export async function POST(req: Request) {
             temperature: 0.2,
             top_p: 0.7,
             max_completion_tokens: 2048,
-          })) as MiniMaxResponse
+            },
+            { timeoutMs: MINIMAX_PATCH_TIMEOUT_MS, retries: 1 },
+          )) as MiniMaxResponse
 
           const patchText = pJson?.choices?.[0]?.message?.content ?? pJson?.reply ?? pJson?.output_text ?? ''
           const patchRaw = safeExtractJsonObject(patchText)

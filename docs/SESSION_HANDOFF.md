@@ -2371,3 +2371,27 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: chat regenerate + MiniMax retry hardening
+- Files changed:
+  - app/api/chat/route.ts
+  - app/chat/[characterId]/page.tsx
+- Completed:
+  - API reliability hardening:
+    - added timeout-aware MiniMax request helper with transient retry (429/5xx/network/abort).
+    - switched primary generation, guard rewrite, dedupe rewrite, and PatchScribe calls to the retry helper.
+    - added path-specific timeout budgets for primary/rewrite/patch model calls.
+  - Regenerate capability:
+    - added `regenerate` request flag in `/api/chat`.
+    - regenerate turns no longer insert a duplicate user message row.
+    - when regenerate is requested without explicit text, API falls back to latest user turn in current conversation.
+    - regenerate prompt context trims trailing assistant tail in memory A to reduce self-conditioning.
+  - Chat UI:
+    - added `Regenerate Last` action in composer.
+    - regenerate reuses last user turn and sends `regenerate: true`.
+    - send flow now preserves local `input_event` on user bubbles for better turn replay fidelity.
+    - wrapped client send pipeline with try/finally to avoid stuck sending state on unexpected failures.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

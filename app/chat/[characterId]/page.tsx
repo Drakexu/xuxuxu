@@ -88,6 +88,14 @@ function stripAssistantUserSpeech(text: string) {
   return lines.join('\n').trim()
 }
 
+function normalizeInputEvent(v: unknown): InputEvent | undefined {
+  const s = String(v || '').trim().toUpperCase()
+  if (s === 'TALK_HOLD' || s === 'FUNC_HOLD' || s === 'TALK_DBL' || s === 'FUNC_DBL' || s === 'SCHEDULE_TICK' || s === 'SCHEDULE_PLAY' || s === 'SCHEDULE_PAUSE') {
+    return s as InputEvent
+  }
+  return undefined
+}
+
 export default function ChatPage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -183,6 +191,20 @@ export default function ChatPage() {
     if (quickSendMode === 'CG') return 'Send Visual'
     return 'Send Dialogue'
   }, [quickSendMode, sending])
+  const lastUserTurn = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i]
+      if (m.role !== 'user') continue
+      const text = String(m.content || '').trim()
+      if (!text) continue
+      return {
+        content: text,
+        inputEvent: normalizeInputEvent(m.input_event) || defaultSendEvent,
+      }
+    }
+    return null
+  }, [defaultSendEvent, messages])
+  const canRegenerate = useMemo(() => !!conversationId && !!lastUserTurn && !sending, [conversationId, lastUserTurn, sending])
 
   const assistantInitial = useMemo(() => {
     const t = (title || 'AI').trim()
@@ -1043,91 +1065,94 @@ export default function ChatPage() {
     }
   }
 
-  const post = async (text: string, inputEvent?: InputEvent) => {
+  const post = async (text: string, inputEvent?: InputEvent, opts?: { regenerate?: boolean }) => {
     setSending(true)
     setError('')
     setGuardWarn('')
     setPatchOk(null)
     setPatchError('')
-
-    const { data: sess } = await supabase.auth.getSession()
-    const token = sess.session?.access_token
-    if (!token) {
-      setError('Session expired, please login again.')
-      setSending(false)
-      return
-    }
-
-    const resp = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        characterId,
-        conversationId,
-        message: text,
-        inputEvent,
-        userCard: userCard.slice(0, 300),
-      }),
-    })
-
-    if (!resp.ok) {
-      const t = await resp.text()
-      setError(t || `璇锋眰澶辫触锛?{resp.status}`)
-      setSending(false)
-      return
-    }
-
-    const data = await resp.json()
-    if (data.conversationId) {
-      const nextConversationId = String(data.conversationId)
-      setConversationId(nextConversationId)
-      touchConversationList(nextConversationId)
-      try {
-        localStorage.setItem(convKey, nextConversationId)
-      } catch {
-        // ignore
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (!token) {
+        setError('Session expired, please login again.')
+        return
       }
-    }
-    if (data.assistantMessage) {
-      let assistantText = String(data.assistantMessage)
-      const uiGuardHit = hasAssistantUserSpeech(assistantText)
-      if (uiGuardHit) {
-        assistantText = stripAssistantUserSpeech(assistantText) || 'I will reply only from character perspective.'
+
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          characterId,
+          conversationId,
+          message: text,
+          inputEvent,
+          userCard: userCard.slice(0, 300),
+          regenerate: opts?.regenerate === true,
+        }),
+      })
+
+      if (!resp.ok) {
+        const t = await resp.text()
+        setError(t || `Request failed (${resp.status})`)
+        return
       }
-      const guardTriggered = data?.guardTriggered === true || uiGuardHit
-      if (guardTriggered) {
-        const notes: string[] = []
-        if (data?.guardRewriteUsed === true) notes.push('auto rewrite')
-        if (data?.guardFallbackUsed === true || uiGuardHit) notes.push('anti-user-speech fallback')
-        setGuardWarn(`Guard triggered: ${notes.join(' / ') || 'output fixed'}`)
-      }
-      setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }])
-      if (bgAutoEnabled && backgroundAssets.length > 0) {
-        const cue = inferPresentationCue(assistantText)
-        const picked = pickBestBackgroundPath(backgroundAssets.map((x) => ({ path: x.path })), cue)
-        if (picked.path && picked.score > 0) {
-          const cueLabel = `${cue.emotion}${cue.sceneTags.length ? `/${cue.sceneTags.join('-')}` : ''}`
-          await setChatBgPath(picked.path, { cueLabel })
+
+      const data = await resp.json()
+      if (data.conversationId) {
+        const nextConversationId = String(data.conversationId)
+        setConversationId(nextConversationId)
+        touchConversationList(nextConversationId)
+        try {
+          localStorage.setItem(convKey, nextConversationId)
+        } catch {
+          // ignore
         }
-        if (roleAssets.length > 0) {
-          const rolePick = pickBestRolePathForCue(
-            roleAssets.map((x) => ({ path: x.path, kind: x.kind })),
-            cue,
-          )
-          if (rolePick.path && rolePick.score > 0) {
-            await setRoleLayerPath(rolePick.path)
+      }
+      if (data.assistantMessage) {
+        let assistantText = String(data.assistantMessage)
+        const uiGuardHit = hasAssistantUserSpeech(assistantText)
+        if (uiGuardHit) {
+          assistantText = stripAssistantUserSpeech(assistantText) || 'I will reply only from character perspective.'
+        }
+        const guardTriggered = data?.guardTriggered === true || uiGuardHit
+        if (guardTriggered) {
+          const notes: string[] = []
+          if (data?.guardRewriteUsed === true) notes.push('auto rewrite')
+          if (data?.guardFallbackUsed === true || uiGuardHit) notes.push('anti-user-speech fallback')
+          setGuardWarn(`Guard triggered: ${notes.join(' / ') || 'output fixed'}`)
+        }
+        setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }])
+        if (bgAutoEnabled && backgroundAssets.length > 0) {
+          const cue = inferPresentationCue(assistantText)
+          const picked = pickBestBackgroundPath(backgroundAssets.map((x) => ({ path: x.path })), cue)
+          if (picked.path && picked.score > 0) {
+            const cueLabel = `${cue.emotion}${cue.sceneTags.length ? `/${cue.sceneTags.join('-')}` : ''}`
+            await setChatBgPath(picked.path, { cueLabel })
+          }
+          if (roleAssets.length > 0) {
+            const rolePick = pickBestRolePathForCue(
+              roleAssets.map((x) => ({ path: x.path, kind: x.kind })),
+              cue,
+            )
+            if (rolePick.path && rolePick.score > 0) {
+              await setRoleLayerPath(rolePick.path)
+            }
           }
         }
       }
+      if (typeof data.patchOk === 'boolean') setPatchOk(data.patchOk)
+      if (typeof data.patchError === 'string') setPatchError(data.patchError)
+      requestAnimationFrame(() => {
+        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+        setShowScrollDown(false)
+        setPendingDownCount(0)
+      })
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSending(false)
     }
-    if (typeof data.patchOk === 'boolean') setPatchOk(data.patchOk)
-    if (typeof data.patchError === 'string') setPatchError(data.patchError)
-    requestAnimationFrame(() => {
-      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
-      setShowScrollDown(false)
-      setPendingDownCount(0)
-    })
-    setSending(false)
   }
 
   const send = async (opts?: { event?: InputEvent; presetText?: string }) => {
@@ -1137,12 +1162,17 @@ export default function ChatPage() {
     if (!text) return
     if (!opts?.presetText && !canSend) return
     if (!opts?.presetText) setInput('')
-    setMessages((prev) => [...prev, { role: 'user', content: text }])
+    setMessages((prev) => [...prev, { role: 'user', content: text, input_event: event }])
     await post(text, event)
   }
 
   const pushStory = async () => {
     await send({ event: 'TALK_DBL', presetText: '(推进剧情)' })
+  }
+
+  const regenerateLastReply = async () => {
+    if (!canRegenerate || !lastUserTurn) return
+    await post(lastUserTurn.content, lastUserTurn.inputEvent, { regenerate: true })
   }
 
   if (loading) {
@@ -1702,6 +1732,9 @@ export default function ChatPage() {
           <div className="uiChatComposerActions">
             <button className="uiBtn uiBtnPrimary" disabled={sending || !canSend} onClick={() => void send()}>
               {sendPrimaryLabel}
+            </button>
+            <button className="uiBtn uiBtnGhost" disabled={!canRegenerate} onClick={() => void regenerateLastReply()}>
+              Regenerate Last
             </button>
           </div>
         </div>
