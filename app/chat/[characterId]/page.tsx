@@ -96,6 +96,12 @@ function normalizeInputEvent(v: unknown): InputEvent | undefined {
   return undefined
 }
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function isTransientChatStatus(status: number) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500
+}
+
 export default function ChatPage() {
   const router = useRouter()
   const params = useParams<{ characterId: string }>()
@@ -1100,19 +1106,30 @@ export default function ChatPage() {
         return
       }
 
-      const resp = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          characterId,
-          conversationId,
-          message: text,
-          inputEvent,
-          userCard: userCard.slice(0, 300),
-          regenerate: opts?.regenerate === true,
-          replaceLastAssistant: opts?.replaceLastAssistant === true,
-        }),
-      })
+      const payload = {
+        characterId,
+        conversationId,
+        message: text,
+        inputEvent,
+        userCard: userCard.slice(0, 300),
+        regenerate: opts?.regenerate === true,
+        replaceLastAssistant: opts?.replaceLastAssistant === true,
+      }
+
+      const requestChat = async () =>
+        fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        })
+
+      let retried = false
+      let resp = await requestChat()
+      if (!resp.ok && isTransientChatStatus(resp.status)) {
+        retried = true
+        await wait(360)
+        resp = await requestChat()
+      }
 
       if (!resp.ok) {
         const t = await resp.text()
@@ -1178,6 +1195,9 @@ export default function ChatPage() {
       }
       if (typeof data.patchOk === 'boolean') setPatchOk(data.patchOk)
       if (typeof data.patchError === 'string') setPatchError(data.patchError)
+      if (retried) {
+        setGuardWarn((prev) => prev || 'Transport retry applied once and succeeded.')
+      }
       requestAnimationFrame(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
         setShowScrollDown(false)

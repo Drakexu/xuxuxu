@@ -2511,3 +2511,17 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+## 2026-02-18 checkpoint: chat transport retry hardening
+- Files changed:
+  - app/chat/[characterId]/page.tsx
+- Completed:
+  - Added client-side transient transport retry for `/api/chat` requests:
+    - retries once after short backoff when first response is transient (`408/409/425/429/5xx`)
+    - keeps request payload identical to avoid turn drift
+  - Added visible runtime note when retry path succeeds:
+    - sets guard hint to indicate one retry recovered from transient transport failure
+  - Keeps existing regenerate/replace and guardrail behavior unchanged.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
