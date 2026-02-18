@@ -2487,3 +2487,27 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+## 2026-02-18 checkpoint: square card comments closure pass
+- Files changed:
+  - app/square/page.tsx
+  - app/globals.css
+- Completed:
+  - Closed square list card social loop with inline comments:
+    - card-level `评论` toggle for both unlocked and locked roles
+    - inline comment panel supports load, publish, and delete actions
+    - supports login-gated create/delete with graceful redirect to `/login`
+    - comment author badges (creator/me/user) and local timestamp formatting
+  - Added card-level comment state management:
+    - per-role expanded/collapsed state
+    - per-role draft cache
+    - per-role loading/sending/deleting guards
+    - comment list cache by `sourceCharacterId`
+  - Added comment metric backfill behavior:
+    - local comment create/delete updates square metrics comment count immediately
+    - keeps ranking and badges responsive without waiting full refresh cycle
+  - Added schema fallback UX:
+    - when `square_comments` table is unavailable, page shows explicit degraded-mode alert
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

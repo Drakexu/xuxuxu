@@ -1131,6 +1131,52 @@ body {
   top: 108px;
 }
 
+.uiSquareCardComments {
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.72);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.uiSquareCommentList {
+  display: grid;
+  gap: 8px;
+}
+
+.uiSquareCommentItem {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(38, 20, 28, 0.62);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.uiSquareCommentMeta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.uiSquareCommentBody {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+}
+
+.uiSquareCommentComposer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .uiStudioWorkspace {
   margin-top: 14px;
   display: grid;
@@ -1496,6 +1542,10 @@ body {
   }
 
   .uiWardrobeGapBoard {
+    grid-template-columns: 1fr;
+  }
+
+  .uiSquareCommentComposer {
     grid-template-columns: 1fr;
   }
 

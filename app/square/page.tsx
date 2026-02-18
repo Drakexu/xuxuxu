@@ -6,7 +6,16 @@ import { supabase } from '@/lib/supabaseClient'
 import { ensureLatestConversationForCharacter } from '@/lib/conversationClient'
 import { unlockSquareCharacter } from '@/lib/squareUnlock'
 import { fetchWalletSummary } from '@/lib/wallet'
-import { fetchSquareReactions, mergeSquareReactionMap, saveSquareReaction, type SquareReactionMap } from '@/lib/squareSocial'
+import {
+  createSquareComment,
+  deleteSquareComment,
+  fetchSquareComments,
+  fetchSquareReactions,
+  mergeSquareReactionMap,
+  saveSquareReaction,
+  type SquareComment,
+  type SquareReactionMap,
+} from '@/lib/squareSocial'
 import AppShell from '@/app/_components/AppShell'
 
 type PubCharacter = {
@@ -52,6 +61,17 @@ function isActivatedBySettings(settings: unknown) {
 function getStr(r: Record<string, unknown>, k: string) {
   const v = r[k]
   return typeof v === 'string' ? v : ''
+}
+
+function formatCommentTime(iso: string) {
+  const ts = Date.parse(String(iso || ''))
+  if (!Number.isFinite(ts)) return ''
+  return new Date(ts).toLocaleString([], {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function getAudienceTab(c: PubCharacter): AudienceTab {
@@ -158,6 +178,13 @@ export default function SquarePage() {
   const [walletUnlocked, setWalletUnlocked] = useState(0)
   const [squareReactions, setSquareReactions] = useState<SquareReactionMap>({})
   const [squareReactionTableReady, setSquareReactionTableReady] = useState(true)
+  const [squareCommentTableReady, setSquareCommentTableReady] = useState(true)
+  const [squareCommentsBySourceId, setSquareCommentsBySourceId] = useState<Record<string, SquareComment[]>>({})
+  const [squareCommentExpandedBySourceId, setSquareCommentExpandedBySourceId] = useState<Record<string, boolean>>({})
+  const [squareCommentDraftBySourceId, setSquareCommentDraftBySourceId] = useState<Record<string, string>>({})
+  const [squareCommentLoadingSourceId, setSquareCommentLoadingSourceId] = useState('')
+  const [squareCommentSavingSourceId, setSquareCommentSavingSourceId] = useState('')
+  const [squareCommentDeletingId, setSquareCommentDeletingId] = useState('')
   const [reactionBusyKey, setReactionBusyKey] = useState('')
   const [squareLiveRefresh, setSquareLiveRefresh] = useState(true)
   const [squareLiveSyncAt, setSquareLiveSyncAt] = useState('')
@@ -189,6 +216,13 @@ export default function SquarePage() {
     setWalletUnlocked(0)
     setSquareReactions({})
     setSquareReactionTableReady(true)
+    setSquareCommentTableReady(true)
+    setSquareCommentsBySourceId({})
+    setSquareCommentExpandedBySourceId({})
+    setSquareCommentDraftBySourceId({})
+    setSquareCommentLoadingSourceId('')
+    setSquareCommentSavingSourceId('')
+    setSquareCommentDeletingId('')
     setReactionBusyKey('')
 
     const { data: userData } = await supabase.auth.getUser()
@@ -646,6 +680,139 @@ export default function SquarePage() {
     }
   }
 
+  const bumpMetricCommentCount = (sourceCharacterId: string, delta: number) => {
+    const sourceId = String(sourceCharacterId || '').trim()
+    const diff = Number.isFinite(delta) ? Math.trunc(delta) : 0
+    if (!sourceId || diff === 0) return
+    setSquareMetricsBySourceId((prev) => {
+      const row = prev[sourceId]
+      if (!row) return prev
+      const nextCount = Math.max(0, Number(row.comments || 0) + diff)
+      return {
+        ...prev,
+        [sourceId]: {
+          ...row,
+          comments: nextCount,
+        },
+      }
+    })
+  }
+
+  const loadSquareCommentsForCard = async (sourceCharacterId: string, opts?: { force?: boolean }) => {
+    const sourceId = String(sourceCharacterId || '').trim()
+    if (!sourceId) return
+    if (!opts?.force && squareCommentsBySourceId[sourceId]) return
+    setSquareCommentLoadingSourceId(sourceId)
+    try {
+      let token = ''
+      if (isLoggedIn) {
+        const { data: sess } = await supabase.auth.getSession()
+        token = sess.session?.access_token || ''
+      }
+      const out = await fetchSquareComments({
+        sourceCharacterId: sourceId,
+        limit: 10,
+        token: token || undefined,
+      })
+      setSquareCommentTableReady(out.tableReady)
+      setSquareCommentsBySourceId((prev) => ({
+        ...prev,
+        [sourceId]: out.comments,
+      }))
+    } catch {
+      // ignore comment loading failures
+    } finally {
+      setSquareCommentLoadingSourceId('')
+    }
+  }
+
+  const toggleSquareCommentPanel = (sourceCharacterId: string) => {
+    const sourceId = String(sourceCharacterId || '').trim()
+    if (!sourceId) return
+    const opening = !squareCommentExpandedBySourceId[sourceId]
+    setSquareCommentExpandedBySourceId((prev) => ({ ...prev, [sourceId]: opening }))
+    if (opening) {
+      void loadSquareCommentsForCard(sourceId)
+    }
+  }
+
+  const submitSquareComment = async (sourceCharacterId: string) => {
+    const sourceId = String(sourceCharacterId || '').trim()
+    if (!sourceId || squareCommentSavingSourceId) return
+    if (!isLoggedIn) {
+      router.push('/login')
+      return
+    }
+    const content = String(squareCommentDraftBySourceId[sourceId] || '')
+      .trim()
+      .slice(0, 300)
+    if (!content) return
+
+    setSquareCommentSavingSourceId(sourceId)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
+        throw new Error('未登录')
+      }
+
+      const out = await createSquareComment({
+        token,
+        sourceCharacterId: sourceId,
+        content,
+      })
+      setSquareCommentTableReady(out.tableReady)
+      if (!out.comment) return
+      setSquareCommentsBySourceId((prev) => {
+        const exists = (prev[sourceId] || []).some((x) => x.id === out.comment?.id)
+        const nextList = exists ? prev[sourceId] || [] : [out.comment as SquareComment, ...(prev[sourceId] || [])]
+        return { ...prev, [sourceId]: nextList.slice(0, 20) }
+      })
+      setSquareCommentDraftBySourceId((prev) => ({ ...prev, [sourceId]: '' }))
+      bumpMetricCommentCount(sourceId, 1)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg !== '未登录') setAlert({ type: 'err', text: `评论失败：${msg}` })
+    } finally {
+      setSquareCommentSavingSourceId('')
+    }
+  }
+
+  const removeSquareComment = async (sourceCharacterId: string, commentId: string) => {
+    const sourceId = String(sourceCharacterId || '').trim()
+    const id = String(commentId || '').trim()
+    if (!sourceId || !id || squareCommentDeletingId) return
+    if (!isLoggedIn) {
+      router.push('/login')
+      return
+    }
+
+    setSquareCommentDeletingId(id)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token || ''
+      if (!token) {
+        router.push('/login')
+        throw new Error('未登录')
+      }
+      const out = await deleteSquareComment({ token, commentId: id })
+      setSquareCommentTableReady(out.tableReady)
+      setSquareCommentsBySourceId((prev) => {
+        const before = prev[sourceId] || []
+        const after = before.filter((x) => x.id !== id)
+        if (after.length === before.length) return prev
+        return { ...prev, [sourceId]: after }
+      })
+      bumpMetricCommentCount(sourceId, -1)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg !== '未登录') setAlert({ type: 'err', text: `删除评论失败：${msg}` })
+    } finally {
+      setSquareCommentDeletingId('')
+    }
+  }
+
   useEffect(() => {
     load()
   }, [])
@@ -852,6 +1019,12 @@ export default function SquarePage() {
     const metrics = squareMetricsBySourceId[c.id]
     const myReaction = squareReactions[c.id] || {}
     const reactionBusy = reactionBusyKey.startsWith(`${c.id}:`)
+    const comments = squareCommentsBySourceId[c.id] || []
+    const commentExpanded = squareCommentExpandedBySourceId[c.id] === true
+    const commentLoading = squareCommentLoadingSourceId === c.id
+    const commentSaving = squareCommentSavingSourceId === c.id
+    const commentDraft = String(squareCommentDraftBySourceId[c.id] || '')
+    const commentCount = Number(metrics?.comments || comments.length || 0)
 
     return (
       <div key={c.id} className="uiCard" style={{ cursor: 'pointer', borderColor: featured ? 'rgba(249,217,142,.32)' : undefined }} onClick={() => router.push(`/square/${c.id}`)}>
@@ -889,7 +1062,7 @@ export default function SquarePage() {
             </span>
           ) : null}
           {metrics && metrics.hot > 0 ? <span className="uiBadge">热度 {metrics.hot}</span> : null}
-          {metrics && metrics.comments > 0 ? <span className="uiBadge">评论 {metrics.comments}</span> : null}
+          {commentCount > 0 ? <span className="uiBadge">评论 {commentCount}</span> : null}
           {metrics && metrics.revenue > 0 ? <span className="uiBadge">营收 {metrics.revenue} 币</span> : null}
           <span
             className="uiBadge"
@@ -977,6 +1150,15 @@ export default function SquarePage() {
             >
               {reactionBusy ? '处理中...' : myReaction.saved ? '取消收藏' : '收藏'}
             </button>
+            <button
+              className={`uiBtn uiBtnGhost ${commentExpanded ? 'uiPillActive' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleSquareCommentPanel(c.id)
+              }}
+            >
+              {commentExpanded ? '收起评论' : `评论${commentCount > 0 ? ` (${commentCount})` : ''}`}
+            </button>
           </div>
         )}
         {!info && (
@@ -1055,6 +1237,15 @@ export default function SquarePage() {
             >
               {reactionBusy ? '处理中...' : myReaction.saved ? '取消收藏' : '收藏'}
             </button>
+            <button
+              className={`uiBtn uiBtnGhost ${commentExpanded ? 'uiPillActive' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleSquareCommentPanel(c.id)
+              }}
+            >
+              {commentExpanded ? '收起评论' : `评论${commentCount > 0 ? ` (${commentCount})` : ''}`}
+            </button>
             {!isLoggedIn ? (
               <button
                 className="uiBtn uiBtnGhost"
@@ -1066,6 +1257,75 @@ export default function SquarePage() {
                 去登录
               </button>
             ) : null}
+          </div>
+        )}
+        {commentExpanded && (
+          <div
+            className="uiSquareCardComments"
+            onClick={(e) => {
+              e.stopPropagation()
+            }}
+          >
+            {commentLoading ? <div className="uiHint">评论加载中...</div> : null}
+            {!commentLoading && comments.length === 0 ? <div className="uiHint">还没有评论，来发第一条。</div> : null}
+            {!commentLoading && comments.length > 0 ? (
+              <div className="uiSquareCommentList">
+                {comments.slice(0, 8).map((cm) => (
+                  <div key={cm.id} className="uiSquareCommentItem">
+                    <div className="uiSquareCommentMeta">
+                      <span className="uiBadge">{cm.authorLabel || '用户'}</span>
+                      {cm.authorRole === 'creator' ? <span className="uiBadge">作者</span> : null}
+                      {cm.authorRole === 'me' ? <span className="uiBadge">我</span> : null}
+                      <span className="uiHint">{formatCommentTime(cm.createdAt)}</span>
+                      {cm.canDelete ? (
+                        <button
+                          className="uiBtn uiBtnGhost"
+                          disabled={squareCommentDeletingId === cm.id}
+                          onClick={() => {
+                            void removeSquareComment(c.id, cm.id)
+                          }}
+                        >
+                          {squareCommentDeletingId === cm.id ? '删除中...' : '删除'}
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="uiSquareCommentBody">{cm.content}</div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="uiSquareCommentComposer">
+              <input
+                className="uiInput"
+                placeholder={isLoggedIn ? '写下你的评论（最多 300 字）' : '登录后可评论'}
+                value={commentDraft}
+                maxLength={300}
+                disabled={!isLoggedIn || commentSaving}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setSquareCommentDraftBySourceId((prev) => ({ ...prev, [c.id]: v }))
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    if (isLoggedIn) void submitSquareComment(c.id)
+                  }
+                }}
+              />
+              <button
+                className="uiBtn uiBtnPrimary"
+                disabled={commentSaving || (isLoggedIn && !commentDraft.trim())}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    router.push('/login')
+                    return
+                  }
+                  void submitSquareComment(c.id)
+                }}
+              >
+                {isLoggedIn ? (commentSaving ? '发送中...' : '发送评论') : '去登录'}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1209,6 +1469,9 @@ export default function SquarePage() {
         )}
         {!loading && !squareReactionTableReady && (
           <div className="uiAlert uiAlertOk">广场互动表尚未启用，偏好学习暂使用聊天互动回退信号。</div>
+        )}
+        {!loading && !squareCommentTableReady && (
+          <div className="uiAlert uiAlertOk">广场评论表尚未启用，评论功能将自动降级为只读状态。</div>
         )}
 
         {!loading && (
