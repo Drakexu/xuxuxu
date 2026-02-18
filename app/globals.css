@@ -1696,6 +1696,7 @@ body {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+  height: 62vh;
   border: 1px solid rgba(249, 217, 142, 0.2);
   border-radius: 24px;
   background:
@@ -1971,8 +1972,23 @@ body {
     bottom: 82px;
   }
 
+  .uiChatStage {
+    height: 54vh;
+    border-radius: 20px;
+  }
+
   .uiChatComposer {
+    position: sticky;
+    bottom: calc(env(safe-area-inset-bottom) + 6px);
+    z-index: 32;
+    backdrop-filter: blur(8px);
     flex-wrap: wrap;
+    padding: 10px;
+  }
+
+  .uiChatComposerTextarea {
+    min-height: 72px;
+    max-height: 160px;
   }
 
   .uiChatComposerMeta {
@@ -1980,8 +1996,21 @@ body {
     align-items: flex-start;
   }
 
+  .uiChatComposerTools {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .uiChatComposerTools .uiPill {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
   .uiChatComposerActions {
     width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .uiChatComposerActions > .uiBtn {

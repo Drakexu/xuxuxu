@@ -1121,6 +1121,7 @@ export default function ChatPage() {
       }
 
       const data = await resp.json()
+      const replacedOnServer = data?.regenerateReplaced === true
       if (data.conversationId) {
         const nextConversationId = String(data.conversationId)
         setConversationId(nextConversationId)
@@ -1145,7 +1146,7 @@ export default function ChatPage() {
           setGuardWarn(`Guard triggered: ${notes.join(' / ') || 'output fixed'}`)
         }
         setMessages((prev) => {
-          if (opts?.regenerate && opts?.replaceLastAssistant) {
+          if (opts?.regenerate && opts?.replaceLastAssistant && replacedOnServer) {
             const next = prev.slice()
             for (let i = next.length - 1; i >= 0; i -= 1) {
               const row = next[i]
@@ -1559,7 +1560,6 @@ export default function ChatPage() {
             setShowScrollDown(!nearBottom)
             if (nearBottom) setPendingDownCount(0)
           }}
-          style={{ height: '62vh' }}
         >
           {chatBgUrl && (
             // eslint-disable-next-line @next/next/no-img-element

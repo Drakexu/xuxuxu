@@ -1538,6 +1538,7 @@ export async function POST(req: Request) {
       guardIssues = []
     }
 
+    let regenerateReplaced = false
     // Save assistant message (legacy-safe input_event).
     {
       if (replaceLastAssistant) {
@@ -1553,7 +1554,14 @@ export async function POST(req: Request) {
             .maybeSingle()
 
           if (!lastAssistant.error && lastAssistant.data?.id) {
-            await sb.from('messages').delete().eq('id', lastAssistant.data.id).eq('user_id', userId).eq('conversation_id', convIdFinal)
+            const del = await sb
+              .from('messages')
+              .delete()
+              .eq('id', lastAssistant.data.id)
+              .eq('user_id', userId)
+              .eq('conversation_id', convIdFinal)
+              .select('id')
+            if (!del.error && Array.isArray(del.data) && del.data.length > 0) regenerateReplaced = true
           }
         } catch {
           // best-effort: regenerate should still succeed even if replacement cleanup fails
@@ -1833,6 +1841,7 @@ export async function POST(req: Request) {
       guardTriggered,
       guardRewriteUsed,
       guardFallbackUsed,
+      regenerateReplaced,
     })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })

@@ -2433,3 +2433,23 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: regenerate consistency + mobile composer UX
+- Files changed:
+  - app/api/chat/route.ts
+  - app/chat/[characterId]/page.tsx
+  - app/globals.css
+- Completed:
+  - Regenerate consistency:
+    - `/api/chat` now returns `regenerateReplaced` when `replaceLastAssistant` is requested.
+    - server marks replacement only when prior assistant row is actually deleted.
+    - client replacement render path now depends on `regenerateReplaced` (server truth), preventing local/server history drift.
+  - Mobile chat UX polish:
+    - moved chat-stage height to CSS (`62vh` desktop / `54vh` mobile).
+    - composer now sticky on mobile with safe-area bottom handling.
+    - tool pills become horizontal-scroll strip on mobile (no cramped wrapping).
+    - mobile composer textarea height tuned for thumb-zone usage.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
