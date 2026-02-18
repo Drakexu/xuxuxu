@@ -2412,3 +2412,24 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+
+## 2026-02-18 checkpoint: regenerate replace mode + chat candy polish
+- Files changed:
+  - app/api/chat/route.ts
+  - app/chat/[characterId]/page.tsx
+  - app/globals.css
+- Completed:
+  - Regenerate replacement mode (server + client):
+    - `/api/chat` now accepts `replaceLastAssistant` (used with `regenerate`).
+    - when enabled, server best-effort removes the latest assistant row before writing the regenerated one.
+    - regenerate patch context now trims trailing assistant tail in `recent_messages` for better consistency.
+    - chat composer adds persisted `Regen Replace On/Off` toggle (per character, localStorage).
+    - regenerate request now carries the replacement flag and local message rendering mirrors replace-vs-append behavior.
+  - UI/UE polish (Candy direction):
+    - upgraded chat stage depth (multi-gradient atmosphere + scanline overlay + richer shadows).
+    - differentiated assistant/user bubbles with distinct wine/gold gradients and contrast.
+    - rebuilt composer surface as a framed control bar with stronger hierarchy.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass

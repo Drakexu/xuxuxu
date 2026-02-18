@@ -41,6 +41,7 @@ type ChatReq = {
   inputEvent?: InputEvent
   userCard?: string
   regenerate?: boolean
+  replaceLastAssistant?: boolean
 }
 
 // "20-30 rounds" => ~40-60 messages (user+assistant). Use 60 as a sane default.
@@ -1162,6 +1163,7 @@ export async function POST(req: Request) {
     let inputEvent = normInputEvent(body.inputEvent)
     const userCardInput = typeof body.userCard === 'string' ? body.userCard : ''
     const regenerate = body.regenerate === true
+    const replaceLastAssistant = regenerate && body.replaceLastAssistant === true
 
     if (!characterId) return NextResponse.json({ error: 'characterId is required' }, { status: 400 })
     if (regenerate && !conversationId) return NextResponse.json({ error: 'conversationId is required for regenerate' }, { status: 400 })
@@ -1538,6 +1540,26 @@ export async function POST(req: Request) {
 
     // Save assistant message (legacy-safe input_event).
     {
+      if (replaceLastAssistant) {
+        try {
+          const lastAssistant = await sb
+            .from('messages')
+            .select('id')
+            .eq('conversation_id', convIdFinal)
+            .eq('user_id', userId)
+            .eq('role', 'assistant')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (!lastAssistant.error && lastAssistant.data?.id) {
+            await sb.from('messages').delete().eq('id', lastAssistant.data.id).eq('user_id', userId).eq('conversation_id', convIdFinal)
+          }
+        } catch {
+          // best-effort: regenerate should still succeed even if replacement cleanup fails
+        }
+      }
+
       const payloadV2: {
         user_id: string
         conversation_id: string
@@ -1557,6 +1579,14 @@ export async function POST(req: Request) {
 
     // PatchScribe (async): enqueue a job every turn; run best-effort in background so chat latency isn't affected.
     const turnSeqForTurn = await nextTurnSeqForConversation({ sb, conversationId: convIdFinal, conversationState })
+    const patchRecentMessages = (() => {
+      const src = (msgRows || []).slice()
+      if (regenerate) {
+        while (src.length && String(src[src.length - 1]?.role || '').toLowerCase() === 'assistant') src.pop()
+      }
+      return src.slice(-12)
+    })()
+
     const patchInput = {
       state_before: {
         conversation_state: conversationState,
@@ -1572,7 +1602,7 @@ export async function POST(req: Request) {
         user_card: effectiveUserCard ? effectiveUserCard.slice(0, 520) : '',
       },
       dynamic_context_used: dynamic.slice(0, 8000),
-      recent_messages: (msgRows || []).slice(-12),
+      recent_messages: patchRecentMessages,
       facts_before_digest: conversationState?.ledger ?? {},
     }
 

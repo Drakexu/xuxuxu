@@ -113,6 +113,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [quickSendMode, setQuickSendMode] = useState<QuickSendMode>('TALK')
+  const [regenerateReplaceMode, setRegenerateReplaceMode] = useState(true)
 
   const [assistantAvatarUrl, setAssistantAvatarUrl] = useState('')
   const [chatBgUrl, setChatBgUrl] = useState('')
@@ -172,6 +173,7 @@ export default function ChatPage() {
   const convKey = useMemo(() => `xuxuxu:conversationId:${characterId}`, [characterId])
   const draftKey = useMemo(() => `xuxuxu:chatDraft:${characterId}`, [characterId])
   const sendModeKey = useMemo(() => `xuxuxu:chatSendMode:${characterId}`, [characterId])
+  const regenModeKey = useMemo(() => `xuxuxu:chatRegenerateReplace:${characterId}`, [characterId])
   const bgKey = useMemo(() => `xuxuxu:chatBgPath:${characterId}`, [characterId])
   const roleKey = useMemo(() => `xuxuxu:chatRolePath:${characterId}`, [characterId])
   const tsKey = useMemo(() => `xuxuxu:showTimestamps:${characterId}`, [characterId])
@@ -206,6 +208,7 @@ export default function ChatPage() {
   }, [defaultSendEvent, messages])
   const canRegenerate = useMemo(() => !!conversationId && !!lastUserTurn && !sending, [conversationId, lastUserTurn, sending])
   const regenerateLabel = useMemo(() => (sending ? 'Working...' : 'Regenerate Last'), [sending])
+  const regenerateModeLabel = useMemo(() => (regenerateReplaceMode ? 'Regen Replace On' : 'Regen Replace Off'), [regenerateReplaceMode])
 
   const assistantInitial = useMemo(() => {
     const t = (title || 'AI').trim()
@@ -986,6 +989,23 @@ export default function ChatPage() {
 
   useEffect(() => {
     try {
+      const raw = localStorage.getItem(regenModeKey) || ''
+      setRegenerateReplaceMode(raw !== '0')
+    } catch {
+      setRegenerateReplaceMode(true)
+    }
+  }, [regenModeKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(regenModeKey, regenerateReplaceMode ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }, [regenerateReplaceMode, regenModeKey])
+
+  useEffect(() => {
+    try {
       const draft = localStorage.getItem(draftKey) || ''
       setInput(draft)
     } catch {
@@ -1066,7 +1086,7 @@ export default function ChatPage() {
     }
   }
 
-  const post = async (text: string, inputEvent?: InputEvent, opts?: { regenerate?: boolean }) => {
+  const post = async (text: string, inputEvent?: InputEvent, opts?: { regenerate?: boolean; replaceLastAssistant?: boolean }) => {
     setSending(true)
     setError('')
     setGuardWarn('')
@@ -1090,6 +1110,7 @@ export default function ChatPage() {
           inputEvent,
           userCard: userCard.slice(0, 300),
           regenerate: opts?.regenerate === true,
+          replaceLastAssistant: opts?.replaceLastAssistant === true,
         }),
       })
 
@@ -1123,7 +1144,19 @@ export default function ChatPage() {
           if (data?.guardFallbackUsed === true || uiGuardHit) notes.push('anti-user-speech fallback')
           setGuardWarn(`Guard triggered: ${notes.join(' / ') || 'output fixed'}`)
         }
-        setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }])
+        setMessages((prev) => {
+          if (opts?.regenerate && opts?.replaceLastAssistant) {
+            const next = prev.slice()
+            for (let i = next.length - 1; i >= 0; i -= 1) {
+              const row = next[i]
+              if (row.role !== 'assistant') continue
+              next[i] = { ...row, content: assistantText, input_event: inputEvent || row.input_event || null }
+              return next
+            }
+            return [...next, { role: 'assistant', content: assistantText, input_event: inputEvent || null }]
+          }
+          return [...prev, { role: 'assistant', content: assistantText, input_event: inputEvent || null }]
+        })
         if (bgAutoEnabled && backgroundAssets.length > 0) {
           const cue = inferPresentationCue(assistantText)
           const picked = pickBestBackgroundPath(backgroundAssets.map((x) => ({ path: x.path })), cue)
@@ -1173,7 +1206,10 @@ export default function ChatPage() {
 
   const regenerateLastReply = async () => {
     if (!canRegenerate || !lastUserTurn) return
-    await post(lastUserTurn.content, lastUserTurn.inputEvent, { regenerate: true })
+    await post(lastUserTurn.content, lastUserTurn.inputEvent, {
+      regenerate: true,
+      replaceLastAssistant: regenerateReplaceMode,
+    })
   }
 
   if (loading) {
@@ -1731,6 +1767,13 @@ export default function ChatPage() {
               </button>
               <button className="uiPill" disabled={sending || !input.trim()} onClick={() => setInput('')}>
                 Clear Draft
+              </button>
+              <button
+                className={`uiPill ${regenerateReplaceMode ? 'uiPillActive' : ''}`}
+                disabled={sending}
+                onClick={() => setRegenerateReplaceMode((v) => !v)}
+              >
+                {regenerateModeLabel}
               </button>
             </div>
           </div>
