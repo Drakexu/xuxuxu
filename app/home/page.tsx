@@ -167,6 +167,8 @@ export default function HomeFeedPage() {
   const [feedLiveRefresh, setFeedLiveRefresh] = useState(true)
   const [feedLiveSyncAt, setFeedLiveSyncAt] = useState('')
   const [triggeringScheduleCharacterId, setTriggeringScheduleCharacterId] = useState('')
+  const [batchTriggeringSchedule, setBatchTriggeringSchedule] = useState(false)
+  const [opsMessage, setOpsMessage] = useState('')
   const feedAllowedCharacterIdsRef = useRef<string[]>([])
   const latestFeedAtRef = useRef('')
 
@@ -815,6 +817,18 @@ export default function HomeFeedPage() {
     if (activated.length > 0) return activated[0]
     return null
   }, [selectedCharacter, activated])
+  const scheduleBackfillCandidates = useMemo(() => {
+    const now = Date.now()
+    const thresholdMs = 95 * 60 * 1000
+    return activated
+      .filter((c) => {
+        const latestAt = String(characterDigestById[c.id]?.latestAt || '')
+        const ts = Date.parse(latestAt)
+        if (!Number.isFinite(ts)) return true
+        return now - ts >= thresholdMs
+      })
+      .slice(0, 10)
+  }, [activated, characterDigestById])
 
   const moveActivated = async (idx: number, direction: 'UP' | 'DOWN') => {
     if (idx < 0 || idx >= activated.length) return
@@ -944,57 +958,97 @@ export default function HomeFeedPage() {
     }
   }
 
+  const runScheduleTickForCharacter = async (target: CharacterRow) => {
+    const { data: userData } = await supabase.auth.getUser()
+    const userId = userData.user?.id
+    if (!userId) {
+      router.push('/login')
+      return { ok: false, error: 'NOT_LOGGED_IN' as const }
+    }
+
+    const convIdHint = String(characterDigestById[target.id]?.conversationId || '').trim()
+    let convId = convIdHint
+    if (!convId) {
+      const ensured = await ensureLatestConversationForCharacter({
+        userId,
+        characterId: target.id,
+        title: target.name || '对话',
+      })
+      convId = String(ensured.conversationId || '').trim()
+    }
+    if (!convId) return { ok: false, error: 'NO_CONVERSATION' as const }
+
+    const { data: sess } = await supabase.auth.getSession()
+    const token = sess.session?.access_token || ''
+    if (!token) {
+      router.push('/login')
+      return { ok: false, error: 'NO_TOKEN' as const }
+    }
+
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        characterId: target.id,
+        conversationId: convId,
+        message: '(schedule_tick)',
+        inputEvent: 'SCHEDULE_TICK',
+      }),
+    })
+    const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+    if (!resp.ok) return { ok: false, error: String(data.error || `请求失败：${resp.status}`) }
+    return { ok: true as const }
+  }
+
   const triggerScheduleTickForFocus = async () => {
     const target = focusCharacterForOps
-    if (!target || triggeringScheduleCharacterId) return
+    if (!target || triggeringScheduleCharacterId || batchTriggeringSchedule) return
     setTriggeringScheduleCharacterId(target.id)
     setError('')
+    setOpsMessage('')
     try {
-      const { data: userData } = await supabase.auth.getUser()
-      const userId = userData.user?.id
-      if (!userId) {
-        router.push('/login')
-        return
-      }
-
-      const convIdHint = String(characterDigestById[target.id]?.conversationId || '').trim()
-      let convId = convIdHint
-      if (!convId) {
-        const ensured = await ensureLatestConversationForCharacter({
-          userId,
-          characterId: target.id,
-          title: target.name || '对话',
-        })
-        convId = String(ensured.conversationId || '').trim()
-      }
-      if (!convId) throw new Error('未找到可用会话，请先进入聊天页。')
-
-      const { data: sess } = await supabase.auth.getSession()
-      const token = sess.session?.access_token || ''
-      if (!token) {
-        router.push('/login')
-        return
-      }
-
-      const resp = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          characterId: target.id,
-          conversationId: convId,
-          message: '(schedule_tick)',
-          inputEvent: 'SCHEDULE_TICK',
-        }),
-      })
-      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-      if (!resp.ok) throw new Error(String(data.error || `请求失败：${resp.status}`))
-
+      const out = await runScheduleTickForCharacter(target)
+      if (!out.ok) throw new Error(out.error || '补发失败')
       setFeedTab('SCHEDULE')
       await load()
+      setOpsMessage(`已为 ${target.name} 补发 1 条日程片段。`)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setTriggeringScheduleCharacterId('')
+    }
+  }
+
+  const triggerScheduleTickBatch = async () => {
+    if (batchTriggeringSchedule || triggeringScheduleCharacterId || !scheduleBackfillCandidates.length) return
+    setBatchTriggeringSchedule(true)
+    setError('')
+    setOpsMessage('')
+    try {
+      let ok = 0
+      let fail = 0
+      const failedNames: string[] = []
+      for (const role of scheduleBackfillCandidates) {
+        const out = await runScheduleTickForCharacter(role)
+        if (out.ok) ok += 1
+        else {
+          fail += 1
+          failedNames.push(role.name || role.id)
+        }
+      }
+      setFeedTab('SCHEDULE')
+      await load()
+      if (fail > 0) {
+        const brief = failedNames.slice(0, 3).join('、')
+        const extra = failedNames.length > 3 ? ` 等 ${failedNames.length} 个` : ''
+        setError(`批量补发完成：成功 ${ok}，失败 ${fail}（${brief}${extra}）。`)
+      } else {
+        setOpsMessage(`批量补发完成：已处理 ${ok} 个角色。`)
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBatchTriggeringSchedule(false)
     }
   }
 
@@ -1090,8 +1144,19 @@ export default function HomeFeedPage() {
               <button className={`uiPill ${feedTab === 'ALL' ? 'uiPillActive' : ''}`} onClick={() => setFeedTab('ALL')}>
                 查看全部
               </button>
-              <button className="uiPill" disabled={!focusCharacterForOps || !!triggeringScheduleCharacterId} onClick={() => void triggerScheduleTickForFocus()}>
+              <button
+                className="uiPill"
+                disabled={!focusCharacterForOps || !!triggeringScheduleCharacterId || batchTriggeringSchedule}
+                onClick={() => void triggerScheduleTickForFocus()}
+              >
                 {triggeringScheduleCharacterId ? '补发中...' : '补一条日程片段'}
+              </button>
+              <button
+                className={`uiPill ${scheduleBackfillCandidates.length > 0 ? 'uiPillActive' : ''}`}
+                disabled={batchTriggeringSchedule || !!triggeringScheduleCharacterId || scheduleBackfillCandidates.length === 0}
+                onClick={() => void triggerScheduleTickBatch()}
+              >
+                {batchTriggeringSchedule ? '批量补发中...' : `批量补齐缺口（${scheduleBackfillCandidates.length}）`}
               </button>
               <button className="uiPill" onClick={() => setFeedQuery('')}>
                 清空搜索
@@ -1146,6 +1211,7 @@ export default function HomeFeedPage() {
           </div>
         </section>
 
+        {opsMessage && <div className="uiAlert uiAlertOk">{opsMessage}</div>}
         {error && <div className="uiAlert uiAlertErr">{error}</div>}
         {loading && <div className="uiSkeleton">加载中...</div>}
 

@@ -2547,3 +2547,20 @@ pm run -s build -> pass
   - npm run -s lint -> pass
   - npx tsc --noEmit -> pass
   - npm run -s build -> pass
+## 2026-02-18 checkpoint: home batch schedule backfill ops
+- Files changed:
+  - app/home/page.tsx
+- Completed:
+  - Added batch schedule backfill operation on Home life hub:
+    - new `批量补齐缺口（N）` action auto-selects stale activated roles (default threshold: 95 minutes without recent feed)
+    - sequentially sends `SCHEDULE_TICK` for up to 10 stale roles in one run
+    - keeps existing single-role `补一条日程片段` flow unchanged
+  - Added operation feedback UX:
+    - success alert (`uiAlertOk`) for completed single/batch backfill
+    - detailed partial-failure summary for batch mode (`成功 x / 失败 y`)
+  - Added operation concurrency guards:
+    - single-role and batch operations now mutually lock each other to avoid duplicate schedule writes.
+- Validation:
+  - npm run -s lint -> pass
+  - npx tsc --noEmit -> pass
+  - npm run -s build -> pass
