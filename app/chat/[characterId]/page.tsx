@@ -25,6 +25,7 @@ type RelationshipStage = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7'
 type RomanceMode = 'ROMANCE_ON' | 'ROMANCE_OFF'
 type PlotGranularity = 'LINE' | 'BEAT' | 'SCENE'
 type EndingMode = 'QUESTION' | 'ACTION' | 'CLIFF' | 'MIXED'
+type NarrationMode = string
 const RECENT_MESSAGES_LIMIT = 60
 const OLDER_MESSAGES_LIMIT = 20
 const OLDER_LOAD_COOLDOWN_MS = 700
@@ -56,6 +57,32 @@ function normalizePlotGranularity(v: unknown): PlotGranularity {
 function normalizeEndingMode(v: unknown): EndingMode {
   const s = String(v || '').trim().toUpperCase()
   return (s === 'QUESTION' || s === 'ACTION' || s === 'CLIFF' || s === 'MIXED' ? s : 'MIXED') as EndingMode
+}
+
+function normalizeNarrationMode(v: unknown): NarrationMode {
+  const s = String(v || '').trim().toUpperCase()
+  if (!s) return 'AUTO'
+  return s
+}
+
+function normalizeStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  const arr: string[] = []
+  const seen = new Set<string>()
+
+  for (const item of v) {
+    if (typeof item !== 'string') continue
+    const name = item.trim()
+    if (!name || seen.has(name)) continue
+    seen.add(name)
+    arr.push(name)
+  }
+
+  return arr
+}
+
+function normalizeSpeaker(v: unknown): string {
+  return String(v || '').trim()
 }
 
 function messageTailKey(m?: Msg) {
@@ -151,6 +178,9 @@ export default function ChatPage() {
   const [storyLockUntil, setStoryLockUntil] = useState('')
   const [relationshipStage, setRelationshipStage] = useState<RelationshipStage>('S1')
   const [romanceMode, setRomanceMode] = useState<RomanceMode>('ROMANCE_ON')
+  const [narrationMode, setNarrationMode] = useState<NarrationMode>('AUTO')
+  const [presentCharacters, setPresentCharacters] = useState<string[]>([])
+  const [multiCastNextSpeaker, setMultiCastNextSpeaker] = useState('')
   const [plotGranularity, setPlotGranularity] = useState<PlotGranularity>('BEAT')
   const [endingMode, setEndingMode] = useState<EndingMode>('MIXED')
   const [endingRepeatWindow, setEndingRepeatWindow] = useState(6)
@@ -199,6 +229,13 @@ export default function ChatPage() {
     if (quickSendMode === 'CG') return 'Send Visual'
     return 'Send Dialogue'
   }, [quickSendMode, sending])
+  const narrativeModeLabel = useMemo(() => (narrationMode || 'AUTO'), [narrationMode])
+  const presentCharactersLabel = useMemo(() => (presentCharacters.length ? presentCharacters.join('、') : 'None'), [presentCharacters])
+  const speakerGateHint = useMemo(() => {
+    if (narrationMode.toUpperCase() === 'USER') return 'Current narration mode is USER. Assistant output may be auto-corrected.'
+    if (multiCastNextSpeaker) return `Next speaker: ${multiCastNextSpeaker}`
+    return ''
+  }, [multiCastNextSpeaker, narrationMode])
   const lastUserTurn = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const m = messages[i]
@@ -325,12 +362,16 @@ export default function ChatPage() {
     const run = asRecord(root.run_state)
     const board = asRecord(root.schedule_board)
     const style = asRecord(root.style_guard)
+    const source = Object.keys(run).length ? run : root
 
     setScheduleState(normalizeSchedule(board.schedule_state || run.schedule_state))
     setLockMode(String(board.lock_mode || 'manual'))
     setStoryLockUntil(typeof board.story_lock_until === 'string' ? board.story_lock_until : '')
     setRelationshipStage(normalizeStage(run.relationship_stage))
     setRomanceMode(normalizeRomance(run.romance_mode))
+    setNarrationMode(normalizeNarrationMode(source.narration_mode || run.narration_mode || root.narration_mode))
+    setPresentCharacters(normalizeStringArray(source.present_characters || run.present_characters))
+    setMultiCastNextSpeaker(normalizeSpeaker(source.multi_cast_next_speaker || run.multi_cast_next_speaker))
     setPlotGranularity(normalizePlotGranularity(run.plot_granularity))
     setEndingMode(normalizeEndingMode(run.ending_mode))
     const winRaw = Number(style.ending_repeat_window ?? 6)
@@ -611,6 +652,9 @@ export default function ChatPage() {
         setStoryLockUntil('')
         setRelationshipStage('S1')
         setRomanceMode('ROMANCE_ON')
+        setNarrationMode('AUTO')
+        setPresentCharacters([])
+        setMultiCastNextSpeaker('')
         setPlotGranularity('BEAT')
         setEndingMode('MIXED')
         setEndingRepeatWindow(6)
@@ -1076,6 +1120,9 @@ export default function ChatPage() {
       setStoryLockUntil('')
       setRelationshipStage('S1')
       setRomanceMode('ROMANCE_ON')
+      setNarrationMode('AUTO')
+      setPresentCharacters([])
+      setMultiCastNextSpeaker('')
       setPlotGranularity('BEAT')
       setEndingMode('MIXED')
       setEndingRepeatWindow(6)
@@ -1377,6 +1424,9 @@ export default function ChatPage() {
               <span className="uiBadge">Schedule: {scheduleState === 'PAUSE' ? 'Paused' : 'Running'}</span>
               <span className="uiBadge">Lock mode: {lockMode || 'manual'}</span>
               <span className="uiBadge">Relationship: {relationshipStage}</span>
+              <span className="uiBadge">Narration: {narrativeModeLabel}</span>
+              <span className="uiBadge">Present: {presentCharactersLabel}</span>
+              {!!multiCastNextSpeaker && <span className="uiBadge">Next speaker: {multiCastNextSpeaker}</span>}
               <span className="uiBadge">Romance: {romanceMode === 'ROMANCE_OFF' ? 'Off' : 'On'}</span>
               <span className="uiBadge">Background: {bgAutoEnabled ? `Auto${bgCue ? ` (${bgCue})` : ''}` : 'Manual'}</span>
               <span className="uiBadge">Granularity: {plotGranularity}</span>
@@ -1767,6 +1817,7 @@ export default function ChatPage() {
             />
             <div className="uiChatComposerMeta">
               <span className="uiHint">{composerHint}</span>
+              {!!speakerGateHint && <span className="uiHint">{speakerGateHint}</span>}
               <span className="uiHint">{input.trim().length}/4000 · Enter send / Shift+Enter newline · Alt+R regenerate</span>
             </div>
             <div className="uiChatComposerTools">

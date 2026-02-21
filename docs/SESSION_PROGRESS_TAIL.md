@@ -40,3 +40,15 @@ Context root: D:/projects/xuxuxu
 - 2) Add chat runtime diagnostics panel for active speaker order and multi-cast turn state.
 - 3) Add quick wallet readiness self-heal action if schema missing (lightweight fallback banner)
 
+## 2026-02-21 follow-up update
+- File: `app/chat/[characterId]/page.tsx`
+- Added narrator/runtime control visibility for active voice control:
+  - New state parsing for `narration_mode`, `present_characters`, `multi_cast_next_speaker` from conversation state.
+  - Added control panel badges:
+    - Narration mode
+    - Present characters
+    - Next speaker (when available)
+  - Added compose-row hint showing speaker gate info when `USER` narration mode or multi-cast next speaker exists.
+  - Added state reset defaults in missing/empty control-state scenarios and new conversation creation path.
+- This supports part of “chat能力强化 / 主语与多角色体验” before moving to full editing workflows.
+
