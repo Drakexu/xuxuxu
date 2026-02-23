@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { Sparkles } from 'lucide-react'
 
 type Character = {
   id: string
@@ -98,50 +99,93 @@ export default function SquarePage() {
   }, [])
 
   return (
-    <div className="squarePage">
-      {/* 品牌 Banner */}
-      <div className="squareBanner">
-        <div className="squareBannerInner">
-          <div className="squareBannerTitle">爱巴基广场</div>
-          <div className="squareBannerSub">发现你喜欢的 AI 角色，收藏并开始聊天</div>
+    <div className="flex flex-col">
+      {/* Banner */}
+      <div className="px-5 pt-8 pb-6 bg-gradient-to-br from-pink-50/80 to-[#FBFBFA] border-b border-zinc-100/60">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#EC4899] animate-pulse" />
+          <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-400">
+            Public Characters
+          </span>
+          <Sparkles className="w-3 h-3 text-[#EC4899]" />
         </div>
+        <h1 className="text-5xl font-black tracking-tighter text-zinc-900 leading-none mb-2">广场</h1>
+        <p className="text-xs font-medium text-zinc-400 leading-relaxed">
+          发现你喜欢的 AI 角色，收藏并开始聊天
+        </p>
       </div>
 
-      {/* 角色卡片网格 */}
-      <div className="squareContent">
+      {/* Grid */}
+      <div className="p-3">
         {loading && (
-          <div className="squareLoading">加载中...</div>
+          <div className="grid grid-cols-3 gap-2.5">
+            {[...Array(9)].map((_, i) => (
+              <div key={i} className="rounded-2xl overflow-hidden border border-zinc-100">
+                <div
+                  className="bg-zinc-100 animate-pulse"
+                  style={{ aspectRatio: '9/16' }}
+                />
+                <div className="p-2 pb-3 bg-white space-y-1.5">
+                  <div className="h-2.5 bg-zinc-100 rounded-full w-3/4 animate-pulse" />
+                  <div className="h-2 bg-zinc-100 rounded-full w-1/2 animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
+
         {!loading && characters.length === 0 && (
-          <div className="squareEmpty">广场暂时没有公开角色。</div>
+          <div className="py-20 flex flex-col items-center gap-4">
+            <div className="w-14 h-14 rounded-[1.25rem] bg-pink-50 border border-pink-100 flex items-center justify-center">
+              <span className="text-2xl font-black text-[#EC4899] opacity-60">✦</span>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">
+              广场暂时没有公开角色
+            </p>
+          </div>
         )}
+
         {!loading && characters.length > 0 && (
-          <div className="squareGrid">
+          <div className="grid grid-cols-3 gap-2.5">
             {characters.map((c) => {
               const { gender, age, intro } = getCharacterMeta(c)
               const imgUrl = imgById[c.id]
               return (
                 <button
                   key={c.id}
-                  className="squareCard"
+                  className="text-left flex flex-col rounded-2xl border border-zinc-100 bg-white shadow-sm overflow-hidden transition-all active:scale-95 hover:border-pink-200 hover:shadow-[0_8px_24px_rgba(236,72,153,0.08)]"
                   onClick={() => router.push(`/aibaji/square/${c.id}`)}
                 >
-                  <div className="squareCardImage">
+                  <div
+                    className="bg-gradient-to-br from-pink-50/60 to-zinc-50/40 overflow-hidden"
+                    style={{ aspectRatio: '9/16' }}
+                  >
                     {imgUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imgUrl} alt={c.name} />
+                      <img src={imgUrl} alt={c.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="squareCardImageFallback">
-                        <span>{c.name?.[0] || '?'}</span>
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span
+                          className="text-4xl font-black"
+                          style={{ color: '#EC4899', opacity: 0.35 }}
+                        >
+                          {c.name?.[0] || '?'}
+                        </span>
                       </div>
                     )}
                   </div>
-                  <div className="squareCardInfo">
-                    <div className="squareCardName">{c.name}</div>
-                    <div className="squareCardMeta">
+                  <div className="p-2 pb-3 flex flex-col gap-0.5">
+                    <span className="text-[12px] font-black text-zinc-900 truncate leading-snug">
+                      {c.name}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-medium leading-snug">
                       {[gender, age ? `${age}岁` : ''].filter(Boolean).join(' · ') || '神秘角色'}
-                    </div>
-                    {intro && <div className="squareCardIntro">{intro}</div>}
+                    </span>
+                    {intro && (
+                      <span className="text-[10px] text-zinc-400 line-clamp-2 leading-snug mt-0.5">
+                        {intro}
+                      </span>
+                    )}
                   </div>
                 </button>
               )
