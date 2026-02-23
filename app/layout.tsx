@@ -26,8 +26,8 @@ const bodyClassName = [
 ].join(" ");
 
 export const metadata: Metadata = {
-  title: "XuxuXu AI",
-  description: "Immersive AI character chat on the web.",
+  title: "xuxuxu",
+  description: "一些好玩的小作品。",
 };
 
 export default function RootLayout({
