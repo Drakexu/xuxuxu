@@ -1,22 +1,24 @@
 :root {
-  --bg: #f6f7fb;
-  --text: rgba(8, 10, 14, 0.92);
-  --muted: rgba(10, 12, 18, 0.56);
-  --border: rgba(12, 14, 20, 0.1);
-  --border-strong: rgba(12, 14, 20, 0.16);
+  --bg: #0e0e10;
+  --bg-surface: rgba(255, 255, 255, 0.04);
+  --bg-surface-2: rgba(255, 255, 255, 0.07);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.42);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
 
-  --accent: rgba(32, 84, 176, 0.98);
-  --accent-2: rgba(242, 125, 30, 0.96);
-  --accent-border: rgba(32, 84, 176, 0.36);
-  --accent-bg: rgba(231, 241, 255, 0.98);
-  --accent-bg-2: rgba(255, 243, 229, 0.92);
+  --accent: #c4a1ff;
+  --accent-2: #ffd699;
+  --accent-border: rgba(196, 161, 255, 0.28);
+  --accent-bg: rgba(196, 161, 255, 0.1);
+  --accent-bg-2: rgba(255, 214, 153, 0.1);
 
-  --radius-lg: 22px;
+  --radius-lg: 20px;
   --radius-md: 14px;
 
-  --shadow-lg: 0 40px 120px rgba(0, 0, 0, 0.18);
-  --shadow-md: 0 20px 60px rgba(0, 0, 0, 0.08);
-  --shadow-soft: 0 18px 50px rgba(32, 84, 176, 0.12);
+  --shadow-lg: 0 40px 100px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 16px 48px rgba(0, 0, 0, 0.3);
+  --shadow-soft: 0 12px 40px rgba(196, 161, 255, 0.08);
 }
 
 * {
@@ -31,8 +33,8 @@ body {
 body {
   margin: 0;
   background:
-    radial-gradient(1200px 900px at 10% -10%, rgba(32, 84, 176, 0.1) 0%, rgba(32, 84, 176, 0) 56%),
-    radial-gradient(1200px 900px at 90% 0%, rgba(242, 125, 30, 0.12) 0%, rgba(242, 125, 30, 0) 60%),
+    radial-gradient(900px 600px at 15% -5%, rgba(196, 161, 255, 0.06) 0%, transparent 60%),
+    radial-gradient(800px 600px at 85% 10%, rgba(255, 214, 153, 0.04) 0%, transparent 55%),
     var(--bg);
   color: var(--text);
   font-family: var(--font-ui-sans), "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Segoe UI", sans-serif;
@@ -2130,10 +2132,10 @@ body {
 .portfolioCard {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--bg-surface);
   backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-md);
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  box-shadow: none;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
   cursor: pointer;
   text-align: left;
   overflow: hidden;
@@ -2141,19 +2143,21 @@ body {
 
 .portfolioCard:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-soft);
   border-color: var(--accent-border);
+  background: var(--bg-surface-2);
 }
 
 .portfolioCardSoon {
   cursor: default;
-  opacity: 0.55;
+  opacity: 0.4;
 }
 
 .portfolioCardSoon:hover {
   transform: none;
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
   border-color: var(--border);
+  background: var(--bg-surface);
 }
 
 .portfolioCardInner {
@@ -2181,9 +2185,9 @@ body {
 .portfolioLiveBadge {
   padding: 3px 10px;
   border-radius: 20px;
-  background: rgba(32, 176, 96, 0.12);
-  border: 1px solid rgba(32, 176, 96, 0.28);
-  color: rgb(20, 140, 60);
+  background: rgba(80, 220, 140, 0.12);
+  border: 1px solid rgba(80, 220, 140, 0.25);
+  color: #5de8a0;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -2193,7 +2197,7 @@ body {
 .portfolioSoonBadge {
   padding: 3px 10px;
   border-radius: 20px;
-  background: rgba(12, 14, 20, 0.06);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--muted);
   font-size: 11px;
@@ -2284,8 +2288,8 @@ body {
   justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
+  background: rgba(14, 14, 16, 0.88);
+  backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -2332,8 +2336,8 @@ body {
   max-width: 480px;
   display: flex;
   border-top: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(16px);
+  background: rgba(14, 14, 16, 0.94);
+  backdrop-filter: blur(20px);
   z-index: 30;
 }
 
@@ -2384,9 +2388,10 @@ body {
 }
 
 .squareBanner {
-  background: linear-gradient(135deg, rgba(32, 84, 176, 0.9) 0%, rgba(80, 30, 140, 0.88) 100%);
+  background: linear-gradient(135deg, rgba(100, 60, 180, 0.4) 0%, rgba(196, 161, 255, 0.15) 100%);
+  border-bottom: 1px solid var(--border);
   padding: 36px 20px;
-  color: #fff;
+  color: var(--text);
 }
 
 .squareBannerInner {
@@ -2429,24 +2434,26 @@ body {
   appearance: none;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-surface);
   cursor: pointer;
   padding: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 140ms ease, box-shadow 140ms ease;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
   text-align: left;
+  color: inherit;
 }
 
 .squareCard:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(32, 84, 176, 0.14);
+  box-shadow: 0 12px 40px rgba(196, 161, 255, 0.1);
+  border-color: var(--accent-border);
 }
 
 .squareCardImage {
   aspect-ratio: 9 / 16;
-  background: linear-gradient(135deg, rgba(32, 84, 176, 0.08), rgba(242, 125, 30, 0.1));
+  background: linear-gradient(135deg, rgba(196, 161, 255, 0.06), rgba(255, 214, 153, 0.04));
   overflow: hidden;
   position: relative;
 }
@@ -2464,7 +2471,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(32, 84, 176, 0.12), rgba(242, 125, 30, 0.12));
+  background: linear-gradient(135deg, rgba(196, 161, 255, 0.08), rgba(255, 214, 153, 0.06));
 }
 
 .squareCardImageFallback span {
@@ -2548,16 +2555,16 @@ body {
   margin: 0 16px;
   padding: 10px 14px;
   border-radius: 10px;
-  background: rgba(32, 176, 96, 0.1);
-  border: 1px solid rgba(32, 176, 96, 0.22);
-  color: rgb(20, 130, 55);
+  background: rgba(80, 220, 140, 0.1);
+  border: 1px solid rgba(80, 220, 140, 0.2);
+  color: #5de8a0;
   font-size: 13px;
 }
 
 .detailAlertErr {
-  background: rgba(200, 40, 40, 0.08);
-  border-color: rgba(200, 40, 40, 0.2);
-  color: rgb(170, 30, 30);
+  background: rgba(255, 100, 100, 0.1);
+  border-color: rgba(255, 100, 100, 0.2);
+  color: #ff7b7b;
 }
 
 .detailLayout {
@@ -2569,7 +2576,7 @@ body {
   aspect-ratio: 9 / 16;
   max-height: 360px;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(32, 84, 176, 0.1), rgba(242, 125, 30, 0.1));
+  background: linear-gradient(135deg, rgba(196, 161, 255, 0.06), rgba(255, 214, 153, 0.04));
 }
 
 .detailImage {
@@ -2661,13 +2668,13 @@ body {
 
 .detailBtnPrimary {
   background: var(--accent);
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(32, 84, 176, 0.3);
+  color: #0e0e10;
+  box-shadow: 0 4px 20px rgba(196, 161, 255, 0.25);
 }
 
 .detailBtnPrimary:hover {
-  background: rgba(32, 84, 176, 0.88);
-  box-shadow: 0 6px 24px rgba(32, 84, 176, 0.4);
+  background: #d4b8ff;
+  box-shadow: 0 6px 28px rgba(196, 161, 255, 0.35);
   transform: translateY(-1px);
 }
 
@@ -2679,7 +2686,7 @@ body {
 }
 
 .detailBtnSecondary {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-surface);
   color: var(--text);
   border: 1px solid var(--border-strong);
 }
@@ -2687,6 +2694,7 @@ body {
 .detailBtnSecondary:hover {
   border-color: var(--accent-border);
   color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .detailBtnFavorited {
@@ -2710,7 +2718,8 @@ body {
   border-bottom: 1px solid var(--border);
   padding: 0 16px;
   gap: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(14, 14, 16, 0.85);
+  backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -2786,7 +2795,7 @@ body {
 
 .chatHubGoSquare:hover {
   background: var(--accent);
-  color: #fff;
+  color: #0e0e10;
   border-color: var(--accent);
 }
 
@@ -2800,24 +2809,26 @@ body {
   appearance: none;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-surface);
   cursor: pointer;
   padding: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 140ms, box-shadow 140ms;
+  transition: transform 140ms, box-shadow 140ms, border-color 140ms;
   text-align: left;
+  color: inherit;
 }
 
 .chatHubCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(32, 84, 176, 0.12);
+  box-shadow: 0 8px 24px rgba(196, 161, 255, 0.08);
+  border-color: var(--accent-border);
 }
 
 .chatHubCardImage {
   aspect-ratio: 3 / 4;
-  background: linear-gradient(135deg, rgba(32, 84, 176, 0.08), rgba(242, 125, 30, 0.1));
+  background: linear-gradient(135deg, rgba(196, 161, 255, 0.06), rgba(255, 214, 153, 0.04));
   overflow: hidden;
 }
 
@@ -2896,7 +2907,7 @@ body {
   justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(14, 14, 16, 0.88);
   backdrop-filter: blur(12px);
   flex-shrink: 0;
 }
@@ -2968,12 +2979,12 @@ body {
 
 .chatMsgUser .chatMsgBubble {
   background: var(--accent);
-  color: #fff;
+  color: #0e0e10;
   border-bottom-right-radius: 4px;
 }
 
 .chatMsgAssistant .chatMsgBubble {
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--bg-surface-2);
   border: 1px solid var(--border);
   color: var(--text);
   border-bottom-left-radius: 4px;
@@ -2987,10 +2998,10 @@ body {
 .chatWindowError {
   margin: 0 12px;
   padding: 8px 12px;
-  background: rgba(200, 40, 40, 0.08);
-  border: 1px solid rgba(200, 40, 40, 0.18);
+  background: rgba(255, 100, 100, 0.1);
+  border: 1px solid rgba(255, 100, 100, 0.18);
   border-radius: 10px;
-  color: rgb(170, 30, 30);
+  color: #ff7b7b;
   font-size: 12px;
   flex-shrink: 0;
 }
@@ -2998,7 +3009,7 @@ body {
 .chatWindowInput {
   padding: 10px 12px;
   border-top: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(14, 14, 16, 0.92);
   display: flex;
   gap: 8px;
   align-items: flex-end;
@@ -3013,7 +3024,7 @@ body {
   font-size: 14px;
   font-family: inherit;
   color: var(--text);
-  background: #fff;
+  background: var(--bg-surface);
   resize: none;
   outline: none;
   transition: border-color 140ms;
@@ -3028,7 +3039,7 @@ body {
   appearance: none;
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: #0e0e10;
   border-radius: 14px;
   padding: 10px 16px;
   font-size: 14px;
@@ -3042,7 +3053,7 @@ body {
 }
 
 .chatWindowSendBtn:hover {
-  background: rgba(32, 84, 176, 0.88);
+  background: #d4b8ff;
   transform: translateY(-1px);
 }
 
@@ -3067,16 +3078,16 @@ body {
 .charactersAlert {
   padding: 10px 14px;
   border-radius: 10px;
-  background: rgba(32, 176, 96, 0.1);
-  border: 1px solid rgba(32, 176, 96, 0.22);
-  color: rgb(20, 130, 55);
+  background: rgba(80, 220, 140, 0.1);
+  border: 1px solid rgba(80, 220, 140, 0.2);
+  color: #5de8a0;
   font-size: 13px;
 }
 
 .charactersAlertErr {
-  background: rgba(200, 40, 40, 0.08);
-  border-color: rgba(200, 40, 40, 0.2);
-  color: rgb(170, 30, 30);
+  background: rgba(255, 100, 100, 0.1);
+  border-color: rgba(255, 100, 100, 0.18);
+  color: #ff7b7b;
 }
 
 .charactersTopBar {
@@ -3096,7 +3107,7 @@ body {
   appearance: none;
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: #0e0e10;
   padding: 10px 16px;
   border-radius: 12px;
   font-size: 13px;
@@ -3104,11 +3115,11 @@ body {
   cursor: pointer;
   font-family: inherit;
   transition: all 140ms;
-  box-shadow: 0 4px 14px rgba(32, 84, 176, 0.28);
+  box-shadow: 0 4px 20px rgba(196, 161, 255, 0.2);
 }
 
 .newCharBtn:hover {
-  background: rgba(32, 84, 176, 0.88);
+  background: #d4b8ff;
   transform: translateY(-1px);
 }
 
@@ -3151,7 +3162,7 @@ body {
 .characterCard {
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-surface);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -3176,15 +3187,15 @@ body {
   border-radius: 8px;
   font-size: 11px;
   font-weight: 600;
-  background: rgba(12, 14, 20, 0.06);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--muted);
 }
 
 .characterVisiBadgePublic {
-  background: rgba(32, 176, 96, 0.1);
-  border-color: rgba(32, 176, 96, 0.28);
-  color: rgb(20, 130, 55);
+  background: rgba(80, 220, 140, 0.1);
+  border-color: rgba(80, 220, 140, 0.22);
+  color: #5de8a0;
 }
 
 .characterCardActions {
@@ -3196,7 +3207,7 @@ body {
   appearance: none;
   flex: 1;
   border: 1px solid var(--border-strong);
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--bg-surface);
   color: var(--text);
   padding: 8px;
   border-radius: 10px;
@@ -3220,15 +3231,15 @@ body {
 }
 
 .charActionBtnPublish:hover {
-  border-color: rgba(32, 176, 96, 0.3);
-  color: rgb(20, 130, 55);
-  background: rgba(32, 176, 96, 0.08);
+  border-color: rgba(80, 220, 140, 0.25);
+  color: #5de8a0;
+  background: rgba(80, 220, 140, 0.08);
 }
 
 .charActionBtnDelete:hover {
-  border-color: rgba(200, 40, 40, 0.3);
-  color: rgb(170, 30, 30);
-  background: rgba(200, 40, 40, 0.06);
+  border-color: rgba(255, 100, 100, 0.25);
+  color: #ff7b7b;
+  background: rgba(255, 100, 100, 0.08);
 }
 
 /* ============================================================
@@ -3268,9 +3279,9 @@ body {
   margin: 0 16px 14px;
   padding: 10px 14px;
   border-radius: 10px;
-  background: rgba(200, 40, 40, 0.08);
-  border: 1px solid rgba(200, 40, 40, 0.18);
-  color: rgb(170, 30, 30);
+  background: rgba(255, 100, 100, 0.1);
+  border: 1px solid rgba(255, 100, 100, 0.18);
+  color: #ff7b7b;
   font-size: 13px;
 }
 
@@ -3324,7 +3335,7 @@ body {
   font-size: 14px;
   font-family: inherit;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-surface);
   outline: none;
   transition: border-color 140ms;
   width: 100%;
@@ -3343,7 +3354,7 @@ body {
   font-size: 14px;
   font-family: inherit;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-surface);
   outline: none;
   transition: border-color 140ms;
   resize: vertical;
@@ -3373,7 +3384,7 @@ body {
   padding: 8px 14px;
   border-radius: 10px;
   border: 1px solid var(--border-strong);
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--bg-surface);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -3406,7 +3417,7 @@ body {
   flex: 1;
   appearance: none;
   border: 1px solid var(--border-strong);
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--bg-surface);
   color: var(--muted);
   padding: 13px 16px;
   border-radius: 14px;
@@ -3427,7 +3438,7 @@ body {
   appearance: none;
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: #0e0e10;
   padding: 13px 16px;
   border-radius: 14px;
   font-size: 14px;
@@ -3435,11 +3446,11 @@ body {
   cursor: pointer;
   font-family: inherit;
   transition: all 140ms;
-  box-shadow: 0 4px 16px rgba(32, 84, 176, 0.3);
+  box-shadow: 0 4px 20px rgba(196, 161, 255, 0.2);
 }
 
 .charFormSubmitBtn:hover {
-  background: rgba(32, 84, 176, 0.88);
+  background: #d4b8ff;
   transform: translateY(-1px);
 }
 
