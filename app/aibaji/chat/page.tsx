@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { Heart, MessageCircle, ChevronRight, Loader } from 'lucide-react'
 
 type Character = {
   id: string
@@ -89,7 +90,6 @@ export default function ChatHubPage() {
   const [loading, setLoading] = useState(false)
   const [chatLoading, setChatLoading] = useState('')
 
-  // Load favorites from localStorage + fetch character details
   useEffect(() => {
     const run = async () => {
       const { data: userData } = await supabase.auth.getUser()
@@ -103,7 +103,6 @@ export default function ChatHubPage() {
           .in('id', ids)
           .eq('visibility', 'public')
         if (!error && data) {
-          // Preserve original order
           const byId: Record<string, Character> = {}
           for (const c of data as Character[]) byId[c.id] = c
           setFavoriteChars(ids.filter((id) => byId[id]).map((id) => byId[id]))
@@ -113,7 +112,6 @@ export default function ChatHubPage() {
     run().catch(() => {})
   }, [])
 
-  // Load active chats (characters with conversations) when tab switches
   useEffect(() => {
     if (tab !== 'active') return
     const run = async () => {
@@ -122,7 +120,6 @@ export default function ChatHubPage() {
       if (!userData.user?.id) { setLoading(false); return }
       const userId = userData.user.id
 
-      // Get user's characters (local copies from square)
       const { data: myChars, error } = await supabase
         .from('characters')
         .select('id,name,profile,settings')
@@ -131,7 +128,6 @@ export default function ChatHubPage() {
         .limit(60)
       if (error || !myChars) { setLoading(false); return }
 
-      // Get conversations for these characters
       const charIds = (myChars as Character[]).map((c) => c.id)
       if (!charIds.length) { setLoading(false); return }
       const { data: convs, error: convErr } = await supabase
@@ -143,7 +139,6 @@ export default function ChatHubPage() {
         .limit(60)
       if (convErr) { setLoading(false); return }
 
-      // Deduplicate by character_id, keep latest
       const seenChars = new Set<string>()
       const result: { char: Character; localId: string }[] = []
       for (const conv of (convs ?? []) as Array<{ id: string; character_id: string }>) {
@@ -151,7 +146,6 @@ export default function ChatHubPage() {
         seenChars.add(conv.character_id)
         const char = (myChars as Character[]).find((c) => c.id === conv.character_id)
         if (char) {
-          // Get display name from source character if available
           const s = asRecord((char as unknown as Record<string, unknown>).settings)
           const sourceName = getStr(s, 'source_name')
           const displayChar = sourceName ? { ...char, name: sourceName } : char
@@ -164,7 +158,6 @@ export default function ChatHubPage() {
     run().catch(() => setLoading(false))
   }, [tab])
 
-  // Fetch images when chars change
   useEffect(() => {
     const allChars = [
       ...favoriteChars,
@@ -202,71 +195,115 @@ export default function ChatHubPage() {
     const intro = getStr(p, 'summary') || getStr(p, 'occupation')
     const imgUrl = imgById[localId || c.id] || imgById[c.id]
     const dest = localId ? `/aibaji/chat/${localId}` : null
+    const isLoading = chatLoading === c.id
 
     return (
       <button
         key={localId || c.id}
-        className="chatHubCard"
         onClick={() => {
           if (dest) { router.push(dest); return }
           void handleStartChat(c.id)
         }}
-        disabled={chatLoading === c.id}
+        disabled={isLoading}
+        className="w-full text-left flex items-center gap-4 px-4 py-3.5 bg-white border border-zinc-100 rounded-2xl shadow-sm hover:border-pink-200 hover:shadow-[0_8px_24px_rgba(236,72,153,0.07)] active:scale-[0.98] transition-all disabled:opacity-60"
       >
-        <div className="chatHubCardImage">
+        {/* Avatar */}
+        <div className="w-14 h-14 flex-shrink-0 rounded-[1rem] overflow-hidden bg-gradient-to-br from-pink-50 to-zinc-50 border border-zinc-100 flex items-center justify-center">
           {imgUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={imgUrl} alt={c.name} />
+            <img src={imgUrl} alt={c.name} className="w-full h-full object-cover" />
           ) : (
-            <div className="chatHubCardImageFallback">{c.name?.[0] || '?'}</div>
+            <span className="text-xl font-black" style={{ color: '#EC4899', opacity: 0.4 }}>
+              {c.name?.[0] || '?'}
+            </span>
           )}
         </div>
-        <div className="chatHubCardInfo">
-          <div className="chatHubCardName">{c.name}</div>
-          <div className="chatHubCardMeta">
-            {[gender, age ? `${age}岁` : ''].filter(Boolean).join(' · ') || ''}
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-sm font-black text-zinc-900 truncate">{c.name}</span>
           </div>
-          {intro && <div className="chatHubCardIntro">{intro}</div>}
-          {chatLoading === c.id && <div className="chatHubCardIntro">启动中...</div>}
+          {(gender || age) && (
+            <p className="text-[10px] text-zinc-400 font-medium mb-1">
+              {[gender, age ? `${age}岁` : ''].filter(Boolean).join(' · ')}
+            </p>
+          )}
+          {intro && (
+            <p className="text-[11px] text-zinc-400 line-clamp-1 leading-snug">{intro}</p>
+          )}
+        </div>
+
+        {/* Right indicator */}
+        <div className="flex-shrink-0">
+          {isLoading ? (
+            <Loader className="w-4 h-4 text-[#EC4899] animate-spin" />
+          ) : dest ? (
+            <ChevronRight className="w-4 h-4 text-zinc-300" />
+          ) : (
+            <span className="text-[9px] font-black uppercase tracking-widest text-[#EC4899] bg-pink-50 px-2.5 py-1 rounded-lg border border-pink-100">
+              聊天
+            </span>
+          )}
         </div>
       </button>
     )
   }
 
   return (
-    <div className="chatHubPage">
-      {/* Tab 切换 */}
-      <div className="chatHubTabs">
-        <button
-          className={`chatHubTab${tab === 'favorites' ? ' chatHubTabActive' : ''}`}
-          onClick={() => setTab('favorites')}
-        >
-          收藏
-        </button>
-        <button
-          className={`chatHubTab${tab === 'active' ? ' chatHubTabActive' : ''}`}
-          onClick={() => setTab('active')}
-        >
-          正在聊天
-        </button>
+    <div className="flex flex-col">
+      {/* Banner */}
+      <div className="px-5 pt-8 pb-6 bg-gradient-to-br from-pink-50/80 to-[#FBFBFA] border-b border-zinc-100/60">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#EC4899] animate-pulse" />
+          <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-400">
+            My Companions
+          </span>
+        </div>
+        <h1 className="text-5xl font-black tracking-tighter text-zinc-900 leading-none mb-2">聊天</h1>
+        <p className="text-xs font-medium text-zinc-400">收藏的角色和进行中的对话</p>
       </div>
 
-      {/* Tab 内容 */}
-      <div className="chatHubContent">
+      {/* Tab Switcher */}
+      <div className="flex gap-1 px-4 pt-4 pb-2">
+        {(['favorites', 'active'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className="flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all"
+            style={
+              tab === t
+                ? { background: '#EC4899', color: 'white', boxShadow: '0 4px 16px rgba(236,72,153,0.2)' }
+                : { background: 'rgba(0,0,0,0.04)', color: '#A1A1AA' }
+            }
+          >
+            {t === 'favorites' ? '收藏' : '正在聊天'}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex flex-col gap-2.5 px-4 pt-2 pb-4">
         {tab === 'favorites' && (
           <>
             {favoriteChars.length === 0 ? (
-              <div className="chatHubEmpty">
-                <div className="chatHubEmptyTitle">还没有收藏的角色</div>
-                <div className="chatHubEmptyHint">去广场发现喜欢的角色，点击「收藏」就会出现在这里</div>
-                <button className="chatHubGoSquare" onClick={() => router.push('/aibaji/square')}>
+              <div className="py-16 flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-[1.25rem] bg-pink-50 border border-pink-100 flex items-center justify-center">
+                  <Heart className="w-6 h-6 text-[#EC4899] opacity-50" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">还没有收藏的角色</p>
+                  <p className="text-[11px] text-zinc-400">去广场发现喜欢的角色，点击收藏</p>
+                </div>
+                <button
+                  onClick={() => router.push('/aibaji/square')}
+                  className="px-6 py-2.5 rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                >
                   去广场 →
                 </button>
               </div>
             ) : (
-              <div className="chatHubGrid">
-                {favoriteChars.map((c) => renderCharCard(c))}
-              </div>
+              favoriteChars.map((c) => renderCharCard(c))
             )}
           </>
         )}
@@ -274,26 +311,52 @@ export default function ChatHubPage() {
         {tab === 'active' && (
           <>
             {!isLoggedIn ? (
-              <div className="chatHubEmpty">
-                <div className="chatHubEmptyTitle">请先登录</div>
-                <button className="chatHubGoSquare" onClick={() => router.push('/login')}>
+              <div className="py-16 flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-100 border border-zinc-200 flex items-center justify-center">
+                  <MessageCircle className="w-6 h-6 text-zinc-400" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">请先登录</p>
+                  <p className="text-[11px] text-zinc-400">登录后查看你的对话记录</p>
+                </div>
+                <button
+                  onClick={() => router.push('/login')}
+                  className="px-6 py-2.5 rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                >
                   去登录 →
                 </button>
               </div>
             ) : loading ? (
-              <div className="chatHubLoading">加载中...</div>
+              <div className="flex flex-col gap-2.5 pt-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 px-4 py-3.5 bg-white border border-zinc-100 rounded-2xl animate-pulse">
+                    <div className="w-14 h-14 rounded-[1rem] bg-zinc-100 flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-zinc-100 rounded-full w-1/3" />
+                      <div className="h-2.5 bg-zinc-100 rounded-full w-1/4" />
+                      <div className="h-2 bg-zinc-100 rounded-full w-2/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : activeChars.length === 0 ? (
-              <div className="chatHubEmpty">
-                <div className="chatHubEmptyTitle">还没有进行中的聊天</div>
-                <div className="chatHubEmptyHint">在广场选择一个角色，点击「开始聊天」即可</div>
-                <button className="chatHubGoSquare" onClick={() => router.push('/aibaji/square')}>
+              <div className="py-16 flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-[1.25rem] bg-pink-50 border border-pink-100 flex items-center justify-center">
+                  <MessageCircle className="w-6 h-6 text-[#EC4899] opacity-50" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">还没有进行中的聊天</p>
+                  <p className="text-[11px] text-zinc-400">在广场选择一个角色，开始对话</p>
+                </div>
+                <button
+                  onClick={() => router.push('/aibaji/square')}
+                  className="px-6 py-2.5 rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                >
                   去广场 →
                 </button>
               </div>
             ) : (
-              <div className="chatHubGrid">
-                {activeChars.map(({ char, localId }) => renderCharCard(char, localId))}
-              </div>
+              activeChars.map(({ char, localId }) => renderCharCard(char, localId))
             )}
           </>
         )}
