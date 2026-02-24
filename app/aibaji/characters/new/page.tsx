@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { ArrowLeft, Loader } from 'lucide-react'
 
 type FormState = {
   name: string
@@ -77,40 +78,66 @@ export default function NewCharacterPage() {
     }
   }
 
+  const inputCls = "w-full px-4 py-3.5 rounded-2xl border border-zinc-800 bg-zinc-950 text-white placeholder:text-zinc-600 text-sm font-medium focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/50 transition-all"
+  const labelCls = "text-[10px] font-mono font-black uppercase tracking-[0.3em] text-zinc-500 mb-2 block"
+
   return (
-    <div className="charFormPage">
-      <button className="charFormBack" onClick={() => router.push('/aibaji/characters')}>← 返回</button>
-      <h2 className="charFormTitle">创建新角色</h2>
+    <div className="flex flex-col min-h-screen bg-zinc-950">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-800/50 px-5 py-4 flex items-center gap-4">
+        <button
+          onClick={() => router.push('/aibaji/characters')}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-lg font-black text-white tracking-tight">创建新角色</h2>
+      </div>
 
-      {error && <div className="charFormError">{error}</div>}
+      {/* Form */}
+      <div className="flex flex-col gap-5 px-5 pt-6 pb-24">
+        {error && (
+          <div className="px-5 py-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs font-medium">
+            {error}
+          </div>
+        )}
 
-      <div className="charFormBody">
-        <div className="charFormSection">
-          <div className="charFormLabel">角色名称 <span className="charFormRequired">*</span></div>
+        {/* Name */}
+        <div>
+          <label className={labelCls}>角色名称 <span className="text-pink-500">*</span></label>
           <input
-            className="charFormInput"
+            className={inputCls}
             placeholder="给你的角色起个名字"
             value={form.name}
             onChange={(e) => set('name', e.target.value)}
           />
         </div>
 
-        <div className="charFormRow">
-          <div className="charFormSection">
-            <div className="charFormLabel">性别</div>
-            <div className="charFormRadioGroup">
+        {/* Gender + Age */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>性别</label>
+            <div className="flex gap-2">
               {(['male', 'female', 'other'] as const).map((g) => (
-                <label key={g} className={`charFormRadio${form.gender === g ? ' charFormRadioActive' : ''}`}>
-                  <input type="radio" name="gender" value={g} checked={form.gender === g} onChange={() => set('gender', g)} />
+                <button
+                  key={g}
+                  onClick={() => set('gender', g)}
+                  className="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all"
+                  style={
+                    form.gender === g
+                      ? { background: 'rgba(236,72,153,0.1)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)' }
+                      : { background: '#18181b', color: '#52525b', borderColor: '#27272a' }
+                  }
+                >
                   {g === 'male' ? '男' : g === 'female' ? '女' : '其他'}
-                </label>
+                </button>
               ))}
             </div>
           </div>
-          <div className="charFormSection">
-            <div className="charFormLabel">年龄</div>
+          <div>
+            <label className={labelCls}>年龄</label>
             <input
-              className="charFormInput"
+              className={inputCls}
               placeholder="例如：18"
               value={form.age}
               onChange={(e) => set('age', e.target.value)}
@@ -118,30 +145,33 @@ export default function NewCharacterPage() {
           </div>
         </div>
 
-        <div className="charFormSection">
-          <div className="charFormLabel">职业 / 身份</div>
+        {/* Occupation */}
+        <div>
+          <label className={labelCls}>职业 / 身份</label>
           <input
-            className="charFormInput"
+            className={inputCls}
             placeholder="例如：高中生、咖啡师、魔法学院学生..."
             value={form.occupation}
             onChange={(e) => set('occupation', e.target.value)}
           />
         </div>
 
-        <div className="charFormSection">
-          <div className="charFormLabel">一句话简介</div>
+        {/* Summary */}
+        <div>
+          <label className={labelCls}>一句话简介</label>
           <input
-            className="charFormInput"
+            className={inputCls}
             placeholder="广场卡片上展示的简短介绍"
             value={form.summary}
             onChange={(e) => set('summary', e.target.value)}
           />
         </div>
 
-        <div className="charFormSection">
-          <div className="charFormLabel">性格描述</div>
+        {/* Personality */}
+        <div>
+          <label className={labelCls}>性格描述</label>
           <textarea
-            className="charFormTextarea"
+            className={`${inputCls} resize-none`}
             placeholder="描述角色的性格、说话风格、特点..."
             rows={3}
             value={form.personality}
@@ -149,11 +179,12 @@ export default function NewCharacterPage() {
           />
         </div>
 
-        <div className="charFormSection">
-          <div className="charFormLabel">系统 Prompt（可选）</div>
-          <div className="charFormHint">留空则根据以上信息自动生成；填写则完全使用你的内容</div>
+        {/* System Prompt */}
+        <div>
+          <label className={labelCls}>系统 Prompt（可选）</label>
+          <p className="text-[11px] text-zinc-600 font-medium mb-2">留空则根据以上信息自动生成；填写则完全使用你的内容</p>
           <textarea
-            className="charFormTextarea charFormTextareaLarge"
+            className={`${inputCls} resize-none`}
             placeholder="你可以在这里写完整的角色扮演 prompt..."
             rows={6}
             value={form.systemPrompt}
@@ -161,28 +192,57 @@ export default function NewCharacterPage() {
           />
         </div>
 
-        <div className="charFormSection">
-          <div className="charFormLabel">可见性</div>
-          <div className="charFormRadioGroup">
-            <label className={`charFormRadio${form.visibility === 'private' ? ' charFormRadioActive' : ''}`}>
-              <input type="radio" name="visibility" value="private" checked={form.visibility === 'private'} onChange={() => set('visibility', 'private')} />
-              私密（仅自己可见）
-            </label>
-            <label className={`charFormRadio${form.visibility === 'public' ? ' charFormRadioActive' : ''}`}>
-              <input type="radio" name="visibility" value="public" checked={form.visibility === 'public'} onChange={() => set('visibility', 'public')} />
-              发布到广场（所有人可见）
-            </label>
+        {/* Visibility */}
+        <div>
+          <label className={labelCls}>可见性</label>
+          <div className="flex flex-col gap-2">
+            {(['private', 'public'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => set('visibility', v)}
+                className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left"
+                style={
+                  form.visibility === v
+                    ? { background: 'rgba(236,72,153,0.08)', borderColor: 'rgba(236,72,153,0.3)' }
+                    : { background: '#18181b', borderColor: '#27272a' }
+                }
+              >
+                <div
+                  className="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
+                  style={
+                    form.visibility === v
+                      ? { borderColor: '#ec4899', background: '#ec4899' }
+                      : { borderColor: '#3f3f46' }
+                  }
+                >
+                  {form.visibility === v && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </div>
+                <span className="text-sm font-black text-white">
+                  {v === 'private' ? '私密（仅自己可见）' : '发布到广场（所有人可见）'}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
+      </div>
 
-        <div className="charFormActions">
-          <button className="charFormCancelBtn" onClick={() => router.push('/aibaji/characters')}>
-            取消
-          </button>
-          <button className="charFormSubmitBtn" onClick={() => { void handleSubmit() }} disabled={saving}>
-            {saving ? '创建中...' : '创建角色'}
-          </button>
-        </div>
+      {/* Bottom Actions */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] p-4 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/50 flex gap-3">
+        <button
+          onClick={() => router.push('/aibaji/characters')}
+          className="flex-1 py-4 rounded-2xl border border-zinc-700 text-zinc-300 text-xs font-black uppercase tracking-widest hover:border-zinc-500 hover:text-white transition-all active:scale-[0.98]"
+        >
+          取消
+        </button>
+        <button
+          onClick={() => { void handleSubmit() }}
+          disabled={saving}
+          className="flex-1 py-4 rounded-2xl text-white text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+          style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)', boxShadow: '0 0 20px rgba(236,72,153,0.3)' }}
+        >
+          {saving ? <Loader className="w-4 h-4 animate-spin" /> : null}
+          {saving ? '创建中...' : '创建角色'}
+        </button>
       </div>
     </div>
   )
@@ -191,7 +251,6 @@ export default function NewCharacterPage() {
 function buildDefaultPrompt(form: FormState): string {
   const parts: string[] = []
   const name = form.name.trim()
-  const gender = form.gender === 'male' ? '男性' : form.gender === 'female' ? '女性' : '人物'
   const age = form.age.trim() ? `${form.age.trim()}岁` : ''
   const occ = form.occupation.trim()
   const summary = form.summary.trim()

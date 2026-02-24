@@ -103,16 +103,17 @@ export default function CharactersPage() {
   if (!isLoggedIn && !loading) {
     return (
       <div className="flex flex-col items-center justify-center gap-5 py-24 px-6">
-        <div className="w-16 h-16 rounded-[1.5rem] bg-zinc-100 border border-zinc-200 flex items-center justify-center">
-          <Wand2 className="w-7 h-7 text-zinc-400" />
+        <div className="w-16 h-16 rounded-[1.5rem] bg-zinc-800 border border-zinc-700/50 flex items-center justify-center">
+          <Wand2 className="w-7 h-7 text-zinc-500" />
         </div>
         <div className="text-center space-y-1.5">
-          <p className="text-sm font-black uppercase tracking-tight text-zinc-900">请先登录</p>
-          <p className="text-[11px] text-zinc-400 leading-relaxed">登录后即可创建你的专属 AI 角色</p>
+          <p className="text-sm font-black uppercase tracking-tight text-white">请先登录</p>
+          <p className="text-[11px] text-zinc-500 leading-relaxed">登录后即可创建你的专属 AI 角色</p>
         </div>
         <button
           onClick={() => router.push('/login')}
-          className="px-8 py-3 rounded-2xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+          className="px-8 py-3 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+          style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)', boxShadow: '0 0 20px rgba(236,72,153,0.3)' }}
         >
           去登录
         </button>
@@ -125,11 +126,11 @@ export default function CharactersPage() {
       {/* Alert Toast */}
       {alert && (
         <div
-          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg border transition-all max-w-[320px]"
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg border max-w-[320px]"
           style={
             alert.type === 'ok'
-              ? { background: 'rgba(236,72,153,0.08)', color: '#EC4899', borderColor: 'rgba(236,72,153,0.2)' }
-              : { background: 'rgba(239,68,68,0.08)', color: '#EF4444', borderColor: 'rgba(239,68,68,0.2)' }
+              ? { background: 'rgba(236,72,153,0.15)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)', backdropFilter: 'blur(12px)' }
+              : { background: 'rgba(239,68,68,0.15)', color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)', backdropFilter: 'blur(12px)' }
           }
         >
           {alert.text}
@@ -137,22 +138,23 @@ export default function CharactersPage() {
       )}
 
       {/* Banner */}
-      <div className="px-5 pt-8 pb-6 bg-gradient-to-br from-pink-50/80 to-[#FBFBFA] border-b border-zinc-100/60">
-        <div className="flex items-start justify-between">
+      <div className="px-5 pt-8 pb-6 relative overflow-hidden border-b border-zinc-800/50">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/10 blur-[60px] rounded-full pointer-events-none" />
+        <div className="flex items-start justify-between relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#EC4899] animate-pulse" />
-              <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
+              <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-500">
                 My Characters
               </span>
             </div>
-            <h1 className="text-5xl font-black tracking-tighter text-zinc-900 leading-none mb-2">捏崽</h1>
-            <p className="text-xs font-medium text-zinc-400">创建并管理你的 AI 角色</p>
+            <h1 className="text-5xl font-black tracking-tighter text-white leading-none mb-2">捏崽</h1>
+            <p className="text-xs font-medium text-zinc-500">创建并管理你的 AI 角色</p>
           </div>
           <button
             onClick={() => router.push('/aibaji/characters/new')}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 mt-1"
-            style={{ background: '#EC4899', boxShadow: '0 4px 16px rgba(236,72,153,0.25)' }}
+            style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)', boxShadow: '0 0 16px rgba(236,72,153,0.3)' }}
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={3} />
             创建
@@ -165,15 +167,15 @@ export default function CharactersPage() {
         {loading && (
           <div className="flex flex-col gap-2.5">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex flex-col gap-3 px-4 py-4 bg-white border border-zinc-100 rounded-2xl animate-pulse">
+              <div key={i} className="flex flex-col gap-3 px-4 py-4 bg-zinc-900 border border-zinc-800/50 rounded-2xl animate-pulse">
                 <div className="flex items-center justify-between">
-                  <div className="h-4 bg-zinc-100 rounded-full w-1/3" />
-                  <div className="h-5 bg-zinc-100 rounded-full w-12" />
+                  <div className="h-4 bg-zinc-800 rounded-full w-1/3" />
+                  <div className="h-5 bg-zinc-800 rounded-full w-12" />
                 </div>
                 <div className="flex gap-2">
-                  <div className="h-8 bg-zinc-100 rounded-xl flex-1" />
-                  <div className="h-8 bg-zinc-100 rounded-xl flex-1" />
-                  <div className="h-8 bg-zinc-100 rounded-xl flex-1" />
+                  <div className="h-8 bg-zinc-800 rounded-xl flex-1" />
+                  <div className="h-8 bg-zinc-800 rounded-xl flex-1" />
+                  <div className="h-8 bg-zinc-800 rounded-xl flex-1" />
                 </div>
               </div>
             ))}
@@ -182,17 +184,17 @@ export default function CharactersPage() {
 
         {!loading && characters.length === 0 && (
           <div className="py-16 flex flex-col items-center gap-4">
-            <div className="w-14 h-14 rounded-[1.25rem] bg-pink-50 border border-pink-100 flex items-center justify-center">
-              <Wand2 className="w-6 h-6 text-[#EC4899] opacity-50" />
+            <div className="w-14 h-14 rounded-[1.25rem] bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
+              <Wand2 className="w-6 h-6 text-pink-500 opacity-50" />
             </div>
             <div className="text-center space-y-1">
               <p className="text-xs font-black uppercase tracking-widest text-zinc-500">还没有创建过角色</p>
-              <p className="text-[11px] text-zinc-400">创建一个专属 AI 角色，还可以发布到广场</p>
+              <p className="text-[11px] text-zinc-600">创建一个专属 AI 角色，还可以发布到广场</p>
             </div>
             <button
               onClick={() => router.push('/aibaji/characters/new')}
               className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
-              style={{ background: '#EC4899' }}
+              style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)' }}
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={3} />
               创建新角色
@@ -203,17 +205,17 @@ export default function CharactersPage() {
         {!loading && characters.map((c) => (
           <div
             key={c.id}
-            className="flex flex-col gap-3 px-4 py-4 bg-white border border-zinc-100 rounded-2xl shadow-sm"
+            className="flex flex-col gap-3 px-4 py-4 bg-zinc-900 border border-zinc-800/50 rounded-2xl"
           >
             {/* Card Header */}
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-black text-zinc-900 truncate">{c.name}</span>
+              <span className="text-sm font-black text-white truncate">{c.name}</span>
               <div
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex-shrink-0 border"
                 style={
                   c.visibility === 'public'
-                    ? { background: 'rgba(236,72,153,0.06)', color: '#EC4899', borderColor: 'rgba(236,72,153,0.15)' }
-                    : { background: 'rgba(0,0,0,0.03)', color: '#A1A1AA', borderColor: 'rgba(0,0,0,0.06)' }
+                    ? { background: 'rgba(236,72,153,0.1)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.2)' }
+                    : { background: 'rgba(255,255,255,0.04)', color: '#52525b', borderColor: 'rgba(63,63,70,0.5)' }
                 }
               >
                 {c.visibility === 'public'
@@ -230,17 +232,13 @@ export default function CharactersPage() {
                 disabled={publishingId === c.id}
                 onClick={() => { void togglePublish(c) }}
                 className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 border"
-                style={
-                  c.visibility === 'public'
-                    ? { background: 'rgba(236,72,153,0.06)', color: '#EC4899', borderColor: 'rgba(236,72,153,0.15)' }
-                    : { background: 'rgba(236,72,153,0.06)', color: '#EC4899', borderColor: 'rgba(236,72,153,0.15)' }
-                }
+                style={{ background: 'rgba(236,72,153,0.08)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.2)' }}
               >
                 {publishingId === c.id ? '处理中' : c.visibility === 'public' ? '取消发布' : '发布'}
               </button>
               <button
                 onClick={() => router.push(`/aibaji/characters/${c.id}/edit`)}
-                className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-50 text-zinc-500 border border-zinc-100 hover:bg-zinc-100 active:scale-95 transition-all flex items-center justify-center gap-1"
+                className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-400 border border-zinc-700/50 hover:bg-zinc-700 active:scale-95 transition-all flex items-center justify-center gap-1"
               >
                 <Pencil className="w-3 h-3" />
                 编辑
@@ -248,7 +246,7 @@ export default function CharactersPage() {
               <button
                 disabled={deletingId === c.id}
                 onClick={() => { void deleteCharacter(c) }}
-                className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-400 border border-red-100 hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
+                className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
               >
                 <Trash2 className="w-3 h-3" />
                 {deletingId === c.id ? '删除中' : '删除'}
