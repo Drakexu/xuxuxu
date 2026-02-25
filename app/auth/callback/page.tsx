@@ -53,7 +53,7 @@ export default function CallbackPage() {
         if (!existing.error && existing.data?.session?.user) {
           setStep(STEPS[4])
           setStepIndex(4)
-          router.replace('/home')
+          router.replace('/aibaji/square')
           return
         }
 
@@ -126,7 +126,7 @@ export default function CallbackPage() {
 
         setStep(STEPS[4])
         setStepIndex(4)
-        router.replace('/home')
+        router.replace('/aibaji/square')
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : '登录验证失败，请重试。')
         setLoading(false)
