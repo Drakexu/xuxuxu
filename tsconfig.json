@@ -31,5 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "gemini-design"]
+  "exclude": ["node_modules", "gemini-design", "0225"]
 }
