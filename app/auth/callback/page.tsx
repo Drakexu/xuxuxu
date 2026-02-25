@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabaseClient'
-import { Heart, CheckCircle, XCircle, Loader } from 'lucide-react'
+import { Heart, CheckCircle, XCircle, Loader, ExternalLink, Copy } from 'lucide-react'
 
 const OTP_TYPES: EmailOtpType[] = ['signup', 'invite', 'magiclink', 'recovery', 'email_change', 'email']
 
@@ -18,6 +18,13 @@ function normalizeOtpType(v: unknown): EmailOtpType | null {
   const t = String(v || '').trim().toLowerCase()
   if (!t) return null
   return OTP_TYPES.includes(t as EmailOtpType) ? (t as EmailOtpType) : null
+}
+
+function isInAppWebView() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  return /FBAN|FBAV|Instagram|MicroMessenger|WeChat|QQ|DingTalk|Weibo|AlipayClient|Lark|Feishu|Twitter|Line\//i.test(ua)
+    || (/\bwv\b/i.test(ua) && /Android/i.test(ua))
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -45,6 +52,22 @@ export default function CallbackPage() {
   const [error, setError] = useState('')
   const [step, setStep] = useState(STEPS[0])
   const [stepIndex, setStepIndex] = useState(0)
+  const [inWebView, setInWebView] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* fallback: select text */
+    }
+  }
+
+  useEffect(() => {
+    if (isInAppWebView()) setInWebView(true)
+  }, [])
 
   useEffect(() => {
     const run = async () => {
@@ -204,6 +227,33 @@ export default function CallbackPage() {
               <div className="w-full px-4 py-2.5 rounded-2xl border border-zinc-800 bg-zinc-950 text-[10px] font-mono font-black uppercase tracking-widest text-zinc-400 text-center">
                 {step}
               </div>
+
+              {inWebView && (
+                <div className="w-full space-y-3 mt-2">
+                  <div className="px-4 py-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-300 text-[11px] font-medium leading-relaxed text-left space-y-1.5">
+                    <p className="font-bold">检测到在邮件客户端内打开</p>
+                    <p>当前可能在应用内浏览器中，登录可能无法正常完成。</p>
+                    <p>建议复制链接后在系统浏览器中打开，或返回登录页使用验证码登录。</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { void handleCopyUrl() }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl border border-zinc-700 text-white text-[11px] font-black uppercase tracking-wider hover:border-pink-500/50 hover:bg-pink-500/10 transition-colors"
+                    >
+                      {copied ? <CheckCircle className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? '已复制' : '复制链接'}
+                    </button>
+                    <button
+                      onClick={() => router.push('/login')}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider text-white transition-all"
+                      style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)' }}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      验证码登录
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           ) : error ? (
             /* Error State */
@@ -226,9 +276,16 @@ export default function CallbackPage() {
                 {error}
               </div>
 
-              <p className="text-[11px] text-zinc-500 font-medium text-center leading-relaxed">
-                请使用邮件中最新一封链接，或重新发送登录邮件
-              </p>
+              {inWebView ? (
+                <div className="w-full px-4 py-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-300 text-[11px] font-medium leading-relaxed text-left space-y-1.5">
+                  <p className="font-bold">你正在邮件客户端的内置浏览器中</p>
+                  <p>请返回登录页，使用 6 位验证码完成登录（无需点击链接）。</p>
+                </div>
+              ) : (
+                <p className="text-[11px] text-zinc-500 font-medium text-center leading-relaxed">
+                  请使用邮件中最新一封链接，或重新发送登录邮件
+                </p>
+              )}
 
               <div className="w-full flex flex-col gap-2.5">
                 <button

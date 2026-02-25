@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { Heart, Mail, CheckCircle, Clock, Sparkles, User, Newspaper, ArrowLeft, Loader } from 'lucide-react'
+import { Heart, Mail, CheckCircle, Clock, Sparkles, User, Newspaper, ArrowLeft, Loader, KeyRound } from 'lucide-react'
 
 const OTP_COOLDOWN_SECONDS = 65
 const LAST_OTP_SENT_AT_KEY = 'xuxuxu:auth:lastOtpSentAt'
@@ -61,6 +61,8 @@ export default function LoginPage() {
   const [sent, setSent] = useState(false)
   const [cooldownLeft, setCooldownLeft] = useState(() => readCooldownLeft())
   const [lastSentAt, setLastSentAt] = useState(() => readLastSentAt())
+  const [otpCode, setOtpCode] = useState('')
+  const [verifying, setVerifying] = useState(false)
 
   useEffect(() => {
     const timer = window.setInterval(() => setCooldownLeft(readCooldownLeft()), 1000)
@@ -120,6 +122,32 @@ export default function LoginPage() {
     setLastSentAt(now)
     setCooldownLeft(OTP_COOLDOWN_SECONDS)
     setSent(true)
+  }
+
+  const handleVerifyOtp = async () => {
+    const code = otpCode.replace(/\s/g, '')
+    if (code.length < 6) {
+      setError('请输入完整的 6 位验证码。')
+      return
+    }
+    setVerifying(true)
+    setError('')
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code,
+        type: 'email',
+      })
+      if (verifyError) {
+        setError(verifyError.message || '验证码校验失败，请检查后重试。')
+        setVerifying(false)
+        return
+      }
+      router.replace('/aibaji/square')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '验证失败，请重试。')
+      setVerifying(false)
+    }
   }
 
   return (
@@ -288,21 +316,63 @@ export default function LoginPage() {
                     </span>
                     Step 02 / 验证
                   </div>
-                  <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">去查看邮件</h2>
+                  <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">查看邮件</h2>
                   <p className="text-sm text-zinc-500 font-medium leading-relaxed max-w-[28ch] mx-auto">
-                    登录链接已发送至<br />
+                    验证码已发送至<br />
                     <span className="font-black text-white">{email}</span>
                   </p>
                 </div>
 
+                {/* OTP Code Input */}
+                <div className="w-full space-y-3">
+                  <div className="flex items-center gap-1.5 text-pink-500/70 font-black uppercase tracking-wider text-[9px]">
+                    <KeyRound className="w-3 h-3" />
+                    输入验证码
+                  </div>
+                  <p className="text-[11px] text-zinc-500 font-medium">
+                    在邮件中找到 6 位数字验证码，输入下方即可登录。
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                      className="flex-1 px-4 py-3.5 rounded-xl border border-zinc-800 bg-zinc-950 text-white text-center text-lg font-mono font-black tracking-[0.5em] placeholder:text-zinc-700 focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/50 transition-all"
+                    />
+                    <button
+                      onClick={() => { void handleVerifyOtp() }}
+                      disabled={verifying || otpCode.length < 6}
+                      className="px-5 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={
+                        !verifying && otpCode.length >= 6
+                          ? { background: 'linear-gradient(to right, #ec4899, #a855f7)', color: 'white', boxShadow: '0 0 20px rgba(236,72,153,0.3)' }
+                          : { background: '#18181b', color: '#52525b', border: '1px solid #27272a' }
+                      }
+                    >
+                      {verifying ? <Loader className="w-4 h-4 animate-spin" /> : '验证'}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="w-full px-4 py-3 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 text-[11px] font-medium leading-relaxed">
+                    {error}
+                  </div>
+                )}
+
+                <div className="w-full h-px bg-zinc-800/50" />
+
                 <div className="w-full px-4 py-3 rounded-xl border border-zinc-800/50 bg-zinc-950 text-[11px] text-zinc-500 font-medium text-left space-y-1">
                   <div className="flex items-center gap-1.5 text-pink-500/70 font-black uppercase tracking-wider text-[9px] mb-2">
                     <Sparkles className="w-3 h-3" />
-                    注意事项
+                    提示
                   </div>
-                  <p>· 请同时检查垃圾邮件文件夹</p>
-                  <p>· 链接有效期约 10 分钟</p>
-                  <p>· 请使用最新一封邮件中的链接</p>
+                  <p>· 邮件中同时包含验证码和登录链接</p>
+                  <p>· 手机用户推荐直接输入验证码</p>
+                  <p>· 请检查垃圾邮件文件夹</p>
                 </div>
 
                 <div className="w-full space-y-2.5 mt-auto">
@@ -314,14 +384,14 @@ export default function LoginPage() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setSent(false); setError('') }}
+                      onClick={() => { setSent(false); setError(''); setOtpCode('') }}
                       className="w-full py-3.5 rounded-xl border border-zinc-700 text-white text-[11px] font-black uppercase tracking-widest hover:border-pink-500/50 hover:bg-pink-500/10 transition-colors"
                     >
                       重新发送
                     </button>
                   )}
                   <button
-                    onClick={() => { setSent(false); setEmail(''); setError('') }}
+                    onClick={() => { setSent(false); setEmail(''); setError(''); setOtpCode('') }}
                     className="w-full text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors py-1"
                   >
                     ← 更换邮箱
