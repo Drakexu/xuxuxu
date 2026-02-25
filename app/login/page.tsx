@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { Heart, Mail, CheckCircle, Clock, Sparkles, User, Newspaper, ArrowLeft } from 'lucide-react'
+import { Heart, Mail, CheckCircle, Clock, Sparkles, User, Newspaper, ArrowLeft, Loader } from 'lucide-react'
 
 const OTP_COOLDOWN_SECONDS = 65
 const LAST_OTP_SENT_AT_KEY = 'xuxuxu:auth:lastOtpSentAt'
@@ -123,95 +123,97 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] flex items-center justify-center p-5">
-      <div className="w-full max-w-[960px] grid grid-cols-1 md:grid-cols-[1.15fr_0.85fr] gap-4">
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-5 relative overflow-hidden">
+      {/* Background Blurs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-pink-500/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-500/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
+
+      <div className="w-full max-w-[960px] grid grid-cols-1 md:grid-cols-[1.15fr_0.85fr] gap-6 relative z-10">
 
         {/* ── Left: Brand Panel ── */}
-        <div className="rounded-[2rem] border border-zinc-100 bg-gradient-to-br from-pink-50/90 to-white p-8 md:p-10 flex flex-col gap-8 shadow-sm order-2 md:order-1">
-          <div>
+        <div className="rounded-[2.5rem] border border-zinc-800/50 bg-zinc-900/40 backdrop-blur-xl p-8 md:p-12 flex flex-col gap-8 shadow-2xl order-2 md:order-1 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-purple-500/5 opacity-50 group-hover:opacity-100 transition-opacity duration-700" />
+
+          <div className="relative z-10">
             <button
               onClick={() => router.push('/')}
-              className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 hover:text-zinc-900 transition-colors mb-8"
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-white transition-colors mb-10"
             >
               <ArrowLeft className="w-3 h-3" />
               xuxuxu
             </button>
 
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-10 h-10 rounded-2xl bg-white border border-pink-100 shadow-sm flex items-center justify-center">
-                <Heart className="w-5 h-5 fill-[#EC4899] text-[#EC4899]" />
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.2)] flex items-center justify-center">
+                <Heart className="w-6 h-6 fill-pink-500 text-pink-500" />
               </div>
               <div>
-                <div className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-400">Magic Link</div>
-                <div className="text-sm font-black text-zinc-900">爱巴基 账号</div>
+                <div className="text-[10px] font-mono font-black uppercase tracking-[0.4em] text-pink-500/70">Magic Link</div>
+                <div className="text-base font-black text-white tracking-tight">爱巴基 账号</div>
               </div>
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-zinc-900 leading-[1.05] mb-4">
-              一个邮箱<br />即可登录
+            <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-white leading-[1.1] mb-6 drop-shadow-lg">
+              一个邮箱<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">即可登录</span>
             </h1>
-            <p className="text-sm text-zinc-500 font-medium leading-relaxed max-w-[36ch]">
-              无需密码。输入邮箱，点击我们发送的魔法链接，即刻完成登录或注册。
+            <p className="text-sm text-zinc-400 font-medium leading-relaxed max-w-[36ch]">
+              无需密码。输入邮箱，点击我们发送的魔法链接，即刻完成登录或注册，进入赛博宇宙。
             </p>
           </div>
 
           {/* Feature List */}
-          <div className="space-y-4">
-            <div className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-300 flex items-center gap-3">
+          <div className="space-y-5 relative z-10">
+            <div className="text-[10px] font-mono font-black uppercase tracking-[0.4em] text-zinc-600 flex items-center gap-4">
               登录后解锁
-              <div className="flex-1 h-px bg-zinc-100" />
+              <div className="flex-1 h-px bg-zinc-800/50" />
             </div>
             {FEATURES.map(({ icon: Icon, label, desc }) => (
-              <div key={label} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-white border border-zinc-100 shadow-sm flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Icon className="w-4 h-4 text-[#EC4899]" />
+              <div key={label} className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-zinc-800/50 shadow-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Icon className="w-4 h-4 text-pink-500" />
                 </div>
                 <div>
-                  <div className="text-xs font-black text-zinc-900 uppercase tracking-wide">{label}</div>
-                  <div className="text-[11px] text-zinc-400 font-medium mt-0.5">{desc}</div>
+                  <div className="text-sm font-black text-white uppercase tracking-wide">{label}</div>
+                  <div className="text-xs text-zinc-400 font-medium mt-1">{desc}</div>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Ghost Buttons */}
-          <div className="flex flex-wrap gap-2 mt-auto pt-2">
+          <div className="flex flex-wrap gap-3 mt-auto pt-4 relative z-10">
             <button
               onClick={() => router.push('/aibaji/square')}
-              className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-zinc-200 text-zinc-600 hover:border-zinc-400 transition-colors"
-            >
-              先看广场
-            </button>
+              className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-zinc-700 text-zinc-300 hover:border-pink-500/50 hover:text-white hover:bg-pink-500/10 transition-all"
+            >先看广场</button>
             <button
               onClick={() => router.push('/')}
-              className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-zinc-200 text-zinc-600 hover:border-zinc-400 transition-colors"
-            >
-              返回介绍页
-            </button>
+              className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+            >返回介绍页</button>
           </div>
         </div>
 
         {/* ── Right: Form / Sent Card ── */}
-        <div className="rounded-[2rem] border border-zinc-100 bg-white shadow-sm p-8 flex flex-col order-1 md:order-2">
+        <div className="rounded-[2.5rem] border border-zinc-800/50 bg-zinc-900/80 backdrop-blur-xl shadow-2xl p-8 md:p-10 flex flex-col order-1 md:order-2 relative z-10">
 
           {!sent ? (
             /* ── Form State ── */
             <>
-              <div className="mb-8">
-                <div className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-400 mb-3">
+              <div className="mb-10">
+                <div className="text-[10px] font-mono font-black uppercase tracking-[0.4em] text-pink-500/70 mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
                   Step 01 / 登录
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-zinc-900 mb-1.5">输入你的邮箱</h2>
-                <p className="text-xs text-zinc-400 font-medium">我们会发送一封登录链接，无需密码。</p>
+                <h2 className="text-3xl font-black tracking-tight text-white mb-2">输入你的邮箱</h2>
+                <p className="text-sm text-zinc-400 font-medium">我们会发送一封登录链接，无需密码。</p>
               </div>
 
-              <form onSubmit={handleLogin} className="flex flex-col gap-4 flex-1">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[9px] font-mono font-black uppercase tracking-[0.3em] text-zinc-400">
-                    邮箱地址
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300" />
+              <form onSubmit={handleLogin} className="flex flex-col gap-5 flex-1">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-mono font-black uppercase tracking-[0.3em] text-zinc-500">邮箱地址</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500 group-focus-within:text-pink-500 transition-colors" />
                     <input
                       type="email"
                       value={email}
@@ -219,95 +221,88 @@ export default function LoginPage() {
                       placeholder="example@example.com"
                       autoComplete="email"
                       inputMode="email"
-                      className="w-full pl-10 pr-4 py-3.5 rounded-xl border border-zinc-200 bg-zinc-50/50 text-zinc-900 text-sm font-medium placeholder:text-zinc-300 focus:outline-none focus:border-[#EC4899] focus:ring-2 focus:ring-[#EC4899]/10 focus:bg-white transition-all"
+                      className="w-full pl-12 pr-4 py-4 rounded-2xl border border-zinc-800 bg-zinc-950 text-white text-base font-medium placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/50 transition-all shadow-inner"
                     />
                   </div>
                 </div>
 
                 {error && (
-                  <div className="px-4 py-3 rounded-xl border border-red-100 bg-red-50/60 text-red-500 text-[11px] font-medium leading-relaxed">
+                  <div className="px-5 py-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs font-medium leading-relaxed shadow-[0_0_15px_rgba(239,68,68,0.1)]">
                     {error}
                   </div>
                 )}
 
                 {cooldownLeft > 0 && !error && (
-                  <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-zinc-100 bg-zinc-50 text-zinc-400 text-[11px] font-medium">
-                    <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                  <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 text-zinc-400 text-xs font-medium">
+                    <Clock className="w-4 h-4 flex-shrink-0 text-pink-500" />
                     冷却中 {cooldownLeft}s
-                    {retryAtLabel && <span className="ml-auto font-mono text-zinc-300">{retryAtLabel} 可重发</span>}
+                    {retryAtLabel && <span className="ml-auto font-mono text-zinc-500">{retryAtLabel} 可重发</span>}
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className="mt-auto w-full py-4 rounded-xl text-[11px] font-black uppercase tracking-[0.3em] transition-all active:scale-[0.98] disabled:opacity-40"
+                  className="mt-auto w-full py-4 rounded-2xl text-xs font-black uppercase tracking-[0.3em] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
                   style={
                     canSubmit
-                      ? { background: '#EC4899', color: 'white', boxShadow: '0 8px 24px rgba(236,72,153,0.2)' }
-                      : { background: '#F4F4F5', color: '#A1A1AA' }
+                      ? { background: 'linear-gradient(to right, #ec4899, #a855f7)', color: 'white', boxShadow: '0 0 30px rgba(236,72,153,0.3)' }
+                      : { background: '#18181b', color: '#52525b', border: '1px solid #27272a' }
                   }
                 >
+                  {loading ? <Loader className="w-4 h-4 animate-spin" /> : null}
                   {loading ? '发送中...' : cooldownLeft > 0 ? `等待 ${cooldownLeft}s` : '发送登录邮件'}
                 </button>
               </form>
             </>
           ) : (
             /* ── Sent State ── */
-            <>
-              <div className="flex-1 flex flex-col items-center justify-center text-center gap-6 py-8">
-                <div
-                  className="w-20 h-20 rounded-[1.75rem] flex items-center justify-center"
-                  style={{ background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.15)' }}
-                >
-                  <CheckCircle className="w-10 h-10 text-[#EC4899]" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-400">
-                    Step 02 / 验证
-                  </div>
-                  <h2 className="text-3xl font-black tracking-tight text-zinc-900">去查看邮件</h2>
-                  <p className="text-sm text-zinc-400 font-medium leading-relaxed max-w-[28ch] mx-auto">
-                    登录链接已发送至<br />
-                    <span className="font-black text-zinc-700">{email}</span>
-                  </p>
-                </div>
-
-                <div className="w-full px-4 py-3 rounded-xl border border-zinc-100 bg-zinc-50 text-[11px] text-zinc-400 font-medium text-left space-y-1">
-                  <div className="flex items-center gap-1.5 text-zinc-500 font-black uppercase tracking-wider text-[9px] mb-2">
-                    <Sparkles className="w-3 h-3" />
-                    注意事项
-                  </div>
-                  <p>· 请同时检查垃圾邮件文件夹</p>
-                  <p>· 链接有效期约 10 分钟</p>
-                  <p>· 请使用最新一封邮件中的链接</p>
-                </div>
-
-                <div className="w-full space-y-2.5 mt-auto">
-                  {cooldownLeft > 0 ? (
-                    <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-400 font-medium">
-                      <Clock className="w-3.5 h-3.5" />
-                      {cooldownLeft}s 后可重发
-                      {retryAtLabel && <span className="font-mono text-zinc-300">（约 {retryAtLabel}）</span>}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => { setSent(false); setError('') }}
-                      className="w-full py-3.5 rounded-xl border border-zinc-200 text-zinc-600 text-[11px] font-black uppercase tracking-widest hover:border-zinc-400 transition-colors"
-                    >
-                      重新发送
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setSent(false); setEmail(''); setError('') }}
-                    className="w-full text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-600 transition-colors py-1"
-                  >
-                    ← 更换邮箱
-                  </button>
-                </div>
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-8 py-8">
+              <div
+                className="w-24 h-24 rounded-[2rem] flex items-center justify-center shadow-[0_0_30px_rgba(236,72,153,0.2)]"
+                style={{ background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.2)' }}
+              >
+                <CheckCircle className="w-12 h-12 text-pink-500" />
               </div>
-            </>
+
+              <div className="space-y-3">
+                <div className="text-[10px] font-mono font-black uppercase tracking-[0.4em] text-pink-500/70">Step 02 / 验证</div>
+                <h2 className="text-4xl font-black tracking-tight text-white">去查看邮件</h2>
+                <p className="text-sm text-zinc-400 font-medium leading-relaxed max-w-[28ch] mx-auto">
+                  登录链接已发送至<br />
+                  <span className="font-black text-white">{email}</span>
+                </p>
+              </div>
+
+              <div className="w-full px-5 py-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 text-xs text-zinc-400 font-medium text-left space-y-2">
+                <div className="flex items-center gap-2 text-pink-500 font-black uppercase tracking-widest text-[10px] mb-3">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  注意事项
+                </div>
+                <p>· 请同时检查垃圾邮件文件夹</p>
+                <p>· 链接有效期约 10 分钟</p>
+                <p>· 请使用最新一封邮件中的链接</p>
+              </div>
+
+              <div className="w-full space-y-3 mt-auto">
+                {cooldownLeft > 0 ? (
+                  <div className="flex items-center justify-center gap-2 text-xs text-zinc-500 font-medium">
+                    <Clock className="w-4 h-4" />
+                    {cooldownLeft}s 后可重发
+                    {retryAtLabel && <span className="font-mono text-zinc-600">（约 {retryAtLabel}）</span>}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setSent(false); setError('') }}
+                    className="w-full py-4 rounded-2xl border border-zinc-700 text-white text-xs font-black uppercase tracking-widest hover:border-pink-500/50 hover:bg-pink-500/10 transition-all"
+                  >重新发送</button>
+                )}
+                <button
+                  onClick={() => { setSent(false); setEmail(''); setError('') }}
+                  className="w-full text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors py-2"
+                >← 更换邮箱</button>
+              </div>
+            </div>
           )}
         </div>
 

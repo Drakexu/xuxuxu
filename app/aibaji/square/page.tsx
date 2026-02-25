@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { Sparkles } from 'lucide-react'
+import { motion } from 'motion/react'
 
 type Character = {
   id: string
@@ -101,18 +102,21 @@ export default function SquarePage() {
   return (
     <div className="flex flex-col">
       {/* Banner */}
-      <div className="px-5 pt-8 pb-6 bg-gradient-to-br from-pink-50/80 to-[#FBFBFA] border-b border-zinc-100/60">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#EC4899] animate-pulse" />
-          <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-400">
-            Public Characters
-          </span>
-          <Sparkles className="w-3 h-3 text-[#EC4899]" />
+      <div className="px-5 pt-8 pb-6 relative overflow-hidden border-b border-zinc-800/50">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/10 blur-[60px] rounded-full pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
+            <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-500">
+              Public Characters
+            </span>
+            <Sparkles className="w-3 h-3 text-pink-500" />
+          </div>
+          <h1 className="text-5xl font-black tracking-tighter text-white leading-none mb-2">广场</h1>
+          <p className="text-xs font-medium text-zinc-500 leading-relaxed">
+            发现你喜欢的 AI 角色，收藏并开始聊天
+          </p>
         </div>
-        <h1 className="text-5xl font-black tracking-tighter text-zinc-900 leading-none mb-2">广场</h1>
-        <p className="text-xs font-medium text-zinc-400 leading-relaxed">
-          发现你喜欢的 AI 角色，收藏并开始聊天
-        </p>
       </div>
 
       {/* Grid */}
@@ -120,14 +124,14 @@ export default function SquarePage() {
         {loading && (
           <div className="grid grid-cols-3 gap-2.5">
             {[...Array(9)].map((_, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden border border-zinc-100">
+              <div key={i} className="rounded-2xl overflow-hidden border border-zinc-800/50">
                 <div
-                  className="bg-zinc-100 animate-pulse"
+                  className="bg-zinc-900 animate-pulse"
                   style={{ aspectRatio: '9/16' }}
                 />
-                <div className="p-2 pb-3 bg-white space-y-1.5">
-                  <div className="h-2.5 bg-zinc-100 rounded-full w-3/4 animate-pulse" />
-                  <div className="h-2 bg-zinc-100 rounded-full w-1/2 animate-pulse" />
+                <div className="p-2 pb-3 bg-zinc-900/50 space-y-1.5">
+                  <div className="h-2.5 bg-zinc-800 rounded-full w-3/4 animate-pulse" />
+                  <div className="h-2 bg-zinc-800 rounded-full w-1/2 animate-pulse" />
                 </div>
               </div>
             ))}
@@ -136,10 +140,10 @@ export default function SquarePage() {
 
         {!loading && characters.length === 0 && (
           <div className="py-20 flex flex-col items-center gap-4">
-            <div className="w-14 h-14 rounded-[1.25rem] bg-pink-50 border border-pink-100 flex items-center justify-center">
-              <span className="text-2xl font-black text-[#EC4899] opacity-60">✦</span>
+            <div className="w-14 h-14 rounded-[1.25rem] bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
+              <span className="text-2xl font-black text-pink-500 opacity-60">✦</span>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
               广场暂时没有公开角色
             </p>
           </div>
@@ -147,47 +151,48 @@ export default function SquarePage() {
 
         {!loading && characters.length > 0 && (
           <div className="grid grid-cols-3 gap-2.5">
-            {characters.map((c) => {
+            {characters.map((c, i) => {
               const { gender, age, intro } = getCharacterMeta(c)
               const imgUrl = imgById[c.id]
               return (
-                <button
+                <motion.button
                   key={c.id}
-                  className="text-left flex flex-col rounded-2xl border border-zinc-100 bg-white shadow-sm overflow-hidden transition-all active:scale-95 hover:border-pink-200 hover:shadow-[0_8px_24px_rgba(236,72,153,0.08)]"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="text-left flex flex-col rounded-2xl bg-zinc-900 overflow-hidden transition-all active:scale-95 group relative"
                   onClick={() => router.push(`/aibaji/square/${c.id}`)}
                 >
-                  <div
-                    className="bg-gradient-to-br from-pink-50/60 to-zinc-50/40 overflow-hidden"
-                    style={{ aspectRatio: '9/16' }}
-                  >
+                  <div className="relative overflow-hidden" style={{ aspectRatio: '9/16' }}>
                     {imgUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imgUrl} alt={c.name} className="w-full h-full object-cover" />
+                      <img src={imgUrl} alt={c.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span
-                          className="text-4xl font-black"
-                          style={{ color: '#EC4899', opacity: 0.35 }}
-                        >
+                      <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
+                        <span className="text-4xl font-black text-pink-500/40">
                           {c.name?.[0] || '?'}
                         </span>
                       </div>
                     )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent opacity-90 group-hover:opacity-70 transition-opacity duration-500" />
+                    <div className="absolute bottom-0 inset-x-0 p-3 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                      <div className="flex items-end justify-between gap-1 mb-1">
+                        <span className="text-sm font-black text-white truncate leading-snug drop-shadow-lg">{c.name}</span>
+                      </div>
+                      {(gender || age) && (
+                        <div className="flex gap-1">
+                          {gender && <span className="px-1.5 py-0.5 rounded bg-white/10 backdrop-blur-md text-[8px] text-white font-black border border-white/10">{gender}</span>}
+                          {age && <span className="px-1.5 py-0.5 rounded bg-white/10 backdrop-blur-md text-[8px] text-white font-black border border-white/10">{age}岁</span>}
+                        </div>
+                      )}
+                      {intro && (
+                        <p className="text-[9px] text-zinc-400 line-clamp-2 leading-snug mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          {intro}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="p-2 pb-3 flex flex-col gap-0.5">
-                    <span className="text-[12px] font-black text-zinc-900 truncate leading-snug">
-                      {c.name}
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-medium leading-snug">
-                      {[gender, age ? `${age}岁` : ''].filter(Boolean).join(' · ') || '神秘角色'}
-                    </span>
-                    {intro && (
-                      <span className="text-[10px] text-zinc-400 line-clamp-2 leading-snug mt-0.5">
-                        {intro}
-                      </span>
-                    )}
-                  </div>
-                </button>
+                </motion.button>
               )
             })}
           </div>

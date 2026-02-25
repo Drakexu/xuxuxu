@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { ArrowLeft, Heart, MessageCircle, User, Loader } from 'lucide-react'
 
 type Character = {
   id: string
@@ -151,14 +152,21 @@ export default function CharacterDetailPage() {
   }, [characterId, chatLoading, router])
 
   if (loading) {
-    return <div className="detailLoading">加载中...</div>
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader className="w-8 h-8 text-pink-500 animate-spin" />
+      </div>
+    )
   }
 
   if (!character) {
     return (
-      <div className="detailError">
-        <div>角色不存在或已被删除</div>
-        <button className="detailBackBtn" onClick={() => router.push('/aibaji/square')}>← 回到广场</button>
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4 p-6">
+        <p className="text-zinc-400 font-medium">角色不存在或已被删除</p>
+        <button
+          className="px-6 py-2.5 rounded-xl border border-zinc-700 text-white text-xs font-black uppercase tracking-widest hover:border-zinc-500 transition-colors"
+          onClick={() => router.push('/aibaji/square')}
+        >← 回到广场</button>
       </div>
     )
   }
@@ -172,65 +180,115 @@ export default function CharacterDetailPage() {
   const personality = getStr(p, 'personality') || getStr(p, 'personality_summary')
 
   const metaItems = [
-    gender && `性别：${gender}`,
-    age && `年龄：${age}岁`,
-    occupation && `职业：${occupation}`,
-    org && `所属：${org}`,
-  ].filter(Boolean)
+    gender && { label: '性别', value: gender },
+    age && { label: '年龄', value: `${age}岁` },
+    occupation && { label: '职业', value: occupation },
+    org && { label: '所属', value: org },
+  ].filter(Boolean) as { label: string; value: string }[]
 
   return (
-    <div className="detailPage">
-      <button className="detailBackBtn" onClick={() => router.back()}>← 返回</button>
-
+    <div className="flex-1 overflow-y-auto relative bg-zinc-950 min-h-screen">
+      {/* Alert Toast */}
       {alert && (
-        <div className={`detailAlert${alert.type === 'err' ? ' detailAlertErr' : ''}`}>
+        <div
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg border"
+          style={
+            alert.type === 'ok'
+              ? { background: 'rgba(236,72,153,0.15)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)', backdropFilter: 'blur(12px)' }
+              : { background: 'rgba(239,68,68,0.15)', color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)', backdropFilter: 'blur(12px)' }
+          }
+        >
           {alert.text}
         </div>
       )}
 
-      <div className="detailLayout">
-        {/* 左侧：图片 */}
-        <div className="detailImageWrap">
-          {imgUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className="detailImage" src={imgUrl} alt={character.name} />
-          ) : (
-            <div className="detailImageFallback">
-              <span>{character.name?.[0] || '?'}</span>
-            </div>
-          )}
+      {/* Back Button */}
+      <button
+        onClick={() => router.back()}
+        className="absolute top-6 left-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5" />
+      </button>
+
+      {/* Hero Image */}
+      <div className="h-[60vh] relative">
+        {imgUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imgUrl} alt={character.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
+            <span className="text-8xl font-black text-pink-500/20">{character.name?.[0] || '?'}</span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/40 via-transparent to-transparent" />
+      </div>
+
+      {/* Content */}
+      <div className="px-5 -mt-32 relative z-10 space-y-6 pb-32">
+        {/* Name + Favorite */}
+        <div className="flex items-end justify-between gap-4">
+          <h1 className="text-5xl font-black tracking-tighter drop-shadow-2xl text-white leading-none">{character.name}</h1>
+          <button
+            onClick={toggleFavorite}
+            className="w-12 h-12 rounded-full flex items-center justify-center border transition-all shrink-0 shadow-2xl"
+            style={
+              isFavorited
+                ? { background: '#ec4899', borderColor: '#ec4899', color: 'white', boxShadow: '0 0 20px rgba(236,72,153,0.4)' }
+                : { background: 'rgba(24,24,27,0.8)', backdropFilter: 'blur(12px)', borderColor: 'rgba(63,63,70,0.5)', color: '#71717a' }
+            }
+          >
+            <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
+          </button>
         </div>
 
-        {/* 右侧：信息 */}
-        <div className="detailInfo">
-          <h1 className="detailName">{character.name}</h1>
-
-          {metaItems.length > 0 && (
-            <div className="detailMeta">
-              {metaItems.map((item, i) => (
-                <span key={i} className="detailMetaItem">{item}</span>
-              ))}
-            </div>
-          )}
-
-          {summary && <p className="detailSummary">{summary}</p>}
-          {personality && <p className="detailPersonality">{personality}</p>}
-
-          <div className="detailActions">
-            <button
-              className={`detailBtn detailBtnSecondary${isFavorited ? ' detailBtnFavorited' : ''}`}
-              onClick={toggleFavorite}
-            >
-              {isFavorited ? '★ 已收藏' : '☆ 收藏'}
-            </button>
-            <button
-              className="detailBtn detailBtnPrimary"
-              onClick={() => { void startChat() }}
-              disabled={chatLoading}
-            >
-              {chatLoading ? '启动中...' : '开始聊天 →'}
-            </button>
+        {/* Meta Tags */}
+        {metaItems.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {metaItems.map((item) => (
+              <span key={item.label} className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-xs font-black text-white border border-white/10">
+                {item.value}
+              </span>
+            ))}
           </div>
+        )}
+
+        {/* About */}
+        {(summary || personality) && (
+          <div className="p-6 rounded-[2rem] bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 space-y-4 shadow-2xl">
+            <h3 className="text-base font-black text-white flex items-center gap-3 tracking-tight">
+              <div className="w-7 h-7 rounded-xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20">
+                <User className="w-3.5 h-3.5 text-pink-500" />
+              </div>
+              关于 {character.name}
+            </h3>
+            {summary && <p className="text-zinc-300 leading-relaxed text-sm font-medium">{summary}</p>}
+            {personality && <p className="text-zinc-400 leading-relaxed text-xs">{personality}</p>}
+          </div>
+        )}
+
+        {/* CTA Buttons */}
+        <div className="flex gap-3 pt-2">
+          <button
+            onClick={toggleFavorite}
+            className="flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all active:scale-[0.98]"
+            style={
+              isFavorited
+                ? { background: 'rgba(236,72,153,0.1)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)' }
+                : { background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', borderColor: 'rgba(63,63,70,0.5)' }
+            }
+          >
+            {isFavorited ? '★ 已收藏' : '☆ 收藏'}
+          </button>
+          <button
+            onClick={() => { void startChat() }}
+            disabled={chatLoading}
+            className="flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)', boxShadow: '0 0 20px rgba(236,72,153,0.3)' }}
+          >
+            {chatLoading ? <Loader className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+            {chatLoading ? '启动中...' : '开始聊天'}
+          </button>
         </div>
       </div>
     </div>
