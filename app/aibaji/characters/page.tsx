@@ -153,7 +153,7 @@ export default function CharactersPage() {
   /* ── Not Logged In ── */
   if (!isLoggedIn && !loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-6 py-24 px-6">
+      <div className="flex-1 bg-zinc-950 flex flex-col items-center justify-center gap-6 py-24 px-6 pb-[72px] md:pb-24">
         <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center">
           <Wand2 className="w-8 h-8 text-zinc-500" />
         </div>
@@ -172,7 +172,7 @@ export default function CharactersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col">
+    <div className="flex-1 overflow-y-auto bg-zinc-950 pb-[72px] md:pb-8">
       {/* Alert Toast */}
       {alert && (
         <div
@@ -187,7 +187,7 @@ export default function CharactersPage() {
       )}
 
       {/* Header */}
-      <div className="px-5 pt-8 pb-6">
+      <div className="px-5 md:px-8 pt-8 pb-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white">我的角色</h1>
@@ -204,10 +204,10 @@ export default function CharactersPage() {
       </div>
 
       {/* Character List */}
-      <div className="flex flex-col gap-5 px-4 pb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 px-4 md:px-8 pb-8">
         {/* Loading Skeletons */}
         {loading && (
-          <div className="flex flex-col gap-5">
+          <div className="contents">
             {[...Array(2)].map((_, i) => (
               <div key={i} className="h-[420px] rounded-[2rem] bg-zinc-900 animate-pulse shadow-2xl" />
             ))}

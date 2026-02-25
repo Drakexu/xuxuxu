@@ -99,10 +99,10 @@ export default function SquarePage() {
   }, [])
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-950">
+    <div className="flex-1 overflow-y-auto bg-zinc-950 pb-[72px] md:pb-8">
       {/* Banner */}
       <div className="mx-4 mt-6 mb-6">
-        <div className="h-[300px] rounded-[2.5rem] bg-zinc-900 p-8 flex flex-col justify-end relative overflow-hidden shadow-2xl">
+        <div className="h-[280px] md:h-[380px] rounded-[2.5rem] bg-zinc-900 p-8 md:p-12 flex flex-col justify-end relative overflow-hidden shadow-2xl">
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90" />
 
@@ -136,7 +136,7 @@ export default function SquarePage() {
       </div>
 
       {/* Section header */}
-      <div className="px-5 mb-4 flex items-center gap-3">
+      <div className="px-5 md:px-8 mb-4 flex items-center gap-3">
         <div className="w-8 h-8 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
           <Heart className="w-4 h-4 text-pink-500" />
         </div>
@@ -144,9 +144,9 @@ export default function SquarePage() {
       </div>
 
       {/* Grid */}
-      <div className="px-4 pb-8">
+      <div className="px-4 md:px-8 pb-8">
         {loading && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="rounded-[2rem] overflow-hidden bg-zinc-900 shadow-2xl">
                 <div
@@ -174,7 +174,7 @@ export default function SquarePage() {
         )}
 
         {!loading && characters.length > 0 && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {characters.map((c) => {
               const { gender, age, intro } = getCharacterMeta(c)
               const imgUrl = imgById[c.id]

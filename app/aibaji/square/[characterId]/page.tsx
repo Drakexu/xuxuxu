@@ -193,7 +193,7 @@ export default function CharacterDetailPage() {
   ].filter(Boolean)
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="flex-1 overflow-y-auto bg-zinc-950 text-white pb-[72px] md:pb-0">
       {/* ── Back button ── */}
       <button
         onClick={() => router.back()}
@@ -216,7 +216,7 @@ export default function CharacterDetailPage() {
       )}
 
       {/* ── Hero image section ── */}
-      <div className="h-[60vh] relative">
+      <div className="h-[55vh] md:h-[65vh] relative">
         {imgUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -235,7 +235,7 @@ export default function CharacterDetailPage() {
       </div>
 
       {/* ── Content area ── */}
-      <div className="-mt-40 relative z-10 space-y-10 pb-32 px-6 max-w-2xl mx-auto">
+      <div className="-mt-40 relative z-10 space-y-10 pb-32 px-6 md:px-12 max-w-4xl mx-auto">
         {/* Name + favorite row */}
         <div className="flex items-end justify-between gap-4">
           <h1 className="text-6xl font-black tracking-tighter drop-shadow-2xl text-white leading-none">

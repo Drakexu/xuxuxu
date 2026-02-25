@@ -171,14 +171,14 @@ export default function ChatWindowPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center bg-zinc-950">
         <div className="text-zinc-500 text-sm font-medium">加载中...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col h-screen">
+    <div className="flex-1 flex flex-col bg-zinc-950" style={{ height: 0, minHeight: '100%' }}>
       {/* Header */}
       <div className="h-16 border-b border-zinc-800/50 flex items-center justify-between px-4 bg-zinc-950/80 backdrop-blur-xl shrink-0">
         <button
