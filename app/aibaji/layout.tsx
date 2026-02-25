@@ -2,12 +2,13 @@
 
 import { ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Compass, MessageCircle, PlusCircle, Heart, ArrowLeft } from 'lucide-react'
+import { Compass, MessageCircle, PlusCircle, User, Heart, ArrowLeft } from 'lucide-react'
 
 const TABS = [
   { href: '/aibaji/square', label: '发现', icon: Compass },
   { href: '/aibaji/chat', label: '聊天', icon: MessageCircle },
   { href: '/aibaji/characters', label: '捏崽', icon: PlusCircle },
+  { href: '/aibaji/profile', label: '我的', icon: User },
 ]
 
 export default function AibajiLayout({ children }: { children: ReactNode }) {
