@@ -288,7 +288,7 @@ export default function ChatHubPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-950">
+    <div className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
       {/* Tab Header */}
       <div className="px-6 py-4 border-b border-zinc-800/50 bg-zinc-950/80 backdrop-blur-xl">
         <div className="flex gap-6">
@@ -314,7 +314,7 @@ export default function ChatHubPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-4 pt-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-4 pb-[80px] md:pb-8">
         {tab === 'favorites' && (
           <>
             {favoriteChars.length === 0 ? (
