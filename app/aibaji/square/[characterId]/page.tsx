@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { ArrowLeft, Heart, MessageCircle, User, Loader } from 'lucide-react'
+import { ArrowLeft, Heart, MessageCircle, User } from 'lucide-react'
 
 type Character = {
   id: string
@@ -151,22 +151,28 @@ export default function CharacterDetailPage() {
     }
   }, [characterId, chatLoading, router])
 
+  /* ── Loading state ── */
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader className="w-8 h-8 text-pink-500 animate-spin" />
+        <div className="text-zinc-400 text-lg font-medium tracking-wide">加载中...</div>
       </div>
     )
   }
 
+  /* ── Error state ── */
   if (!character) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4 p-6">
-        <p className="text-zinc-400 font-medium">角色不存在或已被删除</p>
-        <button
-          className="px-6 py-2.5 rounded-xl border border-zinc-700 text-white text-xs font-black uppercase tracking-widest hover:border-zinc-500 transition-colors"
-          onClick={() => router.push('/aibaji/square')}
-        >← 回到广场</button>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+        <div className="p-8 rounded-[2.5rem] bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 shadow-2xl text-center space-y-6 max-w-md w-full">
+          <div className="text-white text-lg font-semibold">角色不存在或已被删除</div>
+          <button
+            onClick={() => router.push('/aibaji/square')}
+            className="w-full py-4 rounded-[2rem] bg-gradient-to-r from-pink-600 to-purple-600 text-white font-black uppercase tracking-widest shadow-[0_0_30px_rgba(236,72,153,0.3)] hover:shadow-[0_0_40px_rgba(236,72,153,0.5)] transition-all"
+          >
+            回到广场
+          </button>
+        </div>
       </div>
     )
   }
@@ -180,116 +186,124 @@ export default function CharacterDetailPage() {
   const personality = getStr(p, 'personality') || getStr(p, 'personality_summary')
 
   const metaItems = [
-    gender && { label: '性别', value: gender },
-    age && { label: '年龄', value: `${age}岁` },
-    occupation && { label: '职业', value: occupation },
-    org && { label: '所属', value: org },
-  ].filter(Boolean) as { label: string; value: string }[]
+    gender && `${gender}`,
+    age && `${age}岁`,
+    occupation,
+    org,
+  ].filter(Boolean)
 
   return (
-    <div className="flex-1 overflow-y-auto relative bg-zinc-950 min-h-screen">
-      {/* Alert Toast */}
+    <div className="min-h-screen bg-zinc-950 text-white">
+      {/* ── Back button ── */}
+      <button
+        onClick={() => router.back()}
+        className="absolute top-6 left-6 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5" />
+      </button>
+
+      {/* ── Alert toast ── */}
       {alert && (
         <div
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg border"
-          style={
-            alert.type === 'ok'
-              ? { background: 'rgba(236,72,153,0.15)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)', backdropFilter: 'blur(12px)' }
-              : { background: 'rgba(239,68,68,0.15)', color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)', backdropFilter: 'blur(12px)' }
-          }
+          className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl backdrop-blur-xl border text-sm font-medium shadow-2xl transition-all ${
+            alert.type === 'err'
+              ? 'bg-red-500/20 border-red-500/30 text-red-300'
+              : 'bg-zinc-900/80 border-zinc-700/50 text-white'
+          }`}
         >
           {alert.text}
         </div>
       )}
 
-      {/* Back Button */}
-      <button
-        onClick={() => router.back()}
-        className="absolute top-6 left-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
-      >
-        <ArrowLeft className="w-5 h-5" />
-      </button>
-
-      {/* Hero Image */}
+      {/* ── Hero image section ── */}
       <div className="h-[60vh] relative">
         {imgUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imgUrl} alt={character.name} className="w-full h-full object-cover" />
+          <img
+            className="absolute inset-0 w-full h-full object-cover"
+            src={imgUrl}
+            alt={character.name}
+          />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
-            <span className="text-8xl font-black text-pink-500/20">{character.name?.[0] || '?'}</span>
+          <div className="absolute inset-0 w-full h-full bg-zinc-900 flex items-center justify-center">
+            <User className="w-24 h-24 text-zinc-700" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent" />
+        {/* Gradient overlays */}
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/40 via-transparent to-transparent" />
       </div>
 
-      {/* Content */}
-      <div className="px-5 -mt-32 relative z-10 space-y-6 pb-32">
-        {/* Name + Favorite */}
+      {/* ── Content area ── */}
+      <div className="-mt-40 relative z-10 space-y-10 pb-32 px-6 max-w-2xl mx-auto">
+        {/* Name + favorite row */}
         <div className="flex items-end justify-between gap-4">
-          <h1 className="text-5xl font-black tracking-tighter drop-shadow-2xl text-white leading-none">{character.name}</h1>
+          <h1 className="text-6xl font-black tracking-tighter drop-shadow-2xl text-white leading-none">
+            {character.name}
+          </h1>
           <button
             onClick={toggleFavorite}
-            className="w-12 h-12 rounded-full flex items-center justify-center border transition-all shrink-0 shadow-2xl"
-            style={
+            className={`w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center border transition-all ${
               isFavorited
-                ? { background: '#ec4899', borderColor: '#ec4899', color: 'white', boxShadow: '0 0 20px rgba(236,72,153,0.4)' }
-                : { background: 'rgba(24,24,27,0.8)', backdropFilter: 'blur(12px)', borderColor: 'rgba(63,63,70,0.5)', color: '#71717a' }
-            }
+                ? 'bg-pink-500 border-pink-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.4)]'
+                : 'bg-zinc-900/80 backdrop-blur-xl border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800'
+            }`}
           >
-            <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
+            <Heart className={`w-6 h-6 ${isFavorited ? 'fill-current' : ''}`} />
           </button>
         </div>
 
-        {/* Meta Tags */}
+        {/* Meta tags */}
         {metaItems.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {metaItems.map((item) => (
-              <span key={item.label} className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-xs font-black text-white border border-white/10">
-                {item.value}
+          <div className="flex flex-wrap gap-3">
+            {metaItems.map((item, i) => (
+              <span
+                key={i}
+                className="px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-xl text-xs font-black tracking-widest uppercase text-white border border-white/10"
+              >
+                {item}
               </span>
             ))}
           </div>
         )}
 
-        {/* About */}
+        {/* Info card */}
         {(summary || personality) && (
-          <div className="p-6 rounded-[2rem] bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 space-y-4 shadow-2xl">
-            <h3 className="text-base font-black text-white flex items-center gap-3 tracking-tight">
-              <div className="w-7 h-7 rounded-xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20">
-                <User className="w-3.5 h-3.5 text-pink-500" />
+          <div className="p-8 rounded-[2.5rem] bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 space-y-6 shadow-2xl">
+            {summary && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
+                    <User className="w-4 h-4 text-pink-500" />
+                  </div>
+                  <span className="text-sm font-bold text-zinc-300 tracking-wide uppercase">简介</span>
+                </div>
+                <p className="text-zinc-300 leading-relaxed text-[15px]">{summary}</p>
               </div>
-              关于 {character.name}
-            </h3>
-            {summary && <p className="text-zinc-300 leading-relaxed text-sm font-medium">{summary}</p>}
-            {personality && <p className="text-zinc-400 leading-relaxed text-xs">{personality}</p>}
+            )}
+            {personality && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
+                    <Heart className="w-4 h-4 text-pink-500" />
+                  </div>
+                  <span className="text-sm font-bold text-zinc-300 tracking-wide uppercase">性格</span>
+                </div>
+                <p className="text-zinc-300 leading-relaxed text-[15px]">{personality}</p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* CTA Buttons */}
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={toggleFavorite}
-            className="flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all active:scale-[0.98]"
-            style={
-              isFavorited
-                ? { background: 'rgba(236,72,153,0.1)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)' }
-                : { background: 'rgba(255,255,255,0.05)', color: '#a1a1aa', borderColor: 'rgba(63,63,70,0.5)' }
-            }
-          >
-            {isFavorited ? '★ 已收藏' : '☆ 收藏'}
-          </button>
-          <button
-            onClick={() => { void startChat() }}
-            disabled={chatLoading}
-            className="flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-white transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)', boxShadow: '0 0 20px rgba(236,72,153,0.3)' }}
-          >
-            {chatLoading ? <Loader className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
-            {chatLoading ? '启动中...' : '开始聊天'}
-          </button>
-        </div>
+        {/* CTA button */}
+        <button
+          onClick={() => { void startChat() }}
+          disabled={chatLoading}
+          className="w-full py-5 rounded-[2rem] bg-gradient-to-r from-pink-600 to-purple-600 text-white font-black uppercase tracking-widest shadow-[0_0_30px_rgba(236,72,153,0.3)] hover:shadow-[0_0_40px_rgba(236,72,153,0.5)] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+        >
+          <MessageCircle className="w-5 h-5" />
+          {chatLoading ? '启动中...' : '开始聊天'}
+        </button>
       </div>
     </div>
   )

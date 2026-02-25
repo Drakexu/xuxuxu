@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { Sparkles } from 'lucide-react'
-import { motion } from 'motion/react'
+import { Sparkles, Heart } from 'lucide-react'
 
 type Character = {
   id: string
@@ -100,37 +99,62 @@ export default function SquarePage() {
   }, [])
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-screen bg-zinc-950">
       {/* Banner */}
-      <div className="px-5 pt-8 pb-6 relative overflow-hidden border-b border-zinc-800/50">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/10 blur-[60px] rounded-full pointer-events-none" />
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
-            <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-500">
-              Public Characters
-            </span>
-            <Sparkles className="w-3 h-3 text-pink-500" />
+      <div className="mx-4 mt-6 mb-6">
+        <div className="h-[300px] rounded-[2.5rem] bg-zinc-900 p-8 flex flex-col justify-end relative overflow-hidden shadow-2xl">
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent opacity-90" />
+
+          {/* Pink/purple glow blurs */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl" />
+
+          {/* Banner content */}
+          <div className="relative z-10">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 mb-4">
+              <div className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
+              <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-300">
+                Public Characters
+              </span>
+              <Sparkles className="w-3 h-3 text-pink-400" />
+            </div>
+
+            <h1 className="text-4xl font-black tracking-tighter leading-none mb-2">
+              <span className="text-white">遇见你的</span>
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">
+                赛博灵魂
+              </span>
+            </h1>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              探索无限可能的 AI 角色宇宙，与他们建立独一无二的羁绊。
+            </p>
           </div>
-          <h1 className="text-5xl font-black tracking-tighter text-white leading-none mb-2">广场</h1>
-          <p className="text-xs font-medium text-zinc-500 leading-relaxed">
-            发现你喜欢的 AI 角色，收藏并开始聊天
-          </p>
         </div>
       </div>
 
+      {/* Section header */}
+      <div className="px-5 mb-4 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
+          <Heart className="w-4 h-4 text-pink-500" />
+        </div>
+        <h2 className="text-2xl font-black text-white">发现角色</h2>
+      </div>
+
       {/* Grid */}
-      <div className="p-3">
+      <div className="px-4 pb-8">
         {loading && (
-          <div className="grid grid-cols-3 gap-2.5">
-            {[...Array(9)].map((_, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden border border-zinc-800/50">
+          <div className="grid grid-cols-2 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="rounded-[2rem] overflow-hidden bg-zinc-900 shadow-2xl">
                 <div
-                  className="bg-zinc-900 animate-pulse"
-                  style={{ aspectRatio: '9/16' }}
+                  className="bg-zinc-800 animate-pulse"
+                  style={{ aspectRatio: '3/4' }}
                 />
-                <div className="p-2 pb-3 bg-zinc-900/50 space-y-1.5">
-                  <div className="h-2.5 bg-zinc-800 rounded-full w-3/4 animate-pulse" />
+                <div className="p-4 space-y-2">
+                  <div className="h-3 bg-zinc-800 rounded-full w-3/4 animate-pulse" />
                   <div className="h-2 bg-zinc-800 rounded-full w-1/2 animate-pulse" />
                 </div>
               </div>
@@ -140,8 +164,8 @@ export default function SquarePage() {
 
         {!loading && characters.length === 0 && (
           <div className="py-20 flex flex-col items-center gap-4">
-            <div className="w-14 h-14 rounded-[1.25rem] bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
-              <span className="text-2xl font-black text-pink-500 opacity-60">✦</span>
+            <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-zinc-600" />
             </div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
               广场暂时没有公开角色
@@ -150,49 +174,63 @@ export default function SquarePage() {
         )}
 
         {!loading && characters.length > 0 && (
-          <div className="grid grid-cols-3 gap-2.5">
-            {characters.map((c, i) => {
+          <div className="grid grid-cols-2 gap-4">
+            {characters.map((c) => {
               const { gender, age, intro } = getCharacterMeta(c)
               const imgUrl = imgById[c.id]
               return (
-                <motion.button
+                <button
                   key={c.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="text-left flex flex-col rounded-2xl bg-zinc-900 overflow-hidden transition-all active:scale-95 group relative"
+                  className="text-left flex flex-col bg-zinc-900 rounded-[2rem] overflow-hidden group cursor-pointer shadow-2xl transition-all active:scale-95"
                   onClick={() => router.push(`/aibaji/square/${c.id}`)}
                 >
-                  <div className="relative overflow-hidden" style={{ aspectRatio: '9/16' }}>
+                  {/* Image area */}
+                  <div className="relative overflow-hidden" style={{ aspectRatio: '3/4' }}>
                     {imgUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imgUrl} alt={c.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
+                      <img
+                        src={imgUrl}
+                        alt={c.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
-                        <span className="text-4xl font-black text-pink-500/40">
+                      <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                        <span className="text-5xl font-black text-pink-500/30">
                           {c.name?.[0] || '?'}
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent opacity-90 group-hover:opacity-70 transition-opacity duration-500" />
-                    <div className="absolute bottom-0 inset-x-0 p-3 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                      <div className="flex items-end justify-between gap-1 mb-1">
-                        <span className="text-sm font-black text-white truncate leading-snug drop-shadow-lg">{c.name}</span>
+
+                    {/* Gradient overlay on image */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent opacity-90" />
+
+                    {/* Name overlay at bottom of image */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {[gender, age ? `${age}岁` : ''].filter(Boolean).map((tag, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded-full bg-white/10 backdrop-blur-xl text-[9px] text-white border border-white/10"
+                          >
+                            {tag}
+                          </span>
+                        ))}
                       </div>
-                      {(gender || age) && (
-                        <div className="flex gap-1">
-                          {gender && <span className="px-1.5 py-0.5 rounded bg-white/10 backdrop-blur-md text-[8px] text-white font-black border border-white/10">{gender}</span>}
-                          {age && <span className="px-1.5 py-0.5 rounded bg-white/10 backdrop-blur-md text-[8px] text-white font-black border border-white/10">{age}岁</span>}
-                        </div>
-                      )}
+
+                      <h3 className="text-xl font-black text-white drop-shadow-lg truncate">
+                        {c.name}
+                      </h3>
+
+                      {/* Intro text revealed on hover */}
                       {intro && (
-                        <p className="text-[9px] text-zinc-400 line-clamp-2 leading-snug mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <p className="text-[11px] text-zinc-300 line-clamp-2 leading-snug mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           {intro}
                         </p>
                       )}
                     </div>
                   </div>
-                </motion.button>
+                </button>
               )
             })}
           </div>
