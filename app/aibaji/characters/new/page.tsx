@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { ArrowLeft, Loader } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 type FormState = {
   name: string
@@ -78,171 +78,197 @@ export default function NewCharacterPage() {
     }
   }
 
-  const inputCls = "w-full px-4 py-3.5 rounded-2xl border border-zinc-800 bg-zinc-950 text-white placeholder:text-zinc-600 text-sm font-medium focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/50 transition-all"
-  const labelCls = "text-[10px] font-mono font-black uppercase tracking-[0.3em] text-zinc-500 mb-2 block"
+  const inputClass =
+    'w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/50 transition-all'
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-950">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-800/50 px-5 py-4 flex items-center gap-4">
-        <button
-          onClick={() => router.push('/aibaji/characters')}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h2 className="text-lg font-black text-white tracking-tight">创建新角色</h2>
+    <div className="min-h-screen bg-zinc-950 text-white">
+      {/* Top bar */}
+      <div className="sticky top-0 z-30 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/50">
+        <div className="max-w-3xl mx-auto flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/aibaji/characters')}
+              className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <span className="px-2 py-0.5 rounded bg-pink-500/20 text-pink-400 text-[10px] font-black uppercase tracking-widest">
+              Studio
+            </span>
+          </div>
+          <button
+            onClick={() => { void handleSubmit() }}
+            disabled={saving}
+            className="px-5 py-2 rounded-xl bg-pink-600 text-white text-sm font-bold hover:bg-pink-500 shadow-lg shadow-pink-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? '创建中...' : '创建角色'}
+          </button>
+        </div>
       </div>
 
-      {/* Form */}
-      <div className="flex flex-col gap-5 px-5 pt-6 pb-24">
+      {/* Page content */}
+      <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+        {/* Title */}
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-white">创建新角色</h1>
+          <p className="text-sm text-zinc-400 mt-1">填写角色信息，打造独一无二的 AI 伙伴</p>
+        </div>
+
+        {/* Error */}
         {error && (
-          <div className="px-5 py-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs font-medium">
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-red-400 text-xs">
             {error}
           </div>
         )}
 
-        {/* Name */}
-        <div>
-          <label className={labelCls}>角色名称 <span className="text-pink-500">*</span></label>
-          <input
-            className={inputCls}
-            placeholder="给你的角色起个名字"
-            value={form.name}
-            onChange={(e) => set('name', e.target.value)}
-          />
-        </div>
+        {/* Basic info section */}
+        <div className="border border-zinc-800/50 rounded-[1.5rem] bg-zinc-900/30">
+          <div className="p-6 space-y-6">
+            {/* Name */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-400">
+                角色名称 <span className="text-pink-400">*</span>
+              </label>
+              <input
+                className={inputClass}
+                placeholder="给你的角色起个名字"
+                value={form.name}
+                onChange={(e) => set('name', e.target.value)}
+              />
+            </div>
 
-        {/* Gender + Age */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>性别</label>
-            <div className="flex gap-2">
-              {(['male', 'female', 'other'] as const).map((g) => (
-                <button
-                  key={g}
-                  onClick={() => set('gender', g)}
-                  className="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all"
-                  style={
-                    form.gender === g
-                      ? { background: 'rgba(236,72,153,0.1)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)' }
-                      : { background: '#18181b', color: '#52525b', borderColor: '#27272a' }
-                  }
-                >
-                  {g === 'male' ? '男' : g === 'female' ? '女' : '其他'}
-                </button>
-              ))}
+            {/* Gender + Age row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-zinc-400">性别</label>
+                <div className="flex gap-2">
+                  {(['male', 'female', 'other'] as const).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => set('gender', g)}
+                      className={`flex-1 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                        form.gender === g
+                          ? 'border-pink-500/50 bg-pink-500/10 text-pink-400'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      }`}
+                    >
+                      {g === 'male' ? '男' : g === 'female' ? '女' : '其他'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-zinc-400">年龄</label>
+                <input
+                  className={inputClass}
+                  placeholder="例如：18"
+                  value={form.age}
+                  onChange={(e) => set('age', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Occupation */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-400">职业 / 身份</label>
+              <input
+                className={inputClass}
+                placeholder="例如：高中生、咖啡师、魔法学院学生..."
+                value={form.occupation}
+                onChange={(e) => set('occupation', e.target.value)}
+              />
+            </div>
+
+            {/* Summary */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-400">一句话简介</label>
+              <input
+                className={inputClass}
+                placeholder="广场卡片上展示的简短介绍"
+                value={form.summary}
+                onChange={(e) => set('summary', e.target.value)}
+              />
             </div>
           </div>
-          <div>
-            <label className={labelCls}>年龄</label>
-            <input
-              className={inputCls}
-              placeholder="例如：18"
-              value={form.age}
-              onChange={(e) => set('age', e.target.value)}
-            />
+        </div>
+
+        {/* Personality section */}
+        <div className="border border-zinc-800/50 rounded-[1.5rem] bg-zinc-900/30">
+          <div className="p-6 space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-400">性格描述</label>
+              <textarea
+                className={`${inputClass} min-h-[100px] resize-y`}
+                placeholder="描述角色的性格、说话风格、特点..."
+                rows={3}
+                value={form.personality}
+                onChange={(e) => set('personality', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-400">系统 Prompt（可选）</label>
+              <p className="text-[10px] text-zinc-500">留空则根据以上信息自动生成；填写则完全使用你的内容</p>
+              <textarea
+                className={`${inputClass} min-h-[160px] resize-y`}
+                placeholder="你可以在这里写完整的角色扮演 prompt..."
+                rows={6}
+                value={form.systemPrompt}
+                onChange={(e) => set('systemPrompt', e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Occupation */}
-        <div>
-          <label className={labelCls}>职业 / 身份</label>
-          <input
-            className={inputCls}
-            placeholder="例如：高中生、咖啡师、魔法学院学生..."
-            value={form.occupation}
-            onChange={(e) => set('occupation', e.target.value)}
-          />
-        </div>
-
-        {/* Summary */}
-        <div>
-          <label className={labelCls}>一句话简介</label>
-          <input
-            className={inputCls}
-            placeholder="广场卡片上展示的简短介绍"
-            value={form.summary}
-            onChange={(e) => set('summary', e.target.value)}
-          />
-        </div>
-
-        {/* Personality */}
-        <div>
-          <label className={labelCls}>性格描述</label>
-          <textarea
-            className={`${inputCls} resize-none`}
-            placeholder="描述角色的性格、说话风格、特点..."
-            rows={3}
-            value={form.personality}
-            onChange={(e) => set('personality', e.target.value)}
-          />
-        </div>
-
-        {/* System Prompt */}
-        <div>
-          <label className={labelCls}>系统 Prompt（可选）</label>
-          <p className="text-[11px] text-zinc-600 font-medium mb-2">留空则根据以上信息自动生成；填写则完全使用你的内容</p>
-          <textarea
-            className={`${inputCls} resize-none`}
-            placeholder="你可以在这里写完整的角色扮演 prompt..."
-            rows={6}
-            value={form.systemPrompt}
-            onChange={(e) => set('systemPrompt', e.target.value)}
-          />
-        </div>
-
-        {/* Visibility */}
-        <div>
-          <label className={labelCls}>可见性</label>
-          <div className="flex flex-col gap-2">
-            {(['private', 'public'] as const).map((v) => (
+        {/* Visibility section */}
+        <div className="border border-zinc-800/50 rounded-[1.5rem] bg-zinc-900/30">
+          <div className="p-6 space-y-2">
+            <label className="text-xs font-bold text-zinc-400">可见性</label>
+            <div className="flex gap-3">
               <button
-                key={v}
-                onClick={() => set('visibility', v)}
-                className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left"
-                style={
-                  form.visibility === v
-                    ? { background: 'rgba(236,72,153,0.08)', borderColor: 'rgba(236,72,153,0.3)' }
-                    : { background: '#18181b', borderColor: '#27272a' }
-                }
+                type="button"
+                onClick={() => set('visibility', 'private')}
+                className={`flex-1 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                  form.visibility === 'private'
+                    ? 'border-pink-500/50 bg-pink-500/10 text-pink-400'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                }`}
               >
-                <div
-                  className="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
-                  style={
-                    form.visibility === v
-                      ? { borderColor: '#ec4899', background: '#ec4899' }
-                      : { borderColor: '#3f3f46' }
-                  }
-                >
-                  {form.visibility === v && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                </div>
-                <span className="text-sm font-black text-white">
-                  {v === 'private' ? '私密（仅自己可见）' : '发布到广场（所有人可见）'}
-                </span>
+                私密（仅自己可见）
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => set('visibility', 'public')}
+                className={`flex-1 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                  form.visibility === 'public'
+                    ? 'border-pink-500/50 bg-pink-500/10 text-pink-400'
+                    : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                }`}
+              >
+                发布到广场（所有人可见）
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom Actions */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] p-4 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/50 flex gap-3">
-        <button
-          onClick={() => router.push('/aibaji/characters')}
-          className="flex-1 py-4 rounded-2xl border border-zinc-700 text-zinc-300 text-xs font-black uppercase tracking-widest hover:border-zinc-500 hover:text-white transition-all active:scale-[0.98]"
-        >
-          取消
-        </button>
-        <button
-          onClick={() => { void handleSubmit() }}
-          disabled={saving}
-          className="flex-1 py-4 rounded-2xl text-white text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
-          style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)', boxShadow: '0 0 20px rgba(236,72,153,0.3)' }}
-        >
-          {saving ? <Loader className="w-4 h-4 animate-spin" /> : null}
-          {saving ? '创建中...' : '创建角色'}
-        </button>
+        {/* Bottom actions */}
+        <div className="flex items-center justify-end gap-3 pb-8">
+          <button
+            onClick={() => router.push('/aibaji/characters')}
+            className="px-5 py-2.5 rounded-xl border border-zinc-800 text-sm text-zinc-400 font-medium hover:text-white hover:border-zinc-700 transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={() => { void handleSubmit() }}
+            disabled={saving}
+            className="px-6 py-2.5 rounded-xl bg-pink-600 text-white text-sm font-bold hover:bg-pink-500 shadow-lg shadow-pink-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? '创建中...' : '创建角色'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -251,6 +277,7 @@ export default function NewCharacterPage() {
 function buildDefaultPrompt(form: FormState): string {
   const parts: string[] = []
   const name = form.name.trim()
+  const gender = form.gender === 'male' ? '男性' : form.gender === 'female' ? '女性' : '人物'
   const age = form.age.trim() ? `${form.age.trim()}岁` : ''
   const occ = form.occupation.trim()
   const summary = form.summary.trim()

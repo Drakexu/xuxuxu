@@ -2,12 +2,12 @@
 
 import { ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Compass, MessageCircle, Wand2, Heart } from 'lucide-react'
+import { Compass, MessageCircle, PlusCircle, Heart } from 'lucide-react'
 
 const TABS = [
-  { href: '/aibaji/square', label: '广场', icon: Compass },
+  { href: '/aibaji/square', label: '发现', icon: Compass },
   { href: '/aibaji/chat', label: '聊天', icon: MessageCircle },
-  { href: '/aibaji/characters', label: '捏崽', icon: Wand2 },
+  { href: '/aibaji/characters', label: '捏崽', icon: PlusCircle },
 ]
 
 export default function AibajiLayout({ children }: { children: ReactNode }) {
@@ -16,7 +16,7 @@ export default function AibajiLayout({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="flex flex-col bg-zinc-950 max-w-[480px] mx-auto relative"
+      className="flex flex-col bg-zinc-950 text-white max-w-[480px] mx-auto relative selection:bg-pink-500 selection:text-white"
       style={{ minHeight: '100dvh' }}
     >
       {/* Top Bar */}
@@ -59,7 +59,7 @@ export default function AibajiLayout({ children }: { children: ReactNode }) {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] rounded-full bg-gradient-to-r from-pink-500 to-purple-500 shadow-[0_0_6px_rgba(236,72,153,0.5)]" />
               )}
               <Icon
-                className="w-[18px] h-[18px] transition-colors"
+                className={`w-[18px] h-[18px] transition-colors ${active ? 'fill-pink-500/10' : ''}`}
                 style={{ color: active ? '#ec4899' : '#52525b' }}
                 strokeWidth={active ? 2.5 : 1.75}
               />

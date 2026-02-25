@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { Heart, MessageCircle, ChevronRight, Loader } from 'lucide-react'
-import { motion } from 'motion/react'
 
 type Character = {
   id: string
@@ -189,6 +188,43 @@ export default function ChatHubPage() {
     }
   }
 
+  const renderFavoriteCard = (c: Character) => {
+    const imgUrl = imgById[c.id]
+    const isLoading = chatLoading === c.id
+
+    return (
+      <button
+        key={c.id}
+        onClick={() => void handleStartChat(c.id)}
+        disabled={isLoading}
+        className="group relative aspect-[3/4] rounded-[1.5rem] overflow-hidden shadow-xl disabled:opacity-60 transition-all"
+      >
+        <div className="absolute inset-0 border-2 border-transparent group-hover:border-pink-500/30 rounded-[1.5rem] z-20 transition-colors" />
+        {imgUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imgUrl} alt={c.name} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-zinc-800 flex items-center justify-center">
+            <span className="text-3xl font-black text-pink-500/40">
+              {c.name?.[0] || '?'}
+            </span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80 z-10" />
+        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+          <p className="text-base font-black text-zinc-300 group-hover:text-white truncate transition-colors">
+            {c.name}
+          </p>
+        </div>
+        {isLoading && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40">
+            <Loader className="w-6 h-6 text-pink-500 animate-spin" />
+          </div>
+        )}
+      </button>
+    )
+  }
+
   const renderCharCard = (c: Character, localId?: string) => {
     const p = asRecord(c.profile)
     const gender = getStr(p, 'gender') || getStr(p, 'sex')
@@ -206,7 +242,7 @@ export default function ChatHubPage() {
           void handleStartChat(c.id)
         }}
         disabled={isLoading}
-        className="w-full text-left flex items-center gap-4 px-4 py-3.5 bg-zinc-900 border border-zinc-800/50 rounded-2xl hover:border-pink-500/30 hover:bg-zinc-800/50 active:scale-[0.98] transition-all disabled:opacity-60"
+        className="w-full text-left flex items-center gap-4 px-4 py-3.5 bg-zinc-900 border border-zinc-800/50 rounded-2xl hover:border-pink-500/30 active:scale-[0.98] transition-all disabled:opacity-60"
       >
         {/* Avatar */}
         <div className="w-14 h-14 flex-shrink-0 rounded-[1rem] overflow-hidden bg-zinc-800 border border-zinc-700/50 flex items-center justify-center">
@@ -231,7 +267,7 @@ export default function ChatHubPage() {
             </p>
           )}
           {intro && (
-            <p className="text-[11px] text-zinc-500 line-clamp-1 leading-snug">{intro}</p>
+            <p className="text-[11px] text-zinc-400 line-clamp-1 leading-snug">{intro}</p>
           )}
         </div>
 
@@ -242,7 +278,7 @@ export default function ChatHubPage() {
           ) : dest ? (
             <ChevronRight className="w-4 h-4 text-zinc-600" />
           ) : (
-            <span className="text-[9px] font-black uppercase tracking-widest text-pink-500 bg-pink-500/10 px-2.5 py-1 rounded-lg border border-pink-500/20">
+            <span className="text-[9px] font-black uppercase tracking-widest bg-pink-500/10 text-pink-500 border border-pink-500/20 px-2.5 py-1 rounded-lg">
               聊天
             </span>
           )}
@@ -252,52 +288,39 @@ export default function ChatHubPage() {
   }
 
   return (
-    <div className="flex flex-col">
-      {/* Banner */}
-      <div className="px-5 pt-8 pb-6 relative overflow-hidden border-b border-zinc-800/50">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none" />
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
-            <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-500">
-              My Companions
-            </span>
-          </div>
-          <h1 className="text-5xl font-black tracking-tighter text-white leading-none mb-2">聊天</h1>
-          <p className="text-xs font-medium text-zinc-500">收藏的角色和进行中的对话</p>
+    <div className="flex flex-col min-h-screen bg-zinc-950">
+      {/* Tab Header */}
+      <div className="px-6 py-4 border-b border-zinc-800/50 bg-zinc-950/80 backdrop-blur-xl">
+        <div className="flex gap-6">
+          {(['favorites', 'active'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="relative pb-3 transition-colors"
+            >
+              <span
+                className={`text-xl font-black tracking-tight transition-colors ${
+                  tab === t ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'
+                }`}
+              >
+                {t === 'favorites' ? '收藏' : '正在聊天'}
+              </span>
+              {tab === t && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-pink-500 to-purple-500 rounded-t-full shadow-[0_0_10px_rgba(236,72,153,0.5)]" />
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="flex gap-1 px-4 pt-4 pb-2">
-        {(['favorites', 'active'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all"
-            style={
-              tab === t
-                ? { background: 'linear-gradient(to right, #ec4899, #a855f7)', color: 'white', boxShadow: '0 4px 16px rgba(236,72,153,0.3)' }
-                : { background: 'rgba(255,255,255,0.04)', color: '#52525b' }
-            }
-          >
-            {t === 'favorites' ? '收藏' : '正在聊天'}
-          </button>
-        ))}
-      </div>
-
       {/* Content */}
-      <div className="flex flex-col gap-2.5 px-4 pt-2 pb-4">
+      <div className="flex-1 px-4 pt-4 pb-4">
         {tab === 'favorites' && (
           <>
             {favoriteChars.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="py-16 flex flex-col items-center gap-4"
-              >
-                <div className="w-14 h-14 rounded-[1.25rem] bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
-                  <Heart className="w-6 h-6 text-pink-500 opacity-50" />
+              <div className="py-16 flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                  <Heart className="w-6 h-6 text-zinc-500" />
                 </div>
                 <div className="text-center space-y-1">
                   <p className="text-xs font-black uppercase tracking-widest text-zinc-500">还没有收藏的角色</p>
@@ -305,13 +328,15 @@ export default function ChatHubPage() {
                 </div>
                 <button
                   onClick={() => router.push('/aibaji/square')}
-                  className="px-6 py-2.5 rounded-xl border border-zinc-700 text-white text-[10px] font-black uppercase tracking-widest hover:border-pink-500/50 hover:bg-pink-500/10 transition-all"
+                  className="px-6 py-2.5 rounded-xl bg-pink-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-pink-500 transition-colors"
                 >
                   去广场 →
                 </button>
-              </motion.div>
+              </div>
             ) : (
-              favoriteChars.map((c) => renderCharCard(c))
+              <div className="grid grid-cols-2 gap-4">
+                {favoriteChars.map((c) => renderFavoriteCard(c))}
+              </div>
             )}
           </>
         )}
@@ -320,7 +345,7 @@ export default function ChatHubPage() {
           <>
             {!isLoggedIn ? (
               <div className="py-16 flex flex-col items-center gap-4">
-                <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-800 border border-zinc-700/50 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-900 border border-zinc-800 flex items-center justify-center">
                   <MessageCircle className="w-6 h-6 text-zinc-500" />
                 </div>
                 <div className="text-center space-y-1">
@@ -329,7 +354,7 @@ export default function ChatHubPage() {
                 </div>
                 <button
                   onClick={() => router.push('/login')}
-                  className="px-6 py-2.5 rounded-xl border border-zinc-700 text-white text-[10px] font-black uppercase tracking-widest hover:border-pink-500/50 hover:bg-pink-500/10 transition-all"
+                  className="px-6 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors"
                 >
                   去登录 →
                 </button>
@@ -349,8 +374,8 @@ export default function ChatHubPage() {
               </div>
             ) : activeChars.length === 0 ? (
               <div className="py-16 flex flex-col items-center gap-4">
-                <div className="w-14 h-14 rounded-[1.25rem] bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
-                  <MessageCircle className="w-6 h-6 text-pink-500 opacity-50" />
+                <div className="w-14 h-14 rounded-[1.25rem] bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                  <MessageCircle className="w-6 h-6 text-zinc-500" />
                 </div>
                 <div className="text-center space-y-1">
                   <p className="text-xs font-black uppercase tracking-widest text-zinc-500">还没有进行中的聊天</p>
@@ -358,13 +383,15 @@ export default function ChatHubPage() {
                 </div>
                 <button
                   onClick={() => router.push('/aibaji/square')}
-                  className="px-6 py-2.5 rounded-xl border border-zinc-700 text-white text-[10px] font-black uppercase tracking-widest hover:border-pink-500/50 hover:bg-pink-500/10 transition-all"
+                  className="px-6 py-2.5 rounded-xl bg-pink-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-pink-500 transition-colors"
                 >
                   去广场 →
                 </button>
               </div>
             ) : (
-              activeChars.map(({ char, localId }) => renderCharCard(char, localId))
+              <div className="flex flex-col gap-2.5">
+                {activeChars.map(({ char, localId }) => renderCharCard(char, localId))}
+              </div>
             )}
           </>
         )}

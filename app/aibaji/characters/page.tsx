@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { Plus, Wand2, Globe, Lock, Pencil, Trash2 } from 'lucide-react'
+import { PlusCircle, Globe, Lock, Pencil, Trash2, Wand2 } from 'lucide-react'
 
 type Character = {
   id: string
@@ -12,6 +12,8 @@ type Character = {
   settings?: Record<string, unknown>
   created_at?: string
 }
+
+type AssetRow = { character_id: string; kind: string; storage_path: string; created_at?: string | null }
 
 type Alert = { type: 'ok' | 'err'; text: string } | null
 
@@ -24,9 +26,24 @@ function isFromSquare(c: Character): boolean {
   return typeof s.source_character_id === 'string' && s.source_character_id.trim().length > 0
 }
 
+function pickAssetPath(rows: AssetRow[]): string {
+  const byKind: Record<string, AssetRow[]> = {}
+  for (const r of rows) {
+    if (!r.kind || !r.storage_path) continue
+    if (!byKind[r.kind]) byKind[r.kind] = []
+    byKind[r.kind].push(r)
+  }
+  for (const k of ['cover', 'full_body', 'head']) {
+    const list = byKind[k]
+    if (list?.length) return list[0].storage_path
+  }
+  return ''
+}
+
 export default function CharactersPage() {
   const router = useRouter()
   const [characters, setCharacters] = useState<Character[]>([])
+  const [imgById, setImgById] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState('')
   const [publishingId, setPublishingId] = useState('')
@@ -56,7 +73,40 @@ export default function CharactersPage() {
       .order('created_at', { ascending: false })
       .limit(60)
     if (!error && data) {
-      setCharacters((data as Character[]).filter((c) => !isFromSquare(c)))
+      const chars = (data as Character[]).filter((c) => !isFromSquare(c))
+      setCharacters(chars)
+
+      // Fetch character images
+      const ids = chars.map((c) => c.id)
+      if (ids.length) {
+        const { data: assets, error: ae } = await supabase
+          .from('character_assets')
+          .select('character_id,kind,storage_path,created_at')
+          .in('character_id', ids)
+          .in('kind', ['cover', 'full_body', 'head'])
+          .order('created_at', { ascending: false })
+          .limit(300)
+        if (!ae && assets) {
+          const grouped: Record<string, AssetRow[]> = {}
+          for (const row of assets as AssetRow[]) {
+            if (!row.character_id) continue
+            if (!grouped[row.character_id]) grouped[row.character_id] = []
+            grouped[row.character_id].push(row)
+          }
+          const entries = Object.entries(grouped)
+            .map(([cid, rs]) => [cid, pickAssetPath(rs)] as const)
+            .filter(([, p]) => !!p)
+          const signed = await Promise.all(
+            entries.map(async ([cid, path]) => {
+              const s = await supabase.storage.from('character-assets').createSignedUrl(path, 3600)
+              return [cid, s.data?.signedUrl || ''] as const
+            }),
+          )
+          const map: Record<string, string> = {}
+          for (const [cid, url] of signed) if (url) map[cid] = url
+          setImgById(map)
+        }
+      }
     }
     setLoading(false)
   }
@@ -100,20 +150,20 @@ export default function CharactersPage() {
     }
   }
 
+  /* ── Not Logged In ── */
   if (!isLoggedIn && !loading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-5 py-24 px-6">
-        <div className="w-16 h-16 rounded-[1.5rem] bg-zinc-800 border border-zinc-700/50 flex items-center justify-center">
-          <Wand2 className="w-7 h-7 text-zinc-500" />
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-6 py-24 px-6">
+        <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center">
+          <Wand2 className="w-8 h-8 text-zinc-500" />
         </div>
-        <div className="text-center space-y-1.5">
-          <p className="text-sm font-black uppercase tracking-tight text-white">请先登录</p>
-          <p className="text-[11px] text-zinc-500 leading-relaxed">登录后即可创建你的专属 AI 角色</p>
+        <div className="text-center space-y-2">
+          <p className="text-xl font-bold text-zinc-300">请先登录</p>
+          <p className="text-sm text-zinc-500 leading-relaxed">登录后即可创建你的专属 AI 角色</p>
         </div>
         <button
           onClick={() => router.push('/login')}
-          className="px-8 py-3 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
-          style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)', boxShadow: '0 0 20px rgba(236,72,153,0.3)' }}
+          className="px-8 py-3 rounded-2xl bg-pink-600 text-white text-xs font-black uppercase tracking-widest hover:bg-pink-500 transition-colors shadow-lg shadow-pink-900/20"
         >
           去登录
         </button>
@@ -122,138 +172,144 @@ export default function CharactersPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="min-h-screen bg-zinc-950 flex flex-col">
       {/* Alert Toast */}
       {alert && (
         <div
-          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg border max-w-[320px]"
-          style={
+          className={`fixed top-16 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg border transition-all max-w-[320px] backdrop-blur-xl ${
             alert.type === 'ok'
-              ? { background: 'rgba(236,72,153,0.15)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.3)', backdropFilter: 'blur(12px)' }
-              : { background: 'rgba(239,68,68,0.15)', color: '#EF4444', borderColor: 'rgba(239,68,68,0.3)', backdropFilter: 'blur(12px)' }
-          }
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+              : 'bg-red-500/10 text-red-400 border-red-500/30'
+          }`}
         >
           {alert.text}
         </div>
       )}
 
-      {/* Banner */}
-      <div className="px-5 pt-8 pb-6 relative overflow-hidden border-b border-zinc-800/50">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/10 blur-[60px] rounded-full pointer-events-none" />
-        <div className="flex items-start justify-between relative z-10">
+      {/* Header */}
+      <div className="px-5 pt-8 pb-6">
+        <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
-              <span className="text-[9px] font-mono font-black uppercase tracking-[0.4em] text-zinc-500">
-                My Characters
-              </span>
-            </div>
-            <h1 className="text-5xl font-black tracking-tighter text-white leading-none mb-2">捏崽</h1>
-            <p className="text-xs font-medium text-zinc-500">创建并管理你的 AI 角色</p>
+            <h1 className="text-2xl font-black tracking-tight text-white">我的角色</h1>
+            <p className="text-sm text-zinc-400 mt-1">创建并管理你的 AI 角色</p>
           </div>
           <button
             onClick={() => router.push('/aibaji/characters/new')}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 mt-1"
-            style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)', boxShadow: '0 0 16px rgba(236,72,153,0.3)' }}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-pink-600 text-white font-bold hover:bg-pink-500 transition-all active:scale-95 shadow-lg shadow-pink-900/20"
           >
-            <Plus className="w-3.5 h-3.5" strokeWidth={3} />
-            创建
+            <PlusCircle className="w-5 h-5" />
+            <span className="text-sm">创建</span>
           </button>
         </div>
       </div>
 
       {/* Character List */}
-      <div className="flex flex-col gap-2.5 px-4 pt-4 pb-4">
+      <div className="flex flex-col gap-5 px-4 pb-8">
+        {/* Loading Skeletons */}
         {loading && (
-          <div className="flex flex-col gap-2.5">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex flex-col gap-3 px-4 py-4 bg-zinc-900 border border-zinc-800/50 rounded-2xl animate-pulse">
-                <div className="flex items-center justify-between">
-                  <div className="h-4 bg-zinc-800 rounded-full w-1/3" />
-                  <div className="h-5 bg-zinc-800 rounded-full w-12" />
-                </div>
-                <div className="flex gap-2">
-                  <div className="h-8 bg-zinc-800 rounded-xl flex-1" />
-                  <div className="h-8 bg-zinc-800 rounded-xl flex-1" />
-                  <div className="h-8 bg-zinc-800 rounded-xl flex-1" />
-                </div>
-              </div>
+          <div className="flex flex-col gap-5">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-[420px] rounded-[2rem] bg-zinc-900 animate-pulse shadow-2xl" />
             ))}
           </div>
         )}
 
+        {/* Empty State */}
         {!loading && characters.length === 0 && (
-          <div className="py-16 flex flex-col items-center gap-4">
-            <div className="w-14 h-14 rounded-[1.25rem] bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
-              <Wand2 className="w-6 h-6 text-pink-500 opacity-50" />
+          <div className="flex flex-col items-center justify-center gap-5 py-16 border-2 border-dashed border-zinc-800/50 rounded-[2rem] bg-zinc-900/20">
+            <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center">
+              <Wand2 className="w-8 h-8 text-zinc-500" />
             </div>
-            <div className="text-center space-y-1">
-              <p className="text-xs font-black uppercase tracking-widest text-zinc-500">还没有创建过角色</p>
-              <p className="text-[11px] text-zinc-600">创建一个专属 AI 角色，还可以发布到广场</p>
+            <div className="text-center space-y-2">
+              <p className="text-xl font-bold text-zinc-300">还没有创建过角色</p>
+              <p className="text-sm text-zinc-500">创建一个专属 AI 角色，还可以发布到广场</p>
             </div>
             <button
               onClick={() => router.push('/aibaji/characters/new')}
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
-              style={{ background: 'linear-gradient(to right, #ec4899, #a855f7)' }}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-pink-600 text-white font-black uppercase tracking-widest hover:bg-pink-500 transition-all active:scale-95 shadow-lg shadow-pink-900/20"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={3} />
-              创建新角色
+              <PlusCircle className="w-5 h-5" />
+              <span className="text-xs">创建新角色</span>
             </button>
           </div>
         )}
 
-        {!loading && characters.map((c) => (
-          <div
-            key={c.id}
-            className="flex flex-col gap-3 px-4 py-4 bg-zinc-900 border border-zinc-800/50 rounded-2xl"
-          >
-            {/* Card Header */}
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-black text-white truncate">{c.name}</span>
-              <div
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex-shrink-0 border"
-                style={
-                  c.visibility === 'public'
-                    ? { background: 'rgba(236,72,153,0.1)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.2)' }
-                    : { background: 'rgba(255,255,255,0.04)', color: '#52525b', borderColor: 'rgba(63,63,70,0.5)' }
-                }
-              >
-                {c.visibility === 'public'
-                  ? <Globe className="w-2.5 h-2.5" />
-                  : <Lock className="w-2.5 h-2.5" />
-                }
-                <span>{c.visibility === 'public' ? '公开' : '私密'}</span>
+        {/* Character Cards */}
+        {!loading && characters.map((c) => {
+          const imgUrl = imgById[c.id]
+          return (
+            <div
+              key={c.id}
+              className="h-[420px] rounded-[2rem] bg-zinc-900 overflow-hidden relative group shadow-2xl"
+            >
+              {/* Full-bleed image */}
+              {imgUrl ? (
+                <img
+                  src={imgUrl}
+                  alt={c.name}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
+                  <Wand2 className="w-16 h-16 text-zinc-800" />
+                </div>
+              )}
+
+              {/* Gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent opacity-90" />
+
+              {/* Status badge - top left */}
+              <div className="absolute top-4 left-4 z-10">
+                {c.visibility === 'public' ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>公开</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border bg-zinc-800/50 text-zinc-300 border-zinc-700/50">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>私密</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom content */}
+              <div className="absolute bottom-0 left-0 right-0 p-5 z-10 flex flex-col gap-3">
+                {/* Name */}
+                <h2 className="text-2xl font-black text-white tracking-tight drop-shadow-lg">
+                  {c.name}
+                </h2>
+
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <button
+                    disabled={publishingId === c.id}
+                    onClick={() => { void togglePublish(c) }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/10 text-white text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {c.visibility === 'public' ? <Lock className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
+                    {publishingId === c.id ? '处理中' : c.visibility === 'public' ? '取消发布' : '发布'}
+                  </button>
+                  <button
+                    onClick={() => router.push(`/aibaji/characters/${c.id}/edit`)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/10 text-white text-sm font-bold transition-all active:scale-95"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    编辑
+                  </button>
+                  <button
+                    disabled={deletingId === c.id}
+                    onClick={() => { void deleteCharacter(c) }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {deletingId === c.id ? '删除中' : '删除'}
+                  </button>
+                </div>
               </div>
             </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              <button
-                disabled={publishingId === c.id}
-                onClick={() => { void togglePublish(c) }}
-                className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 border"
-                style={{ background: 'rgba(236,72,153,0.08)', color: '#ec4899', borderColor: 'rgba(236,72,153,0.2)' }}
-              >
-                {publishingId === c.id ? '处理中' : c.visibility === 'public' ? '取消发布' : '发布'}
-              </button>
-              <button
-                onClick={() => router.push(`/aibaji/characters/${c.id}/edit`)}
-                className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-zinc-800 text-zinc-400 border border-zinc-700/50 hover:bg-zinc-700 active:scale-95 transition-all flex items-center justify-center gap-1"
-              >
-                <Pencil className="w-3 h-3" />
-                编辑
-              </button>
-              <button
-                disabled={deletingId === c.id}
-                onClick={() => { void deleteCharacter(c) }}
-                className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
-              >
-                <Trash2 className="w-3 h-3" />
-                {deletingId === c.id ? '删除中' : '删除'}
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
