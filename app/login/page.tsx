@@ -70,7 +70,7 @@ export default function LoginPage() {
   useEffect(() => {
     ;(async () => {
       const { data } = await supabase.auth.getUser()
-      if (data.user) router.replace('/home')
+      if (data.user) router.replace('/aibaji/square')
     })().catch(() => {})
   }, [router])
 
