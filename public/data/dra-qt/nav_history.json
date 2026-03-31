@@ -1,0 +1,26 @@
+[
+  {
+    "time": "2026-03-31 05:46:14.781691",
+    "nav": 100000.0,
+    "cash": 100000.0,
+    "drawdown_pct": 0.0,
+    "unrealized_pnl": 0.0,
+    "realized_pnl": 0.0
+  },
+  {
+    "time": "2026-03-31 05:47:01.672197",
+    "nav": 99887.46,
+    "cash": 24887.46,
+    "drawdown_pct": -0.1125,
+    "unrealized_pnl": -112.54,
+    "realized_pnl": 0.0
+  },
+  {
+    "time": "2026-03-31 08:06:18.369815",
+    "nav": 99834.89,
+    "cash": 19924.92,
+    "drawdown_pct": -0.1651,
+    "unrealized_pnl": -119.9,
+    "realized_pnl": -45.2
+  }
+]
