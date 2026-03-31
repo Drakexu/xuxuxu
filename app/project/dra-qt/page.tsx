@@ -76,6 +76,14 @@ interface Signals {
   horizon_tops: Record<string, string[]>
 }
 
+interface IndexData {
+  name: string
+  symbol: string
+  price: number
+  change: number
+  change_pct: number
+}
+
 interface Metadata {
   last_updated: string
 }
@@ -134,6 +142,7 @@ export default function DraQTDashboard() {
   const [navHistory, setNavHistory] = useState<NavPoint[]>([])
   const [signals, setSignals] = useState<Signals | null>(null)
   const [metadata, setMetadata] = useState<Metadata | null>(null)
+  const [indices, setIndices] = useState<IndexData[]>([])
   const [loading, setLoading] = useState(true)
 
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
@@ -150,6 +159,7 @@ export default function DraQTDashboard() {
       fetchJson<NavPoint[]>("nav_history.json").then((d) => setNavHistory(d ?? [])),
       fetchJson<Signals>("signals.json").then(setSignals),
       fetchJson<Metadata>("metadata.json").then(setMetadata),
+      fetchJson<IndexData[]>("indices.json").then((d) => setIndices(d ?? [])),
     ])
     setLastRefresh(new Date())
     setSecondsAgo(0)
@@ -287,6 +297,35 @@ export default function DraQTDashboard() {
                     {card.value}
                   </p>
                   <p className="text-[11px] text-zinc-400 font-medium tracking-wide">{card.detail}</p>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ─── US Market Indices ─────────────────────────────────── */}
+        {indices.length > 0 && (
+          <section>
+            <div className="grid grid-cols-3 gap-3">
+              {indices.map((idx) => (
+                <motion.div
+                  key={idx.symbol}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center justify-between px-5 py-4 rounded-2xl bg-white border border-zinc-100 shadow-sm"
+                >
+                  <div>
+                    <p className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider">{idx.name}</p>
+                    <p className="text-lg font-black text-zinc-900 tracking-tight">{fmtShort(idx.price)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-bold font-mono ${idx.change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      {idx.change >= 0 ? "+" : ""}{fmt(idx.change, 2)}
+                    </p>
+                    <p className={`text-xs font-mono ${idx.change >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                      {idx.change_pct >= 0 ? "+" : ""}{fmt(idx.change_pct, 2)}%
+                    </p>
+                  </div>
                 </motion.div>
               ))}
             </div>
