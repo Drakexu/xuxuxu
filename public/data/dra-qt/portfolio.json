@@ -3,36 +3,36 @@
     "symbol": "GOOGL",
     "qty": 73,
     "avg_cost": 273.91,
-    "market_price": 281.42,
-    "market_value": 20543.66,
-    "unrealized_pnl": 548.2,
+    "market_price": 281.62,
+    "market_value": 20558.26,
+    "unrealized_pnl": 562.8,
     "weight_pct": 25.2
   },
   {
     "symbol": "META",
     "qty": 37,
     "avg_cost": 537.18,
-    "market_price": 552.83,
-    "market_value": 20454.71,
-    "unrealized_pnl": 578.87,
+    "market_price": 553.2,
+    "market_value": 20468.4,
+    "unrealized_pnl": 592.56,
     "weight_pct": 25.1
   },
   {
     "symbol": "MSFT",
     "qty": 55,
     "avg_cost": 359.5,
-    "market_price": 363.55,
-    "market_value": 19995.52,
-    "unrealized_pnl": 223.1,
+    "market_price": 363.6,
+    "market_value": 19998.0,
+    "unrealized_pnl": 225.58,
     "weight_pct": 24.6
   },
   {
     "symbol": "NVDA",
     "qty": 120,
     "avg_cost": 165.42,
-    "market_price": 170.23,
-    "market_value": 20427.6,
-    "unrealized_pnl": 577.46,
+    "market_price": 170.27,
+    "market_value": 20433.0,
+    "unrealized_pnl": 582.86,
     "weight_pct": 25.1
   }
 ]
