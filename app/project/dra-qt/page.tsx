@@ -79,7 +79,7 @@ interface Metadata {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
-const DATA_BASE = "/data/dra-qt"
+const DATA_BASE = "/api/dra-qt"
 
 async function fetchJson<T>(file: string): Promise<T | null> {
   try {
