@@ -79,19 +79,13 @@ interface Metadata {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
-const API_BASE = "http://116.62.9.211"
-const LOCAL_BASE = "/data/dra-qt"
+const DATA_BASE = "/data/dra-qt"
 
 async function fetchJson<T>(file: string): Promise<T | null> {
-  // Try remote API first, fallback to local static files
-  for (const base of [API_BASE, LOCAL_BASE]) {
-    try {
-      const res = await fetch(`${base}/${file}`, { cache: "no-store" })
-      if (res.ok) return res.json()
-    } catch {
-      continue
-    }
-  }
+  try {
+    const res = await fetch(`${DATA_BASE}/${file}?t=${Date.now()}`, { cache: "no-store" })
+    if (res.ok) return res.json()
+  } catch { /* ignore */ }
   return null
 }
 
