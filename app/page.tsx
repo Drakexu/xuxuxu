@@ -9,6 +9,7 @@ import {
   Heart,
   Languages,
   Zap,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react"
 import Link from "next/link"
@@ -39,6 +40,18 @@ const projects: Project[] = [
     accentColor: "#EC4899",
     lightAccentColor: "#FDF2F8",
     link: "/project/aibaji",
+  },
+  {
+    id: "dra-qt",
+    name: "Dra.QT",
+    subtitle: "AI 量化交易实验",
+    description: "6 个时间维度的 LightGBM 模型独立预测，跨周期共振分析筛选高置信度信号。融合量价交互因子与宏观指标，让 AI 替你盯盘。",
+    tags: ["量化", "机器学习", "交易"],
+    status: "live",
+    icon: TrendingUp,
+    accentColor: "#10B981",
+    lightAccentColor: "#ECFDF5",
+    link: "/project/dra-qt",
   },
   {
     id: "project-2",
