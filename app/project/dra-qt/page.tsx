@@ -277,8 +277,8 @@ export default function DraQTDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: "NAV", value: `$${fmtShort(account.nav)}`, icon: DollarSign, detail: `Initial $${fmtShort(account.initial)}` },
-                { label: "Today P&L", value: `${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, icon: account.daily_pnl >= 0 ? TrendingUp : TrendingDown, detail: `${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, color: account.daily_pnl >= 0 },
-                { label: "Today Return", value: `${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, icon: Activity, detail: `${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, color: account.daily_return_pct >= 0 },
+                { label: "Today P&L", value: `${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, icon: account.daily_pnl >= 0 ? TrendingUp : TrendingDown, detail: `${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, color: account.daily_pnl >= 0, detailColor: account.daily_return_pct },
+                { label: "Today Return", value: `${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, icon: Activity, detail: `${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, color: account.daily_return_pct >= 0, detailColor: account.daily_pnl },
                 { label: "Cash", value: `$${fmtShort(account.cash)}`, icon: Wallet, detail: `${fmt(account.cash / account.nav * 100, 1)}% of NAV` },
               ].map((card, i) => (
                 <motion.div
@@ -296,7 +296,11 @@ export default function DraQTDashboard() {
                   <p className={`text-2xl md:text-3xl font-black tracking-tight ${card.color === false ? "text-red-500" : card.color === true ? "text-emerald-600" : "text-zinc-900"}`}>
                     {card.value}
                   </p>
-                  <p className="text-[11px] text-zinc-400 font-medium tracking-wide">{card.detail}</p>
+                  <p className={`text-[11px] font-medium tracking-wide ${
+                    card.detailColor !== undefined
+                      ? card.detailColor > 0 ? "text-emerald-500" : card.detailColor < 0 ? "text-red-400" : "text-zinc-400"
+                      : "text-zinc-400"
+                  }`}>{card.detail}</p>
                 </motion.div>
               ))}
             </div>
