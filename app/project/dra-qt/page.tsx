@@ -79,16 +79,20 @@ interface Metadata {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
-const BASE = "/data/dra-qt"
+const API_BASE = "http://116.62.9.211"
+const LOCAL_BASE = "/data/dra-qt"
 
 async function fetchJson<T>(file: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${BASE}/${file}`)
-    if (!res.ok) return null
-    return res.json()
-  } catch {
-    return null
+  // Try remote API first, fallback to local static files
+  for (const base of [API_BASE, LOCAL_BASE]) {
+    try {
+      const res = await fetch(`${base}/${file}`, { cache: "no-store" })
+      if (res.ok) return res.json()
+    } catch {
+      continue
+    }
   }
+  return null
 }
 
 function fmt(n: number, decimals = 2): string {
@@ -136,16 +140,23 @@ export default function DraQTDashboard() {
   const [metadata, setMetadata] = useState<Metadata | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    Promise.all([
+  const loadData = React.useCallback(() => {
+    return Promise.all([
       fetchJson<Account>("account.json").then(setAccount),
       fetchJson<Position[]>("portfolio.json").then((d) => setPortfolio(d ?? [])),
       fetchJson<Order[]>("orders.json").then((d) => setOrders(d ?? [])),
       fetchJson<NavPoint[]>("nav_history.json").then((d) => setNavHistory(d ?? [])),
       fetchJson<Signals>("signals.json").then(setSignals),
       fetchJson<Metadata>("metadata.json").then(setMetadata),
-    ]).finally(() => setLoading(false))
+    ])
   }, [])
+
+  useEffect(() => {
+    loadData().finally(() => setLoading(false))
+    // Auto-refresh every 60 seconds
+    const interval = setInterval(loadData, 60_000)
+    return () => clearInterval(interval)
+  }, [loadData])
 
   if (loading) {
     return (
