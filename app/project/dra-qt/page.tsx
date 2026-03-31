@@ -266,7 +266,7 @@ export default function DraQTDashboard() {
               {[
                 { label: "NAV", value: `$${fmtShort(account.nav)}`, icon: DollarSign, detail: `Initial $${fmtShort(account.initial)}` },
                 { label: "Total P&L", value: `${account.total_pnl >= 0 ? "+" : ""}$${fmtShort(account.total_pnl)}`, icon: account.total_pnl >= 0 ? TrendingUp : TrendingDown, detail: `${account.total_return_pct >= 0 ? "+" : ""}${fmt(account.total_return_pct, 2)}%`, color: account.total_pnl >= 0 },
-                { label: "Drawdown", value: `${fmt(account.drawdown_pct, 2)}%`, icon: Activity, detail: "Max drawdown" },
+                { label: "Return", value: `${account.total_return_pct >= 0 ? "+" : ""}${fmt(account.total_return_pct, 2)}%`, icon: Activity, detail: `Drawdown ${fmt(account.drawdown_pct, 2)}%`, color: account.total_return_pct >= 0 },
                 { label: "Cash", value: `$${fmtShort(account.cash)}`, icon: Wallet, detail: `${fmt(account.cash / account.nav * 100, 1)}% of NAV` },
               ].map((card, i) => (
                 <motion.div
