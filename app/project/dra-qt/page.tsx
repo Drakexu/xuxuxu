@@ -320,7 +320,7 @@ export default function DraQTDashboard() {
                 >
                   <div>
                     <p className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider">{idx.name}</p>
-                    <p className="text-lg font-black text-zinc-900 tracking-tight">{fmtShort(idx.price)}</p>
+                    <p className={`text-lg font-black tracking-tight ${idx.change >= 0 ? "text-emerald-600" : "text-red-500"}`}>{idx.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-bold font-mono ${idx.change >= 0 ? "text-emerald-600" : "text-red-500"}`}>

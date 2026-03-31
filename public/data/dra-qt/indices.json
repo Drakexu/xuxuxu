@@ -2,22 +2,22 @@
   {
     "name": "S&P 500",
     "symbol": "^GSPC",
-    "price": 6432.59,
-    "change": 88.84,
-    "change_pct": 1.4
+    "price": 6437.38,
+    "change": 93.63,
+    "change_pct": 1.48
   },
   {
     "name": "Nasdaq",
     "symbol": "^IXIC",
-    "price": 21175.43,
-    "change": 380.79,
-    "change_pct": 1.83
+    "price": 21206.46,
+    "change": 411.82,
+    "change_pct": 1.98
   },
   {
     "name": "Dow Jones",
     "symbol": "^DJI",
-    "price": 45709.21,
-    "change": 489.91,
-    "change_pct": 1.08
+    "price": 45714.87,
+    "change": 495.57,
+    "change_pct": 1.1
   }
 ]
