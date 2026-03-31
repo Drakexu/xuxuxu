@@ -7,6 +7,7 @@ const ALLOWED_PATHS = [
   "orders.json",
   "nav_history.json",
   "signals.json",
+  "indices.json",
   "metadata.json",
 ];
 
