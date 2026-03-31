@@ -140,8 +140,14 @@ export default function DraQTDashboard() {
   const [metadata, setMetadata] = useState<Metadata | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const loadData = React.useCallback(() => {
-    return Promise.all([
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [secondsAgo, setSecondsAgo] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const REFRESH_INTERVAL = 30 // seconds
+
+  const loadData = React.useCallback(async (manual = false) => {
+    if (manual) setRefreshing(true)
+    await Promise.all([
       fetchJson<Account>("account.json").then(setAccount),
       fetchJson<Position[]>("portfolio.json").then((d) => setPortfolio(d ?? [])),
       fetchJson<Order[]>("orders.json").then((d) => setOrders(d ?? [])),
@@ -149,14 +155,22 @@ export default function DraQTDashboard() {
       fetchJson<Signals>("signals.json").then(setSignals),
       fetchJson<Metadata>("metadata.json").then(setMetadata),
     ])
+    setLastRefresh(new Date())
+    setSecondsAgo(0)
+    if (manual) setRefreshing(false)
   }, [])
 
   useEffect(() => {
     loadData().finally(() => setLoading(false))
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(loadData, 60_000)
+    const interval = setInterval(() => loadData(), REFRESH_INTERVAL * 1000)
     return () => clearInterval(interval)
   }, [loadData])
+
+  // Tick the "seconds ago" counter every second
+  useEffect(() => {
+    const tick = setInterval(() => setSecondsAgo((s) => s + 1), 1000)
+    return () => clearInterval(tick)
+  }, [])
 
   if (loading) {
     return (
@@ -219,12 +233,35 @@ export default function DraQTDashboard() {
               </p>
             </div>
           </div>
-          {metadata && (
-            <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-300 uppercase tracking-wider justify-center md:justify-start">
-              <Clock className="w-3 h-3" />
-              Last updated: {new Date(metadata.last_updated).toLocaleString()}
+          <div className="flex flex-col sm:flex-row items-center gap-3 justify-center md:justify-start">
+            {metadata && (
+              <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-300 uppercase tracking-wider">
+                <Clock className="w-3 h-3" />
+                Data: {new Date(metadata.last_updated).toLocaleString()}
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              {/* Live pulse + countdown */}
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                {secondsAgo < REFRESH_INTERVAL
+                  ? <span className="text-emerald-600">{REFRESH_INTERVAL - secondsAgo}s</span>
+                  : <span className="text-zinc-300">refreshing…</span>
+                }
+              </div>
+              {/* Manual refresh button */}
+              <button
+                onClick={() => loadData(true)}
+                disabled={refreshing}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-700 transition-all text-[10px] font-mono uppercase tracking-wider disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+              </button>
             </div>
-          )}
+          </div>
         </section>
 
         {/* ─── Account Overview Cards ─────────────────────────────── */}
