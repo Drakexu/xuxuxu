@@ -277,8 +277,8 @@ export default function DraQTDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: "NAV", value: `$${fmtShort(account.nav)}`, icon: DollarSign, detail: `Initial $${fmtShort(account.initial)}` },
-                { label: "Today P&L", value: `${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, icon: account.daily_pnl >= 0 ? TrendingUp : TrendingDown, detail: `今日损益金额`, color: account.daily_pnl >= 0 },
-                { label: "Today Return", value: `${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, icon: Activity, detail: `今日损益比例`, color: account.daily_return_pct >= 0 },
+                { label: "Today P&L", value: `${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, icon: account.daily_pnl >= 0 ? TrendingUp : TrendingDown, detail: `${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, color: account.daily_pnl >= 0 },
+                { label: "Today Return", value: `${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, icon: Activity, detail: `${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, color: account.daily_return_pct >= 0 },
                 { label: "Cash", value: `$${fmtShort(account.cash)}`, icon: Wallet, detail: `${fmt(account.cash / account.nav * 100, 1)}% of NAV` },
               ].map((card, i) => (
                 <motion.div
