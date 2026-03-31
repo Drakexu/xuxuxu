@@ -27,6 +27,8 @@ interface Account {
   total_pnl: number
   total_return_pct: number
   drawdown_pct: number
+  daily_pnl: number
+  daily_return_pct: number
 }
 
 interface Position {
@@ -265,8 +267,8 @@ export default function DraQTDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: "NAV", value: `$${fmtShort(account.nav)}`, icon: DollarSign, detail: `Initial $${fmtShort(account.initial)}` },
-                { label: "Total P&L", value: `${account.total_pnl >= 0 ? "+" : ""}$${fmtShort(account.total_pnl)}`, icon: account.total_pnl >= 0 ? TrendingUp : TrendingDown, detail: `${account.total_return_pct >= 0 ? "+" : ""}${fmt(account.total_return_pct, 2)}%`, color: account.total_pnl >= 0 },
-                { label: "Return", value: `${account.total_return_pct >= 0 ? "+" : ""}${fmt(account.total_return_pct, 2)}%`, icon: Activity, detail: `Drawdown ${fmt(account.drawdown_pct, 2)}%`, color: account.total_return_pct >= 0 },
+                { label: "Today P&L", value: `${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, icon: account.daily_pnl >= 0 ? TrendingUp : TrendingDown, detail: `今日损益金额`, color: account.daily_pnl >= 0 },
+                { label: "Today Return", value: `${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, icon: Activity, detail: `今日损益比例`, color: account.daily_return_pct >= 0 },
                 { label: "Cash", value: `$${fmtShort(account.cash)}`, icon: Wallet, detail: `${fmt(account.cash / account.nav * 100, 1)}% of NAV` },
               ].map((card, i) => (
                 <motion.div
@@ -284,7 +286,7 @@ export default function DraQTDashboard() {
                   <p className={`text-2xl md:text-3xl font-black tracking-tight ${card.color === false ? "text-red-500" : card.color === true ? "text-emerald-600" : "text-zinc-900"}`}>
                     {card.value}
                   </p>
-                  <p className="text-[9px] text-zinc-400 font-black uppercase tracking-wider">{card.detail}</p>
+                  <p className="text-[11px] text-zinc-400 font-medium tracking-wide">{card.detail}</p>
                 </motion.div>
               ))}
             </div>
@@ -342,6 +344,66 @@ export default function DraQTDashboard() {
                             </div>
                             <span className="text-[10px] font-mono text-zinc-400">{fmt(p.weight_pct, 1)}%</span>
                           </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ─── Orders Table ───────────────────────────────────────── */}
+        {orders.length > 0 && (
+          <section className="space-y-6">
+            <SectionHeader title="Recent Orders" />
+            <div className="rounded-[2rem] bg-white border border-zinc-100 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-zinc-50">
+                      {["Time", "Symbol", "Side", "Qty", "Price", "Status"].map((h) => (
+                        <th key={h} className="px-5 py-4 text-[9px] font-mono font-black text-zinc-300 uppercase tracking-widest whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((o, i) => (
+                      <motion.tr
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.03 }}
+                        className="border-b border-zinc-50/50 hover:bg-zinc-50/30 transition-colors"
+                      >
+                        <td className="px-5 py-3 text-[10px] font-mono text-zinc-400 whitespace-nowrap">
+                          {new Date(o.time).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false })}
+                        </td>
+                        <td className="px-5 py-3 text-sm font-black text-zinc-900 tracking-tight">{o.symbol}</td>
+                        <td className="px-5 py-3">
+                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase ${
+                            o.side === "buy" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+                          }`}>
+                            {o.side}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-xs font-mono text-zinc-600">{o.qty}</td>
+                        <td className="px-5 py-3 text-xs font-mono text-zinc-600">{o.price ? `$${fmt(o.price)}` : "—"}</td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase ${
+                              o.status === "filled" ? "bg-emerald-50 text-emerald-700" :
+                              o.status === "rejected" ? "bg-red-50 text-red-600" :
+                              "bg-zinc-50 text-zinc-500"
+                            }`}
+                            title={o.status === "rejected" ? "风控拦截：触发了风控规则（如持仓上限、现金不足等）" : ""}
+                          >
+                            {o.status === "rejected" ? "风控拦截" : o.status}
+                          </span>
                         </td>
                       </motion.tr>
                     ))}
@@ -419,63 +481,6 @@ export default function DraQTDashboard() {
                           )
                         })}
                         <td className="px-5 py-3 text-xs font-mono text-zinc-600 text-right">${fmt(s.price)}</td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ─── Orders Table ───────────────────────────────────────── */}
-        {orders.length > 0 && (
-          <section className="space-y-6">
-            <SectionHeader title="Recent Orders" />
-            <div className="rounded-[2rem] bg-white border border-zinc-100 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-zinc-50">
-                      {["Time", "Symbol", "Side", "Qty", "Price", "Status"].map((h) => (
-                        <th key={h} className="px-5 py-4 text-[9px] font-mono font-black text-zinc-300 uppercase tracking-widest whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((o, i) => (
-                      <motion.tr
-                        key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: i * 0.03 }}
-                        className="border-b border-zinc-50/50 hover:bg-zinc-50/30 transition-colors"
-                      >
-                        <td className="px-5 py-3 text-[10px] font-mono text-zinc-400 whitespace-nowrap">
-                          {new Date(o.time).toLocaleString()}
-                        </td>
-                        <td className="px-5 py-3 text-sm font-black text-zinc-900 tracking-tight">{o.symbol}</td>
-                        <td className="px-5 py-3">
-                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase ${
-                            o.side === "buy" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
-                          }`}>
-                            {o.side}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-xs font-mono text-zinc-600">{o.qty}</td>
-                        <td className="px-5 py-3 text-xs font-mono text-zinc-600">{o.price ? `$${fmt(o.price)}` : "—"}</td>
-                        <td className="px-5 py-3">
-                          <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase ${
-                            o.status === "filled" ? "bg-emerald-50 text-emerald-700" :
-                            o.status === "rejected" ? "bg-red-50 text-red-600" :
-                            "bg-zinc-50 text-zinc-500"
-                          }`}>
-                            {o.status}
-                          </span>
-                        </td>
                       </motion.tr>
                     ))}
                   </tbody>
