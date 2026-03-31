@@ -22,7 +22,7 @@ export async function GET(
   }
 
   try {
-    const res = await fetch(`${XANA_API}/data/${file}`, {
+    const res = await fetch(`${XANA_API}/${file}`, {
       next: { revalidate: 60 }, // cache 60s on Vercel edge
     });
 
