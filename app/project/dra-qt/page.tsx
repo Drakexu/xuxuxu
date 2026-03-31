@@ -95,6 +95,14 @@ function fmt(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
+function fmtShort(n: number): string {
+  const abs = Math.abs(n)
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (abs >= 10_000) return `${(n / 1_000).toFixed(1)}K`
+  if (abs >= 1_000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 })
+  return fmt(n, 2)
+}
+
 function pnlColor(n: number): string {
   if (n > 0) return "text-emerald-600"
   if (n < 0) return "text-red-500"
@@ -214,10 +222,10 @@ export default function DraQTDashboard() {
             <SectionHeader title="Account Overview" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: "NAV", value: `$${fmt(account.nav)}`, icon: DollarSign, detail: `Initial $${fmt(account.initial, 0)}` },
-                { label: "Total P&L", value: `${account.total_pnl >= 0 ? "+" : ""}$${fmt(account.total_pnl)}`, icon: account.total_pnl >= 0 ? TrendingUp : TrendingDown, detail: `${account.total_return_pct >= 0 ? "+" : ""}${fmt(account.total_return_pct, 4)}%`, color: account.total_pnl >= 0 },
-                { label: "Drawdown", value: `${fmt(account.drawdown_pct, 4)}%`, icon: Activity, detail: "Max drawdown" },
-                { label: "Cash", value: `$${fmt(account.cash)}`, icon: Wallet, detail: `${fmt(account.cash / account.nav * 100, 1)}% of NAV` },
+                { label: "NAV", value: `$${fmtShort(account.nav)}`, icon: DollarSign, detail: `Initial $${fmtShort(account.initial)}` },
+                { label: "Total P&L", value: `${account.total_pnl >= 0 ? "+" : ""}$${fmtShort(account.total_pnl)}`, icon: account.total_pnl >= 0 ? TrendingUp : TrendingDown, detail: `${account.total_return_pct >= 0 ? "+" : ""}${fmt(account.total_return_pct, 2)}%`, color: account.total_pnl >= 0 },
+                { label: "Drawdown", value: `${fmt(account.drawdown_pct, 2)}%`, icon: Activity, detail: "Max drawdown" },
+                { label: "Cash", value: `$${fmtShort(account.cash)}`, icon: Wallet, detail: `${fmt(account.cash / account.nav * 100, 1)}% of NAV` },
               ].map((card, i) => (
                 <motion.div
                   key={i}
@@ -278,7 +286,7 @@ export default function DraQTDashboard() {
                         className="border-b border-zinc-50/50 hover:bg-zinc-50/30 transition-colors"
                       >
                         <td className="px-5 py-4 text-sm font-black text-zinc-900 tracking-tight">{p.symbol}</td>
-                        <td className="px-5 py-4 text-xs font-mono text-zinc-600">{fmt(p.qty)}</td>
+                        <td className="px-5 py-4 text-xs font-mono text-zinc-600">{p.qty}</td>
                         <td className="px-5 py-4 text-xs font-mono text-zinc-600">${fmt(p.avg_cost)}</td>
                         <td className="px-5 py-4 text-xs font-mono text-zinc-600">${fmt(p.market_price)}</td>
                         <td className="px-5 py-4 text-xs font-mono text-zinc-900 font-bold">${fmt(p.market_value, 0)}</td>
@@ -415,7 +423,7 @@ export default function DraQTDashboard() {
                             {o.side}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-xs font-mono text-zinc-600">{fmt(o.qty)}</td>
+                        <td className="px-5 py-3 text-xs font-mono text-zinc-600">{o.qty}</td>
                         <td className="px-5 py-3 text-xs font-mono text-zinc-600">{o.price ? `$${fmt(o.price)}` : "—"}</td>
                         <td className="px-5 py-3">
                           <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase ${
