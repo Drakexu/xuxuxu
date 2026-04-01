@@ -9,6 +9,7 @@ const ALLOWED_PATHS = [
   "signals.json",
   "indices.json",
   "metadata.json",
+  "intraday_signals.json",
 ];
 
 export async function GET(
