@@ -697,12 +697,15 @@ export default function DraQTDashboard() {
                     const lastEquity = parseFloat(alpacaAccount.last_equity)
                     const cash = parseFloat(alpacaAccount.cash)
                     const buyingPower = parseFloat(alpacaAccount.buying_power)
+                    const initialCapital = 100000
                     const dayPnl = equity - lastEquity
                     const dayPct = lastEquity ? (dayPnl / lastEquity) * 100 : 0
+                    const totalPnl = equity - initialCapital
+                    const totalPct = (totalPnl / initialCapital) * 100
                     return [
                       { label: "Equity", value: `$${fmtShort(equity)}`, icon: DollarSign, detail: `Last close $${fmtShort(lastEquity)}` },
-                      { label: "Day P&L", value: `${dayPnl >= 0 ? "+" : ""}$${fmtShort(dayPnl)}`, icon: dayPnl >= 0 ? TrendingUp : TrendingDown, detail: `${dayPct >= 0 ? "+" : ""}${fmt(dayPct, 2)}%`, color: dayPnl >= 0, detailColor: dayPnl },
-                      { label: "Buying Power", value: `$${fmtShort(buyingPower)}`, icon: BarChart3, detail: `${fmt(buyingPower / equity * 100, 0)}% of equity` },
+                      { label: "累计损益", value: `${totalPnl >= 0 ? "+" : ""}$${fmtShort(totalPnl)}`, icon: totalPnl >= 0 ? TrendingUp : TrendingDown, detail: `本交易日 ${dayPnl >= 0 ? "+" : ""}$${fmtShort(dayPnl)}`, color: totalPnl >= 0, detailColor: dayPnl },
+                      { label: "累计收益率", value: `${totalPct >= 0 ? "+" : ""}${fmt(totalPct, 2)}%`, icon: Activity, detail: `本交易日 ${dayPct >= 0 ? "+" : ""}${fmt(dayPct, 2)}%`, color: totalPct >= 0, detailColor: dayPnl },
                       { label: "Cash", value: `$${fmtShort(cash)}`, icon: Wallet, detail: `${fmt(cash / equity * 100, 1)}% of equity` },
                     ]
                   })().map((card, i) => (

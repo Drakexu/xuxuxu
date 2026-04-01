@@ -3,72 +3,36 @@
     "symbol": "SNOW",
     "qty": 192,
     "avg_cost": 151.05,
-    "market_price": 150.82,
-    "market_value": 28957.44,
-    "unrealized_pnl": -43.45,
+    "market_price": 154.89,
+    "market_value": 29738.88,
+    "unrealized_pnl": 737.99,
     "weight_pct": 36.6
   },
   {
     "symbol": "INTC",
     "qty": 503,
     "avg_cost": 44.2,
-    "market_price": 44.13,
-    "market_value": 22197.39,
-    "unrealized_pnl": -33.31,
-    "weight_pct": 28.1
+    "market_price": 48.19,
+    "market_value": 24237.06,
+    "unrealized_pnl": 2006.36,
+    "weight_pct": 29.8
   },
   {
     "symbol": "ARKK",
     "qty": 232,
     "avg_cost": 67.69,
-    "market_price": 67.59,
-    "market_value": 15680.88,
-    "unrealized_pnl": -23.53,
-    "weight_pct": 19.8
+    "market_price": 68.71,
+    "market_value": 15941.88,
+    "unrealized_pnl": 237.47,
+    "weight_pct": 19.6
   },
   {
     "symbol": "TQQQ",
     "qty": 260,
     "avg_cost": 41.74,
-    "market_price": 41.68,
-    "market_value": 10836.8,
-    "unrealized_pnl": -16.26,
-    "weight_pct": 13.7
-  },
-  {
-    "symbol": "GOOGL",
-    "qty": 1,
-    "avg_cost": 0.0,
-    "market_price": 287.56,
-    "market_value": 287.56,
-    "unrealized_pnl": 287.56,
-    "weight_pct": 0.4
-  },
-  {
-    "symbol": "META",
-    "qty": 1,
-    "avg_cost": 0.0,
-    "market_price": 572.13,
-    "market_value": 572.13,
-    "unrealized_pnl": 572.13,
-    "weight_pct": 0.7
-  },
-  {
-    "symbol": "MSFT",
-    "qty": 1,
-    "avg_cost": 0.0,
-    "market_price": 370.17,
-    "market_value": 370.17,
-    "unrealized_pnl": 370.17,
-    "weight_pct": 0.5
-  },
-  {
-    "symbol": "NVDA",
-    "qty": 1,
-    "avg_cost": 0.0,
-    "market_price": 174.4,
-    "market_value": 174.4,
-    "unrealized_pnl": 174.4,
-    "weight_pct": 0.2
+    "market_price": 43.41,
+    "market_value": 11286.6,
+    "unrealized_pnl": 433.54,
+    "weight_pct": 13.9
   }
 ]
