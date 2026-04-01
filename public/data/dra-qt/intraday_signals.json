@@ -1,0 +1,305 @@
+{
+  "timestamp": "2026-04-01T06:44:36.730437+00:00",
+  "signals": [
+    {
+      "symbol": "SNOW",
+      "action": "BUY",
+      "confidence": 0.8333,
+      "prediction": 0.113837,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.8333,
+      "appearances": 5,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "MU",
+      "action": "BUY",
+      "confidence": 0.6667,
+      "prediction": 0.086474,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.6667,
+      "appearances": 4,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "ARKK",
+      "action": "BUY",
+      "confidence": 0.6667,
+      "prediction": 0.061503,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.6667,
+      "appearances": 4,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "TQQQ",
+      "action": "BUY",
+      "confidence": 0.6667,
+      "prediction": 0.042519,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.6667,
+      "appearances": 4,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "INTC",
+      "action": "BUY",
+      "confidence": 0.5,
+      "prediction": 0.087164,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.5,
+      "appearances": 3,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "PLTR",
+      "action": "BUY",
+      "confidence": 0.5,
+      "prediction": 0.062541,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.5,
+      "appearances": 3,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "QQQ",
+      "action": "BUY",
+      "confidence": 0.3333,
+      "prediction": 0.083359,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.3333,
+      "appearances": 2,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "SOXX",
+      "action": "BUY",
+      "confidence": 0.1667,
+      "prediction": 0.037304,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.1667,
+      "appearances": 1,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "MSFT",
+      "action": "BUY",
+      "confidence": 0.1667,
+      "prediction": 0.031615,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.1667,
+      "appearances": 1,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "NVDA",
+      "action": "BUY",
+      "confidence": 0.1667,
+      "prediction": 0.024873,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.1667,
+      "appearances": 1,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "TSLA",
+      "action": "BUY",
+      "confidence": 0.1667,
+      "prediction": 0.017549,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.1667,
+      "appearances": 1,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "QCOM",
+      "action": "BUY",
+      "confidence": 0.1667,
+      "prediction": 0.009966,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.1667,
+      "appearances": 1,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "SMH",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.040409,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "CSCO",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.030746,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "AVGO",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.028722,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "AMZN",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.02744,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "PANW",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.02669,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "NOW",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.026224,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "META",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.022838,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "NFLX",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.021432,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "CRM",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.018938,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "AMD",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.016114,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "AMAT",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.014709,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "XLK",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.011863,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "AAPL",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.010075,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "GOOGL",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.009731,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "SHOP",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.009077,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "UBER",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.004977,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "ORCL",
+      "action": "BUY",
+      "confidence": 0.0,
+      "prediction": 0.004071,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    },
+    {
+      "symbol": "ADBE",
+      "action": "SELL",
+      "confidence": 0.0,
+      "prediction": -0.007426,
+      "timestamp": "2026-04-01T06:44:36.730437+00:00",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6
+    }
+  ]
+}

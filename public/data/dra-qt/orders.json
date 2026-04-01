@@ -1,5 +1,95 @@
 [
   {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "MU",
+    "side": "buy",
+    "qty": 65,
+    "price": 337.84,
+    "status": "rejected",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "TQQQ",
+    "side": "buy",
+    "qty": 260,
+    "price": 41.7,
+    "status": "filled",
+    "gross_value": 10848.11,
+    "fee": 10.8481
+  },
+  {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "INTC",
+    "side": "buy",
+    "qty": 503,
+    "price": 44.15,
+    "status": "filled",
+    "gross_value": 22238.64,
+    "fee": 22.2386
+  },
+  {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "SNOW",
+    "side": "buy",
+    "qty": 192,
+    "price": 150.9,
+    "status": "filled",
+    "gross_value": 29043.87,
+    "fee": 29.0439
+  },
+  {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "ARKK",
+    "side": "buy",
+    "qty": 232,
+    "price": 67.62,
+    "status": "filled",
+    "gross_value": 15691.6,
+    "fee": 15.6916
+  },
+  {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "MSFT",
+    "side": "sell",
+    "qty": 55,
+    "price": 358.78,
+    "status": "filled",
+    "gross_value": 19967.5,
+    "fee": 19.9675
+  },
+  {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "META",
+    "side": "sell",
+    "qty": 37,
+    "price": 536.11,
+    "status": "filled",
+    "gross_value": 19967.5,
+    "fee": 19.9675
+  },
+  {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "NVDA",
+    "side": "sell",
+    "qty": 120,
+    "price": 165.09,
+    "status": "filled",
+    "gross_value": 19967.5,
+    "fee": 19.9675
+  },
+  {
+    "time": "2026-04-01 06:44:46.773957",
+    "symbol": "GOOGL",
+    "side": "sell",
+    "qty": 73,
+    "price": 273.36,
+    "status": "filled",
+    "gross_value": 19967.5,
+    "fee": 19.9675
+  },
+  {
     "time": "2026-03-31 08:06:18.369815",
     "symbol": "TSLA",
     "side": "buy",
