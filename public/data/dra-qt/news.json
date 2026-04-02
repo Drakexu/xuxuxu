@@ -1,76 +1,6 @@
 {
-  "timestamp": "2026-04-02T08:23:08.952450+00:00",
+  "timestamp": "2026-04-02T08:42:10.456866+00:00",
   "news": [
-    {
-      "id": "139606932",
-      "headline": "Qualcomm Expands AI Footprint Into Robotics And EVs As Shares Lag Targets",
-      "summary": "Qualcomm (NasdaqGS:QCOM) is expanding its AI efforts into humanoid robotics through an investment in Neura Robotics. The company is working with global EV brands such as FREELANDER to integrate its AI…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=7fd1646685e737578d2d2ba660c1d47c7ca0876b71ecba8979f253f714db6b94",
-      "symbols": [
-        "QCOM"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-02T07:10:03+00:00"
-    },
-    {
-      "id": "139605477",
-      "headline": "Palantir Technologies (PLTR) Is Down 5.5% After Stellantis, Pentagon Deepen AI Ties Has The Bull Case Changed?",
-      "summary": "In late March 2026, Palantir Technologies Inc. announced a renewed five-year partnership with Stellantis that expands the automaker’s use of the Foundry platform and introduces the Artificial Intellig…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=595d48fed93989b801204e1dd1f859ea35399c01ca74db62fead85d148cd11ec",
-      "symbols": [
-        "PLTR"
-      ],
-      "severity": "urgent",
-      "direction": "bullish",
-      "sector": null,
-      "created_at": "2026-04-02T03:15:27+00:00"
-    },
-    {
-      "id": "139604783",
-      "headline": "Nvidia salaries: Executives, engineers & CEO pay ratio",
-      "summary": "Nvidia transformed itself from a company known first for making the hardware for processing graphics in gaming to accelerating processing models for artificial intelligence. Nvidia continues to focus …",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=53be1b7af12303e5ad115a64172da5b7b74d04a1ce482b8b9b8060655bbc1ce8",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "uncertain",
-      "sector": null,
-      "created_at": "2026-04-02T01:41:51+00:00"
-    },
-    {
-      "id": "139604818",
-      "headline": "Truist Cautious on Corning (GLW) Despite Strong AI and Cloud Spending Tailwinds",
-      "summary": "Corning Incorporated (NYSE:GLW) is included among the 13 Best Diversified Dividend Stocks to Buy Right Now. On March 31, Truist initiated coverage of Corning Incorporated (NYSE:GLW) with a Hold rating…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=a9f2fb0d3fe761b5352c267760a4ef2ee019a5e5ac4323ffcbd70493a6043f29",
-      "symbols": [
-        "CSCO"
-      ],
-      "severity": "urgent",
-      "direction": "bullish",
-      "sector": null,
-      "created_at": "2026-04-02T01:28:49+00:00"
-    },
-    {
-      "id": "139604809",
-      "headline": "Netflix’s US$42.2b Warner Bros. Deal Tests Growth And Discipline",
-      "summary": "Netflix (NasdaqGS:NFLX) announces a US$42.2b all-cash agreement to acquire Warner Bros. The deal would combine Netflix’s streaming platform with Warner Bros.’s film, TV, sports, and gaming assets. The…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=fbdbb464fd42ca43becef1b32829d3670ae86ed60d8fd7a07f08b99e4d2e4c72",
-      "symbols": [
-        "NFLX"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-02T01:13:59+00:00"
-    },
     {
       "id": "139604784",
       "headline": "3Fourteen’s Pies: AI and semis are ‘where the underlying strength is’",
@@ -84,76 +14,6 @@
       "direction": "bearish",
       "sector": null,
       "created_at": "2026-04-02T00:41:25+00:00"
-    },
-    {
-      "id": "139604787",
-      "headline": "Alibaba’s Q3 Earnings and AI Chip Pivot Could Be A Game Changer For Alibaba Group Holding (BABA)",
-      "summary": "Alibaba Group Holding Limited recently reported its third-quarter 2025 results, with sales rising slightly to CNY 284,843 million while net income fell sharply to CNY 16,383 million, alongside a broad…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=c9d4986656092aba5737dfbf32a3f814e4246d7645e5ed48360bd92b0e2ace85",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-02T00:18:59+00:00"
-    },
-    {
-      "id": "139605642",
-      "headline": "Broadcom: The Moat Still Holds",
-      "summary": "Broadcom (AVGO) hold rating: AI revenue growth and hyperscaler partnerships vs Google concentration and software churn risks; watch $277 supportâread now.",
-      "source": "SeekingAlpha",
-      "url": "https://finnhub.io/api/news?id=d7ab63d169303b377818f2e81ef671015b60a0e35165551822b0658153d5dff9",
-      "symbols": [
-        "AVGO"
-      ],
-      "severity": "urgent",
-      "direction": "uncertain",
-      "sector": null,
-      "created_at": "2026-04-02T00:15:57+00:00"
-    },
-    {
-      "id": "139604143",
-      "headline": "Dow Jones Futures: Trump's Iran Speech Looms; Tesla Set To Reclaim EV Crown",
-      "summary": "President Donald Trump will speak to the nation on the Iran war at 9 p.m. ET. Tesla deliveries are due early Thursday.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=7ae27e0e6711cc00fea362f368fd33b1ffecbe11e2f9f44a44cf36b4b4509454",
-      "symbols": [
-        "TSLA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T23:46:31+00:00"
-    },
-    {
-      "id": "139604172",
-      "headline": "Middle East Tensions Add New Supply Chain Risk For Applied Materials",
-      "summary": "Rising geopolitical tensions in the Middle East linked to the Iran war are raising fresh concerns about semiconductor supply chain reliability. Industry watchers are flagging helium and other specialt…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=c31690a17d79ac3328a946ead0ea4f20f83cb603b5b62690f2de073a277cfacd",
-      "symbols": [
-        "AMAT"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T23:11:57+00:00"
-    },
-    {
-      "id": "139605247",
-      "headline": "This Is Why The Fed Can Afford To Look Through The Iran War Energy Shock",
-      "summary": "The vacancy-to-unemployed ratio currently stands at 0.91 - meaning there are fewer open jobs than unemployed workers.",
-      "source": "SeekingAlpha",
-      "url": "https://finnhub.io/api/news?id=b60aa23c48314f2b8dc3c31a03f8246490f90fad477719ef1397f37c187731b1",
-      "symbols": [
-        "ARKK"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T23:05:00+00:00"
     },
     {
       "id": "139604116",
@@ -170,146 +30,6 @@
       "created_at": "2026-04-01T22:59:00+00:00"
     },
     {
-      "id": "139604121",
-      "headline": "Penguin Solutions Q2 Earnings Call Highlights",
-      "summary": "Penguin Solutions (NASDAQ:PENG) used its fiscal second-quarter earnings call to outline what CEO Kash Shaikh described as a market shift in artificial intelligence from model training toward productio…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=4d1114f4993212589a1075ac781509a2e3dac287d9ce5bcd21e4f9da34ab4c05",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T22:14:33+00:00"
-    },
-    {
-      "id": "139604122",
-      "headline": "1 Artificial Intelligence (AI) Software Stock to Buy Hand Over Fist Before It Soars 62%, According to Dan Ives",
-      "summary": "Dan Ives of Wedbush Securities recently upgraded his price target on Palantir stock to $230.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=e677e7090aa71b46b5687f17283905f4e88b92820ceb1470532204daf5f8f7af",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "bullish",
-      "sector": null,
-      "created_at": "2026-04-01T22:11:00+00:00"
-    },
-    {
-      "id": "139604220",
-      "headline": "Nio CEO William Li Sits Down With Qualcomm China Chair: Cars Are the 'Core Engine' Pushing AI Forward — Here's Why",
-      "summary": "Qualcomm Inc.‘s China Chairman Frank Meng said the auto industry could do for artificial intelligence what smartphones once did for mobile computing, arguing that cars are becoming the next major plat…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=b69eb7b2617bdd95b3c4c4c9cb54147881b9009158d70980e2bde70ef0e58f68",
-      "symbols": [
-        "QCOM"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T22:01:02+00:00"
-    },
-    {
-      "id": "139603539",
-      "headline": "Dow Jones Futures: Stock Market Rallies Into Trump's Iran Speech; Tesla Set To Reclaim EV Crown",
-      "summary": "President Donald Trump will speak to the nation on the Iran war at 9 p.m. ET. Tesla deliveries are due early Thursday.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=4f1bfda20abc14715d3ff395cdeadebdbbda2c88dd87677e7787e8c9fa327e63",
-      "symbols": [
-        "TSLA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T21:42:34+00:00"
-    },
-    {
-      "id": "139603553",
-      "headline": "Stock Market Today, April 1: Markets Rally and Oil Prices Fall for Second Day Running",
-      "summary": "Today, April 1, 2026, hopes that the Iran war may soon end drove markets upwards as tumbling oil prices reshaped the day’s winners.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=1b47cd9069432f41958eeeb6ca4f79fe73fd8770d675fedeceb51f91da21a9ac",
-      "symbols": [
-        "INTC"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T21:41:07+00:00"
-    },
-    {
-      "id": "139603522",
-      "headline": "Google Develops Screenless Fitbit Band With Subscription Model, Targets Whoop Rivalry",
-      "summary": "New Fitbit device could launch this year, pairing hardware sales with subscription features and AI-powered health coaching.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=754fbd6df213dfae48e679a82cd4237e6295e176147a426437a667eb0b1aa566",
-      "symbols": [
-        "GOOGL"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T21:24:59+00:00"
-    },
-    {
-      "id": "139603557",
-      "headline": "Wall Street Rises Amid US-Iran War De-Escalation Hopes",
-      "summary": "US equity benchmarks advanced Wednesday and oil prices fell as optimism around a potential de-escala",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=cc590081ba002d64793c8f3bc69ce6143abaf0ce7f36651a5c5eb757beb50d7b",
-      "symbols": [
-        "INTC"
-      ],
-      "severity": "urgent",
-      "direction": "uncertain",
-      "sector": null,
-      "created_at": "2026-04-01T20:47:38+00:00"
-    },
-    {
-      "id": "139603518",
-      "headline": "Stock Market Today: Nasdaq Leads Charge After Trump's War Comments; Amazon, Tesla Rise (Live Coverage)",
-      "summary": "Stock Market Today: The Dow Jones index rose Wednesday after Trump said Iran's new president is asking for a ceasefire.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=de6ab46ac327e806f36b2de3bed23db528e8901c66b6f290e371355be5466442",
-      "symbols": [
-        "AMZN"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T20:44:59+00:00"
-    },
-    {
-      "id": "139603623",
-      "headline": "US Equity Markets Higher After Crude Oil Falls Amid Rising Expectations Iran War Could End Soon",
-      "summary": "US equity indexes ended higher on Wednesday after crude oil prices dropped amid expectations that th",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=2358702bcecb7ed192374d7d503db4039be267b7c1bf7979a2f0c64fee1f3b37",
-      "symbols": [
-        "INTC"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T20:08:25+00:00"
-    },
-    {
-      "id": "139602962",
-      "headline": "Will Oracle's reported layoffs affect California workers?",
-      "summary": "Software giant Oracle has six offices located throughout California.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=da17162834f460b782962d51149f7074c1d3b20363704e11d68ab6a5c08905ef",
-      "symbols": [
-        "ORCL"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T19:42:46+00:00"
-    },
-    {
       "id": "139602920",
       "headline": "Stock Market Today: Dow, Nasdaq Higher After Trump's War Comments; Energy Stocks Plunge (Live Coverage)",
       "summary": "Stock Market Today: The Dow Jones index rose Wednesday after Trump said Iran's new president is asking for a ceasefire.",
@@ -322,356 +42,6 @@
       "direction": "bearish",
       "sector": null,
       "created_at": "2026-04-01T19:38:32+00:00"
-    },
-    {
-      "id": "139602844",
-      "headline": "The Warren Buffett Stock That Has Compounded at 18.5% Annually for 18 Years",
-      "summary": "Consistent double-digit returns could make investors very wealthy over a couple of decades.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=2dc97008058d47c9631236bd650506124c0905b42f5dbe76bd25412bc8959b4b",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T19:35:00+00:00"
-    },
-    {
-      "id": "139602868",
-      "headline": "William Blair Weary of AvePoint (AVPT) Pricing Model and Microsoft Alignment",
-      "summary": "AvePoint, Inc. (NASDAQ:AVPT) is one of the single-digit stocks with double-digit growth potential. On March 23, William Blair downgraded AvePoint, Inc. (NASDAQ:AVPT) to a Market Perform from Outperfor…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=715fbe1d280cdbbdcc21b5ecbf86ea5cef3c91a635613db42617e1f2e04cb00d",
-      "symbols": [
-        "MSFT"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T19:23:46+00:00"
-    },
-    {
-      "id": "139602929",
-      "headline": "Netflix faces key quarter after strategic reset, says Bank of America",
-      "summary": "Netflix Inc (NASDAQ:NFLX, XETRA:NFC) is set to deliver a pivotal first quarter earnings report after following its decision to abandon a potential acquisition of Warner Bros. Discovery, with Bank of A…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=1f571076db3ef3f864d33788e2717a6e1726a26322ad447013958ffe802e676c",
-      "symbols": [
-        "NFLX"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T19:21:00+00:00"
-    },
-    {
-      "id": "139602848",
-      "headline": "Nvidia Marvell Alliance Puts AI Data Center Growth In Sharper Focus",
-      "summary": "Nvidia has agreed to invest $2b directly into Marvell Technology and expand their partnership on advanced AI infrastructure and silicon photonics. The agreement includes work on custom AI hardware, ne…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=51e03412b7a97785048fb19efde821df17e06292ec3db01faf8439a173a4a12d",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "uncertain",
-      "sector": null,
-      "created_at": "2026-04-01T19:11:40+00:00"
-    },
-    {
-      "id": "139602984",
-      "headline": "Today's Market: Dow Soars 400 Points, S&P 500 and Nasdaq Jumps 1% on Iran Ceasefire Hopes",
-      "summary": "Oil Crashes Below $100, Stocks Rip Higher as Trump Predicts U.S. Exit From Iran in Weeks",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=bab679f5eccab568fbed77b1b40292ca6127087e0c19700b78a1c045445a7721",
-      "symbols": [
-        "INTC"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T19:05:22+00:00"
-    },
-    {
-      "id": "139602987",
-      "headline": "Kamba Media Foundation, Intel, and Ghana's Ministry of Education Commission a Global Innovative Beacon School Computer Laboratory at Bamvim Presby School",
-      "summary": "Kamba Media Foundation, Intel, and Ghana's Ministry of Education launch an AI powered computer laboratory at Bamvim Presby School to expand digital accessBamvim, Ghana--(Newsfile Corp. - April 1, 2026…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=a78e8a812577dddbdb6097f80ad925c935df5a8d32e391c214f714565579d6ea",
-      "symbols": [
-        "INTC"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T19:00:00+00:00"
-    },
-    {
-      "id": "139603031",
-      "headline": "Adobe Inc. (ADBE): Billionaire Ray Dalio Is Buying This Software Stock",
-      "summary": "Adobe Inc. (NASDAQ:ADBE) is one of the 15 Best Stocks to Buy According to Billionaire Ray Dalio. Adobe Inc. (NASDAQ:ADBE) has been a constant feature in the 13F portfolio of Bridgewater Associates sin…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=e6fbc114791173a5146b605c91a460ffefb84ebc0f2530c0b18bebdfb770dd4f",
-      "symbols": [
-        "ADBE"
-      ],
-      "severity": "urgent",
-      "direction": "uncertain",
-      "sector": null,
-      "created_at": "2026-04-01T18:55:22+00:00"
-    },
-    {
-      "id": "139602993",
-      "headline": "Equities Rise Intraday, Oil Falls Amid Hopes For End to Iran War",
-      "summary": "US benchmark equity indexes were higher intraday and oil prices dropped amid optimism that the Middl",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=b72fb4983e60be8054b054ac1d40506f6b44b3695800951c558370ce8092d96f",
-      "symbols": [
-        "INTC"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T18:16:43+00:00"
-    },
-    {
-      "id": "139602090",
-      "headline": "Can Meta Platforms Reach a $9 Trillion Valuation in 5 Years? Here's What It Would Take",
-      "summary": "New executive pay packages will reward top officers for pushing the share price higher.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=855db2fedca2fb36a9d83e1d3aabda323b237ba5b7e4b4810be4fdff8dc935d1",
-      "symbols": [
-        "META"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T17:50:00+00:00"
-    },
-    {
-      "id": "139602017",
-      "headline": "Babel Street Extends Free Real-Time Risk Intelligence to U.S. Tech Companies Operating Across the Middle East Being Targeted by Iran’s Islamic Revolutionary Guard Corps",
-      "summary": "WASHINGTON, April 01, 2026--Babel Street, a global leader in mission-grade risk intelligence, today announced it is offering tailored threat intelligence briefings to security leaders across the techn…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=e39acc5a7500a9d0bb2201a4797e68f9a718ff8e772bef76125fb6ce489f6948",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T17:42:00+00:00"
-    },
-    {
-      "id": "139602067",
-      "headline": "Alphabet AI Push Raises Quantum And YouTube Questions For Long Term Story",
-      "summary": "Alphabet (NasdaqGS:GOOGL) has introduced new AI models, including TurboQuant for AI memory compression and Lyria 3 Pro for advanced music generation on the Gemini platform. The company’s quantum team …",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=c6530d202062a9dcef1090924ad7606cd1e70ef488e930ad2a9948230fa09ebc",
-      "symbols": [
-        "GOOGL"
-      ],
-      "severity": "urgent",
-      "direction": "uncertain",
-      "sector": null,
-      "created_at": "2026-04-01T17:12:10+00:00"
-    },
-    {
-      "id": "139602148",
-      "headline": "Broader Bullish Analyst Sentiment on Advanced Micro Devices (AMD) Amid Cathie Wood’s Stake Cut",
-      "summary": "Advanced Micro Devices, Inc. (NASDAQ:AMD) earns a spot on our list of the 8 Best AI Infrastructure Stocks to Invest in. As of March 30, 2026, 80% of covering analysts remain positive toward Advanced M…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=093d1c971c6cc6ff02834dee73690741dd3a891ea63722b4b1f7bb78cd460017",
-      "symbols": [
-        "AMD"
-      ],
-      "severity": "urgent",
-      "direction": "bullish",
-      "sector": null,
-      "created_at": "2026-04-01T16:44:43+00:00"
-    },
-    {
-      "id": "139602140",
-      "headline": "Netflix vs Spotify: Which Streaming Stock Will Outperform?",
-      "summary": "Streaming company Netflix (NASDAQ:NFLX) and Spotify (NYSE:SPOT) both closed 2025 with strong results, but they enter 2026 from very different positions. Netflix is a video empire absorbing Warner Bros…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=ecb990be59fe4453e467b3092f0786cbc68222877131af8b6aa845d207414894",
-      "symbols": [
-        "NFLX"
-      ],
-      "severity": "urgent",
-      "direction": "bullish",
-      "sector": null,
-      "created_at": "2026-04-01T16:39:31+00:00"
-    },
-    {
-      "id": "139602040",
-      "headline": "China Court Ruling On AI Patents Puts Apple Valuation In Focus",
-      "summary": "China’s Supreme People’s Court has upheld the validity of key AI patents held by Xiao-I Corporation in its infringement case against Apple. The ruling is final in China, closing Apple’s ability to cha…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=72c5e741c631124fff34d0c2847994627ffcbe8bae658bdff426467f43859fae",
-      "symbols": [
-        "AAPL"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T16:11:15+00:00"
-    },
-    {
-      "id": "139602034",
-      "headline": "Investors Are Losing Confidence in Super Micro Computer (SMCI) Stock: ‘It’s Uninvestable’",
-      "summary": "Investors are starting to lose confidence in computer hardware firm Super Micro Computer (SMCI) despite its strong sales growth, close ties to chipmaker Nvidia (NVDA), and a key role in building AI da…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=f10efaffd9dfb3a0475b08770bf259aa4797f29141db2204da2d2dfe9a304e2b",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "bullish",
-      "sector": null,
-      "created_at": "2026-04-01T16:08:07+00:00"
-    },
-    {
-      "id": "139602075",
-      "headline": "Google Prepares Screenless Fitbit Push",
-      "summary": "New wearable could signal a shift toward subscription-driven health tracking.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=b1bf2c2fb9fa31a3fc815b7d16043680fa0961fa4580f3123d287b03150e2be7",
-      "symbols": [
-        "GOOGL"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T16:00:08+00:00"
-    },
-    {
-      "id": "139600555",
-      "headline": "President Donald Trump Will Formally Address the Country Tonight to Provide 'Important' Update on the Iran War: 3 Things Investors Should Watch for",
-      "summary": "President Donald Trump will conduct a televised speech on the Iran War at 9 p.m. ET tonight.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=991ef3dda9c035869b4feb342eeb769256a22b94c619aadbce5f326d70d75a75",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T15:44:26+00:00"
-    },
-    {
-      "id": "139603543",
-      "headline": "SpaceX files for IPO, sources say, offering investors stake in Musk's space ambitions",
-      "summary": "Elon Musk's SpaceX has confidentially filed for a U.S. initial public offering, two people familiar with the matter told Reuters on Wednesday, setting the stage for what could become the largest stock…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=cb0b671ef918274368d3844b4b6b10d8d5cc75d00539f651dc98f2aeccff7980",
-      "symbols": [
-        "TSLA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T15:26:55+00:00"
-    },
-    {
-      "id": "139600647",
-      "headline": "Stock Market Today: Dow Higher On Trump's War Comments; Micron Vaults (Live Coverage)",
-      "summary": "Stock Market Today: The Dow Jones index rose Wednesday after Trump said Iran's new president is asking for a ceasefire.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=84ffed364cd8ab6d2b5b56fdc8efb73ad68711846674e1ed4ba0f41eba8517a1",
-      "symbols": [
-        "MU"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T15:25:24+00:00"
-    },
-    {
-      "id": "139600610",
-      "headline": "Oracle reportedly joins tech peers in layoff spree",
-      "summary": "Oracle is reportedly conducting layoffs as the software giant joins other tech companies trimming staff amid a rash of AI spending.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=10e7a3accfd059177566141774761cc3ec6b1dce66697a34b2f983dd37b8be48",
-      "symbols": [
-        "META"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T15:09:01+00:00"
-    },
-    {
-      "id": "139600575",
-      "headline": "Amazon's cloud business in Bahrain damaged in Iran strike, FT reports",
-      "summary": "Amazon's cloud computing operation in Bahrain was damaged after an Iranian ‌strike, the Financial Times reported on ‌Wednesday, citing a person familiar with the matter.  Bahrain's Interior Ministry ​…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=7e0a77749994d998a46d9c5eb0c1ec4fb5021256fab96858e9cae30c3d29d49e",
-      "symbols": [
-        "AAPL"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T15:02:39+00:00"
-    },
-    {
-      "id": "139600571",
-      "headline": "Is Swarmer a Millionaire-Maker Stock?",
-      "summary": "The Iran war has led to heightened investor interest in defense technology companies.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=bee51dd0d64483bdfa07090d1ea2856a9b5371b7079a6629fda0ab415b720d39",
-      "symbols": [
-        "NVDA"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T14:42:00+00:00"
-    },
-    {
-      "id": "139602151",
-      "headline": "Software Stocks: Values or Traps?",
-      "summary": "The software stocks are selling off again. Is it a buying opportunity?",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=1029378ac6f015c7aa73550f63ffcf67e8bd96d24e07c63ccefdc80a0dd35511",
-      "symbols": [
-        "CRM"
-      ],
-      "severity": "urgent",
-      "direction": "uncertain",
-      "sector": null,
-      "created_at": "2026-04-01T14:38:00+00:00"
-    },
-    {
-      "id": "139600581",
-      "headline": "Top Software-Focused Tech ETFs to Buy in April as Peace Hope Rises",
-      "summary": "IGV and other software ETFs could rally as easing US-Iran tensions lift supply chains, revive spending, and position tech for a rebound in April.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=c7bdca317d7e621cbd8cfd0ee9fdfc8d0007bf409c779b4a52401e30ccd5da21",
-      "symbols": [
-        "MSFT"
-      ],
-      "severity": "urgent",
-      "direction": "uncertain",
-      "sector": null,
-      "created_at": "2026-04-01T14:22:00+00:00"
-    },
-    {
-      "id": "139600734",
-      "headline": "Working While Collecting Social Security in 2026? Make Sure You're Aware of This Recent Change",
-      "summary": "The rules for working and collecting benefits changed in 2026.",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=a935ddd8c32b24a291f80c48e08ab31952acecfc1287afebb4e2294d6c87ac8c",
-      "symbols": [
-        "INTC"
-      ],
-      "severity": "urgent",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T14:05:00+00:00"
     },
     {
       "id": "139600735",
@@ -688,6 +58,76 @@
       "created_at": "2026-04-01T13:58:25+00:00"
     },
     {
+      "id": "139596309",
+      "headline": "Trends & Strategies Shaping the Sourcing Software Market, 2026-2030 & 2035, Featuring Strategic Analysis of IBM, Oracle, SAP SE, Workday, GEP, Coupa, Zycus, Ivalua and More",
+      "summary": "Growth is fueled by remote work needs, cloud adoption, supplier risk management tools, and data analytics integration Sourcing Software Market Sourcing Software Market Dublin, April 01, 2026 (GLOBE NE…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=830f6dfba2edbeb87e5458bed9b80e7038fc957568cb2951bba2ec480681b483",
+      "symbols": [
+        "ORCL"
+      ],
+      "severity": "urgent",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-01T09:39:00+00:00"
+    },
+    {
+      "id": "139604794",
+      "headline": "Crisis of Memory: Citi Just Cut Its Micron Stock Price Target by 16%",
+      "summary": "Memory prices are softening after Google figured out a way to make memory usage more efficient. Is this the death knell for MU stock, or will it end up being a long-term winner?",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=a127c887f2bca64a520c6e86e9df4c7edc35a77e47c255d51c6a35cb52d93919",
+      "symbols": [
+        "MU"
+      ],
+      "severity": "important",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-01T18:50:08+00:00"
+    },
+    {
+      "id": "139602028",
+      "headline": "‘An Attractive Entry Point’: Bernstein Upgrades Western Digital (WDC) Stock Following Sell-Off",
+      "summary": "Western Digital (NASDAQ:WDC) has been among HDD and Memory stocks representing some of the market’s best performers over the past year, benefiting from AI workloads’ rising memory needs. However, Goog…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=398f1a081d87ca8e3289fb3a89283bb2916c97aa1d3c76f35581e968cd353a29",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "important",
+      "direction": "uncertain",
+      "sector": "semiconductor",
+      "created_at": "2026-04-01T16:21:14+00:00"
+    },
+    {
+      "id": "139603119",
+      "headline": "Snapchat: Activist Calls For 'Year Of Efficiency' (Rating Upgrade)",
+      "summary": "Snap Inc. upgraded to Strong Buy: deeply discounted at 1x sales with profitability catalysts, activist pressure, and margin upside. Click for this SNAP update.",
+      "source": "SeekingAlpha",
+      "url": "https://finnhub.io/api/news?id=c29cb835f4e3ecb300a83cadbd44ebe82753a3eb40719e356fd99c14cf62fe48",
+      "symbols": [
+        "META"
+      ],
+      "severity": "important",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-01T16:04:34+00:00"
+    },
+    {
+      "id": "139600772",
+      "headline": "Palo Alto Networks, Upgraded to Buy, Is Targeting Rule of 60 Profitability",
+      "summary": "Palo Alto Networks (NASDAQ:PANW) just earned a Buy initiation from Benchmark with a $200 price target, anchored to a compelling profitability thesis: The company is on track to achieve nearly Rule of …",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=274804ed6bcf4005193fb3a61aa049381cdcd8b857cf1e66cc8f2f1731fa5435",
+      "symbols": [
+        "PANW"
+      ],
+      "severity": "important",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-01T15:04:31+00:00"
+    },
+    {
       "id": "139601787",
       "headline": "Microsoft: A Gift At 22x P/E (Rating Upgrade)",
       "summary": "Microsoft Corporation is undervalued at 22x forward P/E; Rule of 40 metrics & peer EV/sales show long-term double-digit return potential. Click for a MSFT update.",
@@ -696,10 +136,570 @@
       "symbols": [
         "MSFT"
       ],
-      "severity": "urgent",
+      "severity": "important",
       "direction": "uncertain",
       "sector": null,
       "created_at": "2026-04-01T13:32:05+00:00"
+    },
+    {
+      "id": "139601177",
+      "headline": "Micron: Great Businesses Can Be Bad Trades (Rating Downgrade)",
+      "summary": "Micron Technology, Inc. downgraded to Sell: strong Q2 beat but negative reaction, higher capex may squeeze FCF; EMA signals downside. Click for this MU update.",
+      "source": "SeekingAlpha",
+      "url": "https://finnhub.io/api/news?id=a054e18398e257d0090c70277be71c5196b986276084df5e9ad8bf6992b78b00",
+      "symbols": [
+        "MU"
+      ],
+      "severity": "important",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-01T12:50:34+00:00"
+    },
+    {
+      "id": "139600409",
+      "headline": "Netflix: Going All In Ahead Of Earnings (Rating Upgrade)",
+      "summary": "Netflix stock is upgraded to \"Strong Buy\" amid 20%+ EPS growth, a 20% valuation discount, and ad/ARPU upside. Click to learn more about NFLX.",
+      "source": "SeekingAlpha",
+      "url": "https://finnhub.io/api/news?id=8cf2631d8ba32aa920a93c481d901f8d4fcffbc593bb64b2a8fa3a003e050907",
+      "symbols": [
+        "NFLX"
+      ],
+      "severity": "important",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-01T10:56:47+00:00"
+    },
+    {
+      "id": "139599063",
+      "headline": "BTIG Reiterates Buy on Salesforce, Maintains $255 Price Target",
+      "summary": "BTIG  analyst  Allan Verkhovski   reiterates Salesforce (NYSE:CRM) with a Buy and maintains $255 price target.",
+      "source": "Benzinga",
+      "url": "https://finnhub.io/api/news?id=026aa833f8b79c7ef757bb02aa369eae2814d35fbb607eedec9a4a0a3ed9ff4f",
+      "symbols": [
+        "CRM"
+      ],
+      "severity": "important",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-01T07:21:21+00:00"
+    },
+    {
+      "id": "139362020",
+      "headline": "Qualcomm downgraded, Rivian upgraded: Wall Street's top analyst calls",
+      "summary": "Qualcomm downgraded, Rivian upgraded: Wall Street's top analyst calls",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=e73548ee05d3edc3a1a07177b5271c3768a983d18ac7b20a7fe693a3d77147f9",
+      "symbols": [
+        "MSFT"
+      ],
+      "severity": "important",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-03-10T13:34:05+00:00"
+    },
+    {
+      "id": "139606884",
+      "headline": "China says it supports law-abiding transnational deals after reports of Meta deal review",
+      "summary": "BEIJING, April 2 () - The Chinese government supports ‌companies with transnational ‌operations and technology cooperation ​deals according to needs and the law, commerce ministry spokesperson He ‌Yad…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=ffe65de4de58e59ddebd9bcbd0fb75263dc46ece5514ee06d5c2b8e8198eb811",
+      "symbols": [
+        "META"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T07:36:44+00:00"
+    },
+    {
+      "id": "139606932",
+      "headline": "Qualcomm Expands AI Footprint Into Robotics And EVs As Shares Lag Targets",
+      "summary": "Qualcomm (NasdaqGS:QCOM) is expanding its AI efforts into humanoid robotics through an investment in Neura Robotics. The company is working with global EV brands such as FREELANDER to integrate its AI…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=7fd1646685e737578d2d2ba660c1d47c7ca0876b71ecba8979f253f714db6b94",
+      "symbols": [
+        "QCOM"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-02T07:10:03+00:00"
+    },
+    {
+      "id": "139606892",
+      "headline": "CallTower Announces Strategic Investment from Court Square Capital Partners",
+      "summary": "Pivotal Partnership Fuels Innovation and Expands CallTower’s Global Leadership in Managed Cloud CommunicationsSALT LAKE CITY, UT, ROCHESTER, NY, MONTREAL, QC, LONDON, April 02, 2026 (GLOBE NEWSWIRE) -…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=9d95afd34bd4322fb41e30aa75de9ae1e2473521351311b3f1169c0e66bb21b3",
+      "symbols": [
+        "CSCO"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T07:01:00+00:00"
+    },
+    {
+      "id": "139606885",
+      "headline": "SpaceX files confidentially for IPO on day Nasa launches first moon mission in half a century",
+      "summary": "SpaceX, Elon Musk's reusable rocket and space exploration company, chose the day of Nasa's Artemis II lunar mission, the first crewed flight to the moon in more than 50 years, to file confidentially f…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=c0fc6a659433de29f2f2fd57be013ceb702b59f4e0dc0371adab63a517cc28f1",
+      "symbols": [
+        "TSLA"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-02T06:57:00+00:00"
+    },
+    {
+      "id": "139606878",
+      "headline": "A Look At Micron Technology (MU) Valuation After TurboQuant Headline Volatility",
+      "summary": "Micron Technology (MU) stock has been on a roller coaster after Google’s TurboQuant memory compression announcement triggered a sharp sell-off, followed by a rebound as investors refocused on Micron’s…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=75ba66716f61338ff749fb291cb516812c5c63e013bd89921513913e09109728",
+      "symbols": [
+        "MU"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": "semiconductor",
+      "created_at": "2026-04-02T06:09:48+00:00"
+    },
+    {
+      "id": "139606875",
+      "headline": "ServiceNow (NOW) Expands Partnership With NVIDIA",
+      "summary": "ServiceNow, Inc. (NYSE:NOW) is one of the 10 Top Stocks Fund Managers Are Loading Up On in 2026. On March 16, 2026, ServiceNow, Inc. (NYSE:NOW) announced an expanded partnership with NVIDIA at GTC 202…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=9e0547852ef5faeaf69c9ad0d923dcbacef54031b355900533f275d699960d3f",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": "semiconductor",
+      "created_at": "2026-04-02T05:54:33+00:00"
+    },
+    {
+      "id": "139606877",
+      "headline": "Netflix (NFLX) Seeks to Expand NFL Streaming Rights to Four Games",
+      "summary": "Netflix, Inc. (NASDAQ:NFLX) is one of the 10 Top Stocks Fund Managers Are Loading Up On in 2026. On March 30, 2026, The Wall Street Journal reported that Netflix, Inc. (NASDAQ:NFLX) is seeking to doub…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=c077ea4513eec2b054762e8cbb572eb941a2fb83f3e20aba0aabe78fd84ee097",
+      "symbols": [
+        "AMZN"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T05:54:31+00:00"
+    },
+    {
+      "id": "139606166",
+      "headline": "Intel (INTC) Jumps 8.8% on Ireland Facility Takeover",
+      "summary": "Intel Corp. (NASDAQ:INTC) is one of the 10 Stocks Outperforming Wall Street with Outsized Gains. Intel Corp. rallied for a second day on Wednesday, jumping 8.84 percent to finish at $48.03 apiece, as …",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=5189e7354df035adb8403a56ed374c319411d98a48bbe4b9dfa1672029b26987",
+      "symbols": [
+        "INTC"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": "semiconductor",
+      "created_at": "2026-04-02T04:31:36+00:00"
+    },
+    {
+      "id": "139606154",
+      "headline": "Lumentum Holdings (LITE) Climbs 8.8% on AI Optimism, Expansion",
+      "summary": "Lumentum Holdings Inc. (NASDAQ:LITE) is one of the 10 Stocks Outperforming Wall Street with Outsized Gains. Lumentum Holdings rallied for a second day on Wednesday, jumping 8.81 percent to close at $7…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=7077049281ee1f81dcdfaf615cb19c3300be1cdbb38965fac2c96927c6c25ee6",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": "semiconductor",
+      "created_at": "2026-04-02T04:31:05+00:00"
+    },
+    {
+      "id": "139606159",
+      "headline": "Micron Technology (MU) Jumps 8.9% on Tech Optimism",
+      "summary": "Micron Technology Inc. (NASDAQ:MU) is one of the 10 Stocks Outperforming Wall Street with Outsized Gains. Micron Technology jumped by 8.94 percent on Wednesday to finish at $367.85 apiece, mirroring t…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=21ddc0371abd9c7f996c76526d8d530f0f28ab589242487938a56ee4810f402f",
+      "symbols": [
+        "MU"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T04:29:35+00:00"
+    },
+    {
+      "id": "139606876",
+      "headline": "Poolside hunts data centre partners after CoreWeave deal falls through",
+      "summary": "AI start-up Poolside has held talks with Google and other cloud providers to revive a large Texas data centre project after a deal with CoreWeave...",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=303982b1be2d9c05734473573babef0da22aea3f0a1cba84ec858541003a59ea",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": "semiconductor",
+      "created_at": "2026-04-02T04:00:15+00:00"
+    },
+    {
+      "id": "139606160",
+      "headline": "Cisco Makes Its Debut at COMPUTEX Keynote! SVP Jeremy Foster to Unveil \"A Full Stack Approach to AI\"",
+      "summary": "COMPUTEX 2026 will take place from June 2 to June 5 at Taipei World Trade Center Hall 1 and Nangang Exhibition Center Halls 1 and 2. TAITRA, the co-organizer, is proud to announce that Cisco, a global…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=6b14411182d54cc86b581127275dbdc4cfa4217a6124f0aba2c90ca215372fd6",
+      "symbols": [
+        "CSCO"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": "semiconductor",
+      "created_at": "2026-04-02T03:58:00+00:00"
+    },
+    {
+      "id": "139605487",
+      "headline": "Intel makes major fab decision amid uncertainty",
+      "summary": "Intel (INTC) reported April 1 that it will repurchase Apollo Global Management’s 49% stake in the joint venture tied to Fab 34 in Leixlip, Ireland, for $14.2 billion. The company plans to fund the dea…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=aaf4799601650f24821c101346dba163ecb4b5faab23ac14ceb1b198a722434d",
+      "symbols": [
+        "INTC"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T03:29:42+00:00"
+    },
+    {
+      "id": "139605481",
+      "headline": "Another major tech giant lays off as Washington sees 491 cuts amid AI push",
+      "summary": "Oracle has begun laying off employees across multiple regions as the cloud technology giant restructures its workforce while investing heavily in artificial intelligence. Employees began receiving lay…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=b69cb2b56a7989c2333065b8d8e8ac6505ea757ee70b919e03dcf04242e473a8",
+      "symbols": [
+        "ORCL"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-02T03:17:00+00:00"
+    },
+    {
+      "id": "139605472",
+      "headline": "What Henry Samueli’s Record Broadcom Sale Signals For AVGO Shareholders",
+      "summary": "Broadcom co‑founder and Director Henry Samueli reported a record insider sale of NasdaqGS:AVGO shares in a March 27 SEC filing. The transaction occurred shortly before a clear decline in Broadcom's sh…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=ac016dd5a82183506403ff670f6b548c2a6ceb5731b73cf4b9b145559f1f9cbc",
+      "symbols": [
+        "AVGO"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-02T03:16:38+00:00"
+    },
+    {
+      "id": "139605477",
+      "headline": "Palantir Technologies (PLTR) Is Down 5.5% After Stellantis, Pentagon Deepen AI Ties Has The Bull Case Changed?",
+      "summary": "In late March 2026, Palantir Technologies Inc. announced a renewed five-year partnership with Stellantis that expands the automaker’s use of the Foundry platform and introduces the Artificial Intellig…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=595d48fed93989b801204e1dd1f859ea35399c01ca74db62fead85d148cd11ec",
+      "symbols": [
+        "PLTR"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T03:15:27+00:00"
+    },
+    {
+      "id": "139605504",
+      "headline": "Why The Adobe (ADBE) Investment Story Is Shifting With AI Disruption And CEO Transition",
+      "summary": "Adobe’s latest analyst reset comes through clearly in the fair value price target, which moves from about US$408.47 to roughly US$328.19, a sizeable cut in the modelled estimate. This shift lines up w…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=d4127bdf729949c4af89ac823a0353965da2313152c07a074460305ed2fa4c15",
+      "symbols": [
+        "ADBE"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T02:13:34+00:00"
+    },
+    {
+      "id": "139605469",
+      "headline": "Goldman Sachs Highlights AT&T’s OneConnect Push into Value Segment",
+      "summary": "AT&T Inc. (NYSE:T) is included among the 14 Cheap DRIP Stocks to Buy Now. On March 31, Goldman Sachs analyst Michael Ng said AT&T Inc. (NYSE:T) has introduced OneConnect, a simplified wireless and 1 g…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=51b539a5fed583a025c8f67b4cd85a1f2b7d3300756bcd99496070c3dfd69884",
+      "symbols": [
+        "AAPL"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T02:09:44+00:00"
+    },
+    {
+      "id": "139605470",
+      "headline": "Goldman Sachs Initiates Qualcomm (QCOM) at Neutral, Notes Mixed Growth Outlook",
+      "summary": "QUALCOMM Incorporated (NASDAQ:QCOM) is included among the 14 Cheap DRIP Stocks to Buy Now. On March 30, Goldman Sachs analyst James Schneider initiated coverage of QUALCOMM Incorporated (NASDAQ:QCOM) …",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=5f149e570a86495493bd361cc388b067a84ba68db5211ca3bf39a97cc843e448",
+      "symbols": [
+        "AAPL"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T02:06:00+00:00"
+    },
+    {
+      "id": "139605031",
+      "headline": "Morningstar is bullish on 2 AI dividend stocks",
+      "summary": "The AI trade has been anything but smooth in 2026. After a strong run, investor sentiment has shifted in recent months. Many artificial intelligence stocks have sold off sharply, and investor anxiety …",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=84cbfa2c8c05135386510fa43dcfdd04c7e90de409b5e678403d3b7d02f0e96e",
+      "symbols": [
+        "MSFT"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T02:03:00+00:00"
+    },
+    {
+      "id": "139604799",
+      "headline": "Dow Jones Futures Fall, Oil Prices Jump As Trump Vows To Hit Iran 'Extremely Hard'; Tesla Deliveries Due",
+      "summary": "Futures fell and oil prices jumped as President Trump said the U.S. would continue to hit Iran \"extremely hard\" over the next 2-3 weeks.",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=bc984d113f65373c5b66cae734fd686620f84f4339191514ef4c4f181a80ded5",
+      "symbols": [
+        "TSLA"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T01:53:01+00:00"
+    },
+    {
+      "id": "139604783",
+      "headline": "Nvidia salaries: Executives, engineers & CEO pay ratio",
+      "summary": "Nvidia transformed itself from a company known first for making the hardware for processing graphics in gaming to accelerating processing models for artificial intelligence. Nvidia continues to focus …",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=53be1b7af12303e5ad115a64172da5b7b74d04a1ce482b8b9b8060655bbc1ce8",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T01:41:51+00:00"
+    },
+    {
+      "id": "139604818",
+      "headline": "Truist Cautious on Corning (GLW) Despite Strong AI and Cloud Spending Tailwinds",
+      "summary": "Corning Incorporated (NYSE:GLW) is included among the 13 Best Diversified Dividend Stocks to Buy Right Now. On March 31, Truist initiated coverage of Corning Incorporated (NYSE:GLW) with a Hold rating…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=a9f2fb0d3fe761b5352c267760a4ef2ee019a5e5ac4323ffcbd70493a6043f29",
+      "symbols": [
+        "CSCO"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T01:28:49+00:00"
+    },
+    {
+      "id": "139606012",
+      "headline": "Microsoft's AI Reset Created A Rare Bargain",
+      "summary": "Microsoft Q2 results: $81.3B revenue, Azure +39%, $625B backlog and expanding capex.",
+      "source": "SeekingAlpha",
+      "url": "https://finnhub.io/api/news?id=eff7cbef85dbde8d91312fe6fc8af5e17b9df32ba6072cd8398bdbe6e7b2b16f",
+      "symbols": [
+        "MSFT"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T01:26:12+00:00"
+    },
+    {
+      "id": "139604809",
+      "headline": "Netflix’s US$42.2b Warner Bros. Deal Tests Growth And Discipline",
+      "summary": "Netflix (NasdaqGS:NFLX) announces a US$42.2b all-cash agreement to acquire Warner Bros. The deal would combine Netflix’s streaming platform with Warner Bros.’s film, TV, sports, and gaming assets. The…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=fbdbb464fd42ca43becef1b32829d3670ae86ed60d8fd7a07f08b99e4d2e4c72",
+      "symbols": [
+        "NFLX"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-02T01:13:59+00:00"
+    },
+    {
+      "id": "139604797",
+      "headline": "Why Is Corning (GLW) Stock Soaring Today",
+      "summary": "Shares of glass and electronic component manufacturer Corning (NYSE:GLW) jumped 5.4% in the afternoon session after investors cheered a major optical cable plant expansion in North Carolina, backed by…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=722a7123d5d8158b058b91de2d71a62c83be6114d1f5fa56de6531a608e5da39",
+      "symbols": [
+        "META"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T00:47:26+00:00"
+    },
+    {
+      "id": "139604785",
+      "headline": "DRAM prices surged 90-95%, memory suppliers booked two years out",
+      "summary": "I’ve been watching the memory semiconductor cycle for years now, and I can’t stop thinking about a comment from a market analyst this week. On a recent TV segment, the analyst argued the selloff in me…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=1918efbe9bf7d6ee92273075bd38eb3b7cb62f427f00978c0549d32ff5ac25d8",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": "semiconductor",
+      "created_at": "2026-04-02T00:39:53+00:00"
+    },
+    {
+      "id": "139604786",
+      "headline": "Nvidia At A Discount? Tech Valuations Look Attractive And Mark Gibbens Says It's 'A Great Time to Get In' On PLTR, NVDA And GOOGL",
+      "summary": "Following a five-week market selloff that pushed major averages into correction territory, Gibbens Capital Management CIO Mark Gibbens says the pullback has created a prime buying opportunity for long…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=a9ef4929e2b686c0b388e052b1131ee69d4af511212ed552345636122ecfe6ec",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T00:31:32+00:00"
+    },
+    {
+      "id": "139604789",
+      "headline": "Amazon Globalstar Talks Put Satellite Push And Valuation In New Focus",
+      "summary": "Amazon.com (NasdaqGS:AMZN) is reportedly in advanced talks to acquire satellite telecom company Globalstar. The potential deal would expand Amazon's presence in satellite communications beyond its exi…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=da348437d4e27d501f3f1487d7f0de579fabd0ef913f8345e1fa20b650e2f076",
+      "symbols": [
+        "AAPL"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T00:22:39+00:00"
+    },
+    {
+      "id": "139604863",
+      "headline": "The Bull Case For Uber Technologies (UBER) Could Change Following Dubai Level 4 Robotaxi Launch With WeRide",
+      "summary": "In late March 2026, WeRide and Uber Technologies launched fully driverless, fare-charging Level 4 robotaxi services in Dubai, with riders booking via a dedicated “Autonomous” option on the Uber app ac…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=2b9fcebccfef0f5ef396572d6b4d15d2875877aae52e55cfd2820b8a244be5c6",
+      "symbols": [
+        "UBER"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-02T00:19:01+00:00"
+    },
+    {
+      "id": "139604787",
+      "headline": "Alibaba’s Q3 Earnings and AI Chip Pivot Could Be A Game Changer For Alibaba Group Holding (BABA)",
+      "summary": "Alibaba Group Holding Limited recently reported its third-quarter 2025 results, with sales rising slightly to CNY 284,843 million while net income fell sharply to CNY 16,383 million, alongside a broad…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=c9d4986656092aba5737dfbf32a3f814e4246d7645e5ed48360bd92b0e2ace85",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-02T00:18:59+00:00"
+    },
+    {
+      "id": "139605642",
+      "headline": "Broadcom: The Moat Still Holds",
+      "summary": "Broadcom (AVGO) hold rating: AI revenue growth and hyperscaler partnerships vs Google concentration and software churn risks; watch $277 supportâread now.",
+      "source": "SeekingAlpha",
+      "url": "https://finnhub.io/api/news?id=d7ab63d169303b377818f2e81ef671015b60a0e35165551822b0658153d5dff9",
+      "symbols": [
+        "AVGO"
+      ],
+      "severity": "routine",
+      "direction": "uncertain",
+      "sector": null,
+      "created_at": "2026-04-02T00:15:57+00:00"
+    },
+    {
+      "id": "139604788",
+      "headline": "HIVE's Frank Holmes reveals a 15-year secret for AI factories",
+      "summary": "The world of data centers is undergoing a massive transformation, moving from a corporate expense to a primary engine for economic growth. Frank Holmes, the Executive Chairman of HIVE Digital Technolo…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=763ea65306c075fe5157131a6370cf85a8ba239212fa8c4d927579ce659cd977",
+      "symbols": [
+        "NVDA"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": "semiconductor",
+      "created_at": "2026-04-02T00:02:22+00:00"
+    },
+    {
+      "id": "139604143",
+      "headline": "Dow Jones Futures: Trump's Iran Speech Looms; Tesla Set To Reclaim EV Crown",
+      "summary": "President Donald Trump will speak to the nation on the Iran war at 9 p.m. ET. Tesla deliveries are due early Thursday.",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=7ae27e0e6711cc00fea362f368fd33b1ffecbe11e2f9f44a44cf36b4b4509454",
+      "symbols": [
+        "TSLA"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-01T23:46:31+00:00"
+    },
+    {
+      "id": "139604790",
+      "headline": "Globalstar Rallies on Report That Amazon Is in Buyout Talks",
+      "summary": "(Bloomberg) -- Globalstar Inc. shares jumped more than 20% in late trading on a Financial Times report that Amazon.com Inc. is in talks to acquire the satellite provider. The deal would bolster Amazon…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=6ebb34bcb9db4d0d1dd3b358b96f0f8468e6fe4a728baef7ec2bec893e5cc097",
+      "symbols": [
+        "AAPL"
+      ],
+      "severity": "routine",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-01T23:37:04+00:00"
+    },
+    {
+      "id": "139604127",
+      "headline": "Mark Gurman Dismisses Apple Intelligence China Launch As Error, Points To Missing Approval And Unusual Timing",
+      "summary": "On Monday, analyst Mark Gurman said Apple Inc. Intelligence's brief appearance in China was accidental and not an official rollout. A Mistake, Not A Launch? Apple Intelligence may have briefly surface…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=730acfa4b1b303df568e2cb9e8cd41e8122ccc4be4dd4f7fa03b2262320e29d9",
+      "symbols": [
+        "AAPL"
+      ],
+      "severity": "routine",
+      "direction": "bearish",
+      "sector": null,
+      "created_at": "2026-04-01T23:31:09+00:00"
     }
   ]
 }
