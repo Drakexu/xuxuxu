@@ -1,3 +1,9 @@
 {
-  "last_updated": "2026-04-02T17:51:52.637855+00:00"
+  "last_updated": "2026-04-02T17:55:54.371108+00:00",
+  "account_id": 1,
+  "source": "dual_track",
+  "tracks": {
+    "daily": "db_paper_broker",
+    "intraday": "alpaca_paper_broker"
+  }
 }
