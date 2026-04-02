@@ -443,8 +443,8 @@ export default function DraQTDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { label: "NAV", value: `$${fmtShort(account.nav)}`, icon: DollarSign, detail: `Initial $${fmtShort(account.initial)}` },
-                    { label: "Total P&L", value: `${account.total_pnl >= 0 ? "+" : ""}$${fmtShort(account.total_pnl)}`, icon: account.total_pnl >= 0 ? TrendingUp : TrendingDown, detail: `Trading Day ${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, color: account.total_pnl >= 0, detailColor: account.daily_pnl },
-                    { label: "Total Return", value: `${account.total_return_pct >= 0 ? "+" : ""}${fmt(account.total_return_pct, 2)}%`, icon: Activity, detail: `Trading Day ${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, color: account.total_return_pct >= 0, detailColor: account.daily_return_pct },
+                    { label: "Total P&L", value: `${account.total_pnl >= 0 ? "+" : ""}$${fmtShort(account.total_pnl)}`, icon: account.total_pnl >= 0 ? TrendingUp : TrendingDown, detail: `Last Session ${account.daily_pnl >= 0 ? "+" : ""}$${fmtShort(account.daily_pnl)}`, color: account.total_pnl >= 0, detailColor: account.daily_pnl },
+                    { label: "Total Return", value: `${account.total_return_pct >= 0 ? "+" : ""}${fmt(account.total_return_pct, 2)}%`, icon: Activity, detail: `Last Session ${account.daily_return_pct >= 0 ? "+" : ""}${fmt(account.daily_return_pct, 2)}%`, color: account.total_return_pct >= 0, detailColor: account.daily_return_pct },
                     { label: "Cash", value: `$${fmtShort(account.cash)}`, icon: Wallet, detail: `${fmt(account.cash / account.nav * 100, 1)}% of NAV` },
                   ].map((card, i) => (
                     <motion.div
