@@ -182,7 +182,10 @@ const ALPACA_BASE = "/api/dra-qt/alpaca"
 
 async function fetchJson<T>(file: string): Promise<T | null> {
   try {
-    const res = await fetch(`${DATA_BASE}/${file}?t=${Date.now()}`, { cache: "no-store" })
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
+    const res = await fetch(`${DATA_BASE}/${file}?t=${Date.now()}`, { cache: "no-store", signal: controller.signal })
+    clearTimeout(timer)
     if (res.ok) return res.json()
   } catch { /* ignore */ }
   return null
@@ -190,10 +193,13 @@ async function fetchJson<T>(file: string): Promise<T | null> {
 
 async function fetchAlpaca<T>(path: string, params?: Record<string, string>): Promise<T | null> {
   try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
     const url = new URL(`${ALPACA_BASE}/${path}`, window.location.origin)
     if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
     url.searchParams.set("t", String(Date.now()))
-    const res = await fetch(url.toString(), { cache: "no-store" })
+    const res = await fetch(url.toString(), { cache: "no-store", signal: controller.signal })
+    clearTimeout(timer)
     if (res.ok) return res.json()
   } catch { /* ignore */ }
   return null
@@ -868,6 +874,12 @@ export default function DraQTDashboard() {
         {/* ════════════════════════════════════════════════════════════ */}
         {activeTab === "intraday" && (
           <>
+            {/* Alpaca offline banner */}
+            {!alpacaAccount && !loading && (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 text-center">
+                <p className="text-xs font-mono text-amber-600">⚠️ Alpaca 实时数据暂不可用（Xana 代理离线），下方展示静态信号数据</p>
+              </div>
+            )}
             {/* Intraday Account Overview */}
             {alpacaAccount && (
               <section className="space-y-6">
