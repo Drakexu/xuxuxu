@@ -176,7 +176,8 @@ interface IntradaySignals {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
-const DATA_BASE = "/api/dra-qt"
+const DATA_BASE = "/data/dra-qt"
+const API_BASE = "/api/dra-qt"
 const ALPACA_BASE = "/api/dra-qt/alpaca"
 
 async function fetchJson<T>(file: string): Promise<T | null> {
@@ -818,7 +819,7 @@ export default function DraQTDashboard() {
                                   </span>
                                 </td>
                                 <td className="px-6 py-3.5">
-                                  <span className="text-xs font-mono font-bold text-zinc-700">${fmt(ev.eps_estimate, 2)}</span>
+                                  <span className="text-xs font-mono font-bold text-zinc-700">{ev.eps_estimate != null ? `$${fmt(ev.eps_estimate, 2)}` : "—"}</span>
                                 </td>
                               </motion.tr>
                             )
