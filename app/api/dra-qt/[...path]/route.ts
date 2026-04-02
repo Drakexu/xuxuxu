@@ -11,6 +11,7 @@ const ALLOWED_STATIC = [
   "metadata.json",
   "intraday_signals.json",
   "earnings_calendar.json",
+  "news.json",
 ];
 
 // Alpaca proxy paths on Xana
