@@ -1,5 +1,15 @@
 [
   {
+    "time": "2026-04-02 21:43:53",
+    "symbol": "SHOP",
+    "side": "sell",
+    "qty": 140,
+    "price": 112.38,
+    "status": "filled",
+    "gross_value": 15829.95,
+    "fee": 15.83
+  },
+  {
     "time": "2026-04-02 19:47:47",
     "symbol": "SNOW",
     "side": "buy",
