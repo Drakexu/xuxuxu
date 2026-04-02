@@ -16,6 +16,8 @@ import {
   ChevronDown,
   Minus,
   Zap,
+  Newspaper,
+  ExternalLink,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import PortfolioLayout from "@/app/_components/PortfolioLayout"
@@ -87,6 +89,24 @@ interface IndexData {
 
 interface Metadata {
   last_updated: string
+}
+
+interface NewsItem {
+  id: string
+  headline: string
+  summary: string
+  source: string
+  url: string
+  symbols: string[]
+  severity: "urgent" | "important" | "routine"
+  direction: "bullish" | "bearish" | "uncertain"
+  sector: string | null
+  created_at: string
+}
+
+interface NewsData {
+  timestamp: string
+  news: NewsItem[]
 }
 
 // ─── Alpaca types ────────────────────────────────────────────────────
@@ -206,6 +226,8 @@ export default function DraQTDashboard() {
   const [signals, setSignals] = useState<Signals | null>(null)
   const [metadata, setMetadata] = useState<Metadata | null>(null)
   const [indices, setIndices] = useState<IndexData[]>([])
+  const [newsData, setNewsData] = useState<NewsItem[]>([])
+  const [newsExpanded, setNewsExpanded] = useState(false)
 
   // Intraday state
   const [alpacaAccount, setAlpacaAccount] = useState<AlpacaAccount | null>(null)
@@ -228,6 +250,7 @@ export default function DraQTDashboard() {
       fetchJson<Signals>("signals.json").then(setSignals),
       fetchJson<Metadata>("metadata.json").then(setMetadata),
       fetchJson<IndexData[]>("indices.json").then((d) => setIndices(d ?? [])),
+      fetchJson<NewsData>("news.json").then((d) => setNewsData(d?.news ?? [])),
     ])
   }, [])
 
@@ -650,6 +673,81 @@ export default function DraQTDashboard() {
                 </div>
               </section>
             )}
+
+            {/* ─── News Monitor ─── */}
+            <section className="space-y-6">
+              <SectionHeader title="News Monitor" />
+              <div className="p-6 md:p-8 rounded-2xl bg-white/5 border border-white/10">
+                {newsData.length === 0 ? (
+                  <p className="text-sm text-zinc-400 font-mono text-center py-8">暂无新闻数据</p>
+                ) : (
+                  <div className="space-y-1">
+                    {(newsExpanded ? newsData : newsData.slice(0, 10)).map((item, i) => {
+                      const ago = (() => {
+                        const diff = Date.now() - new Date(item.created_at).getTime()
+                        const mins = Math.floor(diff / 60000)
+                        if (mins < 60) return `${mins}m`
+                        const hrs = Math.floor(mins / 60)
+                        if (hrs < 24) return `${hrs}h`
+                        return `${Math.floor(hrs / 24)}d`
+                      })()
+                      const severityIcon = item.severity === "urgent" ? "🔴" : item.severity === "important" ? "🟡" : "🟢"
+                      const dirColor = item.direction === "bullish" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : item.direction === "bearish" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-zinc-400 bg-zinc-500/10 border-zinc-500/20"
+                      return (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.03 }}
+                          className="flex items-start gap-3 py-3 border-b border-white/5 last:border-0 group"
+                        >
+                          <span className="text-sm mt-0.5 shrink-0">{severityIcon}</span>
+                          <span className="text-[10px] font-mono text-zinc-400 mt-1 w-8 shrink-0">{ago}</span>
+                          <div className="flex-1 min-w-0">
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={item.summary}
+                              className="text-sm text-zinc-200 hover:text-white transition-colors leading-snug line-clamp-2 group-hover:underline decoration-zinc-500"
+                            >
+                              {item.headline}
+                              <ExternalLink className="w-3 h-3 inline-block ml-1 opacity-0 group-hover:opacity-50 transition-opacity" />
+                            </a>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${dirColor}`}>
+                                {item.direction}
+                              </span>
+                              {item.symbols.slice(0, 4).map((sym) => (
+                                <span key={sym} className="text-[9px] font-mono text-zinc-400 bg-zinc-800/50 px-1.5 py-0.5 rounded">
+                                  {sym}
+                                </span>
+                              ))}
+                              {item.symbols.length > 4 && (
+                                <span className="text-[9px] text-zinc-500">+{item.symbols.length - 4}</span>
+                              )}
+                              <span className="text-[9px] text-zinc-500 ml-auto">{item.source}</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                    {newsData.length > 10 && (
+                      <button
+                        onClick={() => setNewsExpanded(!newsExpanded)}
+                        className="w-full pt-3 text-xs font-mono text-zinc-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1"
+                      >
+                        {newsExpanded ? (
+                          <><ChevronUp className="w-3 h-3" /> 收起</>  
+                        ) : (
+                          <><ChevronDown className="w-3 h-3" /> 展开全部 ({newsData.length} 条)</>  
+                        )}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
 
             {/* Resonance CTA */}
             <section className="pt-4">
