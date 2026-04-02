@@ -702,11 +702,11 @@ export default function DraQTDashboard() {
             {/* ─── News Monitor ─── */}
             <section className="space-y-6">
               <SectionHeader title="News Monitor" />
-              <div className="p-6 md:p-8 rounded-2xl bg-white/5 border border-white/10">
+              <div className="rounded-[2rem] bg-white border border-zinc-100 shadow-sm overflow-hidden">
                 {newsData.length === 0 ? (
                   <p className="text-sm text-zinc-400 font-mono text-center py-8">暂无新闻数据</p>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="divide-y divide-zinc-100">
                     {(newsExpanded ? newsData : newsData.slice(0, 10)).map((item, i) => {
                       const ago = (() => {
                         const diff = Date.now() - new Date(item.created_at).getTime()
@@ -717,41 +717,41 @@ export default function DraQTDashboard() {
                         return `${Math.floor(hrs / 24)}d`
                       })()
                       const severityIcon = item.severity === "urgent" ? "🔴" : item.severity === "important" ? "🟡" : "🟢"
-                      const dirColor = item.direction === "bullish" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : item.direction === "bearish" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-zinc-400 bg-zinc-500/10 border-zinc-500/20"
+                      const dirColor = item.direction === "bullish" ? "text-emerald-700 bg-emerald-50 border-emerald-200" : item.direction === "bearish" ? "text-red-600 bg-red-50 border-red-200" : "text-zinc-500 bg-zinc-50 border-zinc-200"
                       return (
                         <motion.div
                           key={item.id}
                           initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.03 }}
-                          className="flex items-start gap-3 py-3 border-b border-white/5 last:border-0 group"
+                          className="flex items-start gap-3 px-5 py-4 group hover:bg-zinc-50/50 transition-colors"
                         >
                           <span className="text-sm mt-0.5 shrink-0">{severityIcon}</span>
-                          <span className="text-[10px] font-mono text-zinc-400 mt-1 w-8 shrink-0">{ago}</span>
+                          <span className="text-xs font-mono text-zinc-400 mt-0.5 w-8 shrink-0">{ago}</span>
                           <div className="flex-1 min-w-0">
                             <a
                               href={item.url}
                               target="_blank"
                               rel="noopener noreferrer"
                               title={item.summary}
-                              className="text-sm text-zinc-200 hover:text-white transition-colors leading-snug line-clamp-2 group-hover:underline decoration-zinc-500"
+                              className="text-sm font-medium text-zinc-800 hover:text-violet-600 transition-colors leading-snug line-clamp-2 group-hover:underline decoration-zinc-300"
                             >
                               {item.headline}
                               <ExternalLink className="w-3 h-3 inline-block ml-1 opacity-0 group-hover:opacity-50 transition-opacity" />
                             </a>
                             <div className="flex items-center gap-2 mt-1.5">
-                              <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${dirColor}`}>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${dirColor}`}>
                                 {item.direction}
                               </span>
                               {item.symbols.slice(0, 4).map((sym) => (
-                                <span key={sym} className="text-[9px] font-mono text-zinc-400 bg-zinc-800/50 px-1.5 py-0.5 rounded">
+                                <span key={sym} className="text-[10px] font-mono text-zinc-600 bg-zinc-100 px-1.5 py-0.5 rounded">
                                   {sym}
                                 </span>
                               ))}
                               {item.symbols.length > 4 && (
-                                <span className="text-[9px] text-zinc-500">+{item.symbols.length - 4}</span>
+                                <span className="text-[10px] text-zinc-400">+{item.symbols.length - 4}</span>
                               )}
-                              <span className="text-[9px] text-zinc-500 ml-auto">{item.source}</span>
+                              <span className="text-[10px] text-zinc-400 ml-auto">{item.source}</span>
                             </div>
                           </div>
                         </motion.div>
@@ -760,7 +760,7 @@ export default function DraQTDashboard() {
                     {newsData.length > 10 && (
                       <button
                         onClick={() => setNewsExpanded(!newsExpanded)}
-                        className="w-full pt-3 text-xs font-mono text-zinc-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1"
+                        className="w-full py-3 text-xs font-mono text-zinc-500 hover:text-violet-500 transition-colors flex items-center justify-center gap-1"
                       >
                         {newsExpanded ? (
                           <><ChevronUp className="w-3 h-3" /> 收起</>  
