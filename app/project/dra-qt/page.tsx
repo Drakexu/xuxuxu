@@ -280,11 +280,11 @@ export default function DraQTDashboard() {
   }, [])
 
   const loadIntraday = useCallback(async () => {
-    const today = new Date().toISOString().slice(0, 10)
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
     await Promise.all([
       fetchAlpaca<AlpacaAccount>("account").then(setAlpacaAccount),
       fetchAlpaca<AlpacaPosition[]>("positions").then((d) => setAlpacaPositions(d ?? [])),
-      fetchAlpaca<AlpacaOrder[]>("orders", { status: "all", after: `${today}T00:00:00Z`, direction: "desc", limit: "50" }).then((d) => setAlpacaOrders(d ?? [])),
+      fetchAlpaca<AlpacaOrder[]>("orders", { status: "all", after: `${weekAgo}T00:00:00Z`, direction: "desc", limit: "50" }).then((d) => setAlpacaOrders(d ?? [])),
       fetchJson<IntradaySignals>("intraday_signals.json").then(setIntradaySignals),
     ])
   }, [])
