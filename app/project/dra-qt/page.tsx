@@ -18,6 +18,7 @@ import {
   Zap,
   Newspaper,
   ExternalLink,
+  Calendar,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import PortfolioLayout from "@/app/_components/PortfolioLayout"
@@ -107,6 +108,21 @@ interface NewsItem {
 interface NewsData {
   timestamp: string
   news: NewsItem[]
+}
+
+interface EarningsEvent {
+  symbol: string
+  date: string
+  type: string
+  eps_estimate: number
+  revenue_estimate: number
+  hour?: string
+  source: string
+}
+
+interface EarningsCalendar {
+  updated_at: string
+  events: EarningsEvent[]
 }
 
 // ─── Alpaca types ────────────────────────────────────────────────────
@@ -228,6 +244,7 @@ export default function DraQTDashboard() {
   const [indices, setIndices] = useState<IndexData[]>([])
   const [newsData, setNewsData] = useState<NewsItem[]>([])
   const [newsExpanded, setNewsExpanded] = useState(false)
+  const [earningsEvents, setEarningsEvents] = useState<EarningsEvent[]>([])
 
   // Intraday state
   const [alpacaAccount, setAlpacaAccount] = useState<AlpacaAccount | null>(null)
@@ -251,6 +268,7 @@ export default function DraQTDashboard() {
       fetchJson<Metadata>("metadata.json").then(setMetadata),
       fetchJson<IndexData[]>("indices.json").then((d) => setIndices(d ?? [])),
       fetchJson<NewsData>("news.json").then((d) => setNewsData(d?.news ?? [])),
+      fetchJson<EarningsCalendar>("earnings_calendar.json").then((d) => setEarningsEvents(d?.events ?? [])),
     ])
   }, [])
 
@@ -748,6 +766,70 @@ export default function DraQTDashboard() {
                 )}
               </div>
             </section>
+
+            {/* ─── Earnings Calendar ─── */}
+            {earningsEvents.length > 0 && (() => {
+              const today = new Date().toISOString().slice(0, 10)
+              const futureEvents = earningsEvents
+                .filter((e) => e.date >= today)
+                .sort((a, b) => a.date.localeCompare(b.date))
+              if (futureEvents.length === 0) return null
+              const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
+              return (
+                <section className="space-y-6">
+                  <SectionHeader title="Earnings Calendar" />
+                  <div className="rounded-[2rem] bg-white border border-zinc-100 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-zinc-50">
+                            {["Symbol", "Date", "Time", "EPS Est."].map((h) => (
+                              <th key={h} className="px-6 py-4 text-[9px] font-mono font-black text-zinc-300 uppercase tracking-widest">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {futureEvents.map((ev, i) => {
+                            const daysUntil = (new Date(ev.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                            const isSoon = daysUntil <= 7 && daysUntil >= 0
+                            return (
+                              <motion.tr
+                                key={`${ev.symbol}-${ev.date}`}
+                                initial={{ opacity: 0 }}
+                                whileInView={{ opacity: 1 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: i * 0.03 }}
+                                className={`border-b border-zinc-50/50 ${isSoon ? "bg-amber-50/60" : ""}`}
+                              >
+                                <td className="px-6 py-3.5">
+                                  <span className={`font-black text-sm tracking-tight ${isSoon ? "text-amber-700" : "text-zinc-900"}`}>{ev.symbol}</span>
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  <span className={`text-xs font-mono ${isSoon ? "text-amber-600 font-bold" : "text-zinc-500"}`}>
+                                    {ev.date}
+                                    {isSoon && <span className="ml-1.5 text-[9px] text-amber-500 font-black uppercase">({Math.ceil(daysUntil)}d)</span>}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                    ev.hour === "bmo" ? "text-sky-500" : ev.hour === "amc" ? "text-violet-500" : "text-zinc-300"
+                                  }`}>
+                                    {ev.hour === "bmo" ? "盘前" : ev.hour === "amc" ? "盘后" : "—"}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  <span className="text-xs font-mono font-bold text-zinc-700">${fmt(ev.eps_estimate, 2)}</span>
+                                </td>
+                              </motion.tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+              )
+            })()}
 
             {/* Resonance CTA */}
             <section className="pt-4">

@@ -1,5 +1,65 @@
 [
   {
+    "time": "2026-04-02 19:47:47",
+    "symbol": "SNOW",
+    "side": "buy",
+    "qty": 125,
+    "price": 153.12,
+    "status": "rejected",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-02 19:47:47",
+    "symbol": "QQQ",
+    "side": "buy",
+    "qty": 50,
+    "price": 584.6,
+    "status": "filled",
+    "gross_value": 29791.05,
+    "fee": 29.7911
+  },
+  {
+    "time": "2026-04-02 19:47:47",
+    "symbol": "SHOP",
+    "side": "buy",
+    "qty": 140,
+    "price": 118.58,
+    "status": "filled",
+    "gross_value": 16702.62,
+    "fee": 16.7026
+  },
+  {
+    "time": "2026-04-02 19:47:47",
+    "symbol": "INTC",
+    "side": "sell",
+    "qty": 503,
+    "price": 44.11,
+    "status": "filled",
+    "gross_value": 22216.41,
+    "fee": 22.2164
+  },
+  {
+    "time": "2026-04-02 19:47:47",
+    "symbol": "TQQQ",
+    "side": "sell",
+    "qty": 325,
+    "price": 43.21,
+    "status": "filled",
+    "gross_value": 14057.72,
+    "fee": 14.0577
+  },
+  {
+    "time": "2026-04-02 19:47:47",
+    "symbol": "MU",
+    "side": "sell",
+    "qty": 50,
+    "price": 367.67,
+    "status": "filled",
+    "gross_value": 18522.04,
+    "fee": 18.522
+  },
+  {
     "time": "2026-04-02 03:08:16",
     "symbol": "INTC",
     "side": "buy",

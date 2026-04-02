@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-02T08:42:10.456866+00:00",
+  "timestamp": "2026-04-02T08:43:33.248565+00:00",
   "news": [
     {
       "id": "139604784",
@@ -78,7 +78,7 @@
       "source": "Yahoo",
       "url": "https://finnhub.io/api/news?id=a127c887f2bca64a520c6e86e9df4c7edc35a77e47c255d51c6a35cb52d93919",
       "symbols": [
-        "MU"
+        "GOOGL"
       ],
       "severity": "important",
       "direction": "uncertain",
@@ -140,6 +140,20 @@
       "direction": "uncertain",
       "sector": null,
       "created_at": "2026-04-01T13:32:05+00:00"
+    },
+    {
+      "id": "139598317",
+      "headline": "Western Digital rises as Bernstein upgrades shares on Turboquant pulback",
+      "summary": "Investing.com -- Bernstein upgraded Western Digital to Outperform from Market Perform, hiking its price target to $340 from $170, arguing that a sharp pullback driven by fears over Google’s new TurboQ…",
+      "source": "Yahoo",
+      "url": "https://finnhub.io/api/news?id=8295cdd11e4204080f4edcf4a8080626f0a9d390eb521234e8d8dab8a702f55e",
+      "symbols": [
+        "GOOGL"
+      ],
+      "severity": "important",
+      "direction": "bullish",
+      "sector": null,
+      "created_at": "2026-04-01T13:16:30+00:00"
     },
     {
       "id": "139601177",
@@ -260,11 +274,11 @@
       "source": "Yahoo",
       "url": "https://finnhub.io/api/news?id=75ba66716f61338ff749fb291cb516812c5c63e013bd89921513913e09109728",
       "symbols": [
-        "MU"
+        "GOOGL"
       ],
       "severity": "routine",
       "direction": "bearish",
-      "sector": "semiconductor",
+      "sector": null,
       "created_at": "2026-04-02T06:09:48+00:00"
     },
     {
@@ -288,7 +302,7 @@
       "source": "Yahoo",
       "url": "https://finnhub.io/api/news?id=c077ea4513eec2b054762e8cbb572eb941a2fb83f3e20aba0aabe78fd84ee097",
       "symbols": [
-        "AMZN"
+        "GOOGL"
       ],
       "severity": "routine",
       "direction": "uncertain",
@@ -686,20 +700,6 @@
       "direction": "bullish",
       "sector": null,
       "created_at": "2026-04-01T23:37:04+00:00"
-    },
-    {
-      "id": "139604127",
-      "headline": "Mark Gurman Dismisses Apple Intelligence China Launch As Error, Points To Missing Approval And Unusual Timing",
-      "summary": "On Monday, analyst Mark Gurman said Apple Inc. Intelligence's brief appearance in China was accidental and not an official rollout. A Mistake, Not A Launch? Apple Intelligence may have briefly surface…",
-      "source": "Yahoo",
-      "url": "https://finnhub.io/api/news?id=730acfa4b1b303df568e2cb9e8cd41e8122ccc4be4dd4f7fa03b2262320e29d9",
-      "symbols": [
-        "AAPL"
-      ],
-      "severity": "routine",
-      "direction": "bearish",
-      "sector": null,
-      "created_at": "2026-04-01T23:31:09+00:00"
     }
   ]
 }

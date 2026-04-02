@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-01T06:44:36.730437+00:00",
+  "timestamp": "2026-04-02T11:47:32.304335+00:00",
   "horizons": [
     1,
     3,
@@ -10,122 +10,42 @@
   ],
   "signals": [
     {
-      "symbol": "SNOW",
-      "resonance_ratio": 0.8333,
-      "appearances": 5,
+      "symbol": "QQQ",
+      "resonance_ratio": 1.0,
+      "appearances": 6,
       "total_horizons": 6,
-      "weighted_pred": 0.113837,
-      "price": 150.82,
+      "weighted_pred": 0.092138,
+      "price": 584.31,
       "per_horizon": {
         "1": {
-          "pred": 0.017456,
-          "rank": 1,
+          "pred": 0.000821,
+          "rank": 4,
           "in_top": true
         },
         "3": {
-          "pred": -0.006779,
-          "rank": 6,
-          "in_top": false
+          "pred": 0.016091,
+          "rank": 1,
+          "in_top": true
         },
         "5": {
-          "pred": 0.020308,
+          "pred": 0.032415,
           "rank": 1,
           "in_top": true
         },
         "10": {
-          "pred": 0.11059,
-          "rank": 1,
-          "in_top": true
-        },
-        "20": {
-          "pred": 0.202745,
-          "rank": 1,
-          "in_top": true
-        },
-        "30": {
-          "pred": 0.154225,
-          "rank": 4,
-          "in_top": true
-        }
-      }
-    },
-    {
-      "symbol": "MU",
-      "resonance_ratio": 0.6667,
-      "appearances": 4,
-      "total_horizons": 6,
-      "weighted_pred": 0.086474,
-      "price": 337.84,
-      "per_horizon": {
-        "1": {
-          "pred": 0.007882,
-          "rank": 2,
-          "in_top": true
-        },
-        "3": {
-          "pred": -0.009641,
-          "rank": 13,
-          "in_top": false
-        },
-        "5": {
-          "pred": 0.010655,
-          "rank": 4,
-          "in_top": true
-        },
-        "10": {
-          "pred": 0.095461,
+          "pred": 0.08924,
           "rank": 2,
           "in_top": true
         },
         "20": {
-          "pred": 0.071995,
-          "rank": 6,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.18726,
-          "rank": 1,
-          "in_top": true
-        }
-      }
-    },
-    {
-      "symbol": "ARKK",
-      "resonance_ratio": 0.6667,
-      "appearances": 4,
-      "total_horizons": 6,
-      "weighted_pred": 0.061503,
-      "price": 67.59,
-      "per_horizon": {
-        "1": {
-          "pred": -0.010337,
-          "rank": 22,
-          "in_top": false
-        },
-        "3": {
-          "pred": 0.00198,
+          "pred": 0.131884,
           "rank": 1,
           "in_top": true
         },
-        "5": {
-          "pred": 0.016674,
-          "rank": 3,
-          "in_top": true
-        },
-        "10": {
-          "pred": 0.084362,
-          "rank": 5,
-          "in_top": true
-        },
-        "20": {
-          "pred": 0.07668,
-          "rank": 5,
-          "in_top": true
-        },
         "30": {
-          "pred": 0.094007,
-          "rank": 7,
-          "in_top": false
+          "pred": 0.139218,
+          "rank": 2,
+          "in_top": true
         }
       }
     },
@@ -134,197 +54,277 @@
       "resonance_ratio": 0.6667,
       "appearances": 4,
       "total_horizons": 6,
-      "weighted_pred": 0.042519,
-      "price": 41.68,
+      "weighted_pred": 0.062869,
+      "price": 43.23,
       "per_horizon": {
         "1": {
-          "pred": -0.003865,
-          "rank": 4,
-          "in_top": true
-        },
-        "3": {
-          "pred": 0.00173,
-          "rank": 2,
-          "in_top": true
-        },
-        "5": {
-          "pred": 0.018116,
-          "rank": 2,
-          "in_top": true
-        },
-        "10": {
-          "pred": 0.088702,
-          "rank": 4,
-          "in_top": true
-        },
-        "20": {
-          "pred": 0.046263,
-          "rank": 14,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.045514,
-          "rank": 20,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "INTC",
-      "resonance_ratio": 0.5,
-      "appearances": 3,
-      "total_horizons": 6,
-      "weighted_pred": 0.087164,
-      "price": 44.13,
-      "per_horizon": {
-        "1": {
-          "pred": -0.005703,
-          "rank": 8,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.012475,
-          "rank": 20,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.006227,
-          "rank": 7,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.095029,
+          "pred": 0.001666,
           "rank": 3,
           "in_top": true
         },
-        "20": {
-          "pred": 0.120785,
-          "rank": 3,
-          "in_top": true
-        },
-        "30": {
-          "pred": 0.159561,
-          "rank": 3,
-          "in_top": true
-        }
-      }
-    },
-    {
-      "symbol": "PLTR",
-      "resonance_ratio": 0.5,
-      "appearances": 3,
-      "total_horizons": 6,
-      "weighted_pred": 0.062541,
-      "price": 146.28,
-      "per_horizon": {
-        "1": {
-          "pred": -0.009377,
-          "rank": 19,
-          "in_top": false
-        },
         "3": {
-          "pred": -0.008389,
+          "pred": 0.004867,
           "rank": 10,
           "in_top": false
         },
         "5": {
-          "pred": -0.001512,
-          "rank": 5,
+          "pred": 0.009383,
+          "rank": 2,
           "in_top": true
         },
         "10": {
-          "pred": 0.037049,
-          "rank": 11,
-          "in_top": false
+          "pred": 0.086811,
+          "rank": 3,
+          "in_top": true
         },
         "20": {
-          "pred": 0.084582,
+          "pred": 0.096242,
           "rank": 4,
           "in_top": true
         },
         "30": {
-          "pred": 0.137372,
+          "pred": 0.080238,
+          "rank": 6,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "SNOW",
+      "resonance_ratio": 0.5,
+      "appearances": 3,
+      "total_horizons": 6,
+      "weighted_pred": 0.059643,
+      "price": 153.12,
+      "per_horizon": {
+        "1": {
+          "pred": -0.003708,
+          "rank": 12,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.006226,
+          "rank": 23,
+          "in_top": false
+        },
+        "5": {
+          "pred": 0.004087,
+          "rank": 4,
+          "in_top": true
+        },
+        "10": {
+          "pred": 0.116058,
+          "rank": 1,
+          "in_top": true
+        },
+        "20": {
+          "pred": 0.097888,
+          "rank": 2,
+          "in_top": true
+        },
+        "30": {
+          "pred": 0.054708,
+          "rank": 13,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "MU",
+      "resonance_ratio": 0.5,
+      "appearances": 3,
+      "total_horizons": 6,
+      "weighted_pred": 0.054345,
+      "price": 367.85,
+      "per_horizon": {
+        "1": {
+          "pred": -0.012978,
+          "rank": 29,
+          "in_top": false
+        },
+        "3": {
+          "pred": 0.007809,
+          "rank": 4,
+          "in_top": true
+        },
+        "5": {
+          "pred": -0.032258,
+          "rank": 25,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.072492,
+          "rank": 4,
+          "in_top": true
+        },
+        "20": {
+          "pred": 0.057768,
+          "rank": 8,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.116202,
+          "rank": 4,
+          "in_top": true
+        }
+      }
+    },
+    {
+      "symbol": "SHOP",
+      "resonance_ratio": 0.5,
+      "appearances": 3,
+      "total_horizons": 6,
+      "weighted_pred": 0.051658,
+      "price": 118.52,
+      "per_horizon": {
+        "1": {
+          "pred": -0.00267,
+          "rank": 9,
+          "in_top": false
+        },
+        "3": {
+          "pred": 0.007431,
+          "rank": 5,
+          "in_top": true
+        },
+        "5": {
+          "pred": -0.004898,
+          "rank": 7,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.025296,
+          "rank": 13,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.097771,
+          "rank": 3,
+          "in_top": true
+        },
+        "30": {
+          "pred": 0.087512,
           "rank": 5,
           "in_top": true
         }
       }
     },
     {
-      "symbol": "QQQ",
-      "resonance_ratio": 0.3333,
-      "appearances": 2,
+      "symbol": "NOW",
+      "resonance_ratio": 0.5,
+      "appearances": 3,
       "total_horizons": 6,
-      "weighted_pred": 0.083359,
-      "price": 577.18,
+      "weighted_pred": 0.021833,
+      "price": 104.04,
       "per_horizon": {
         "1": {
-          "pred": -0.009454,
-          "rank": 20,
-          "in_top": false
+          "pred": -0.00066,
+          "rank": 5,
+          "in_top": true
         },
         "3": {
-          "pred": -0.006788,
-          "rank": 7,
-          "in_top": false
+          "pred": 0.00922,
+          "rank": 3,
+          "in_top": true
         },
         "5": {
-          "pred": -0.006322,
-          "rank": 8,
+          "pred": -0.010091,
+          "rank": 13,
           "in_top": false
         },
         "10": {
-          "pred": 0.064655,
+          "pred": 0.063533,
+          "rank": 5,
+          "in_top": true
+        },
+        "20": {
+          "pred": 0.026122,
+          "rank": 16,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.015201,
+          "rank": 18,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "ORCL",
+      "resonance_ratio": 0.3333,
+      "appearances": 2,
+      "total_horizons": 6,
+      "weighted_pred": 0.040119,
+      "price": 145.23,
+      "per_horizon": {
+        "1": {
+          "pred": 0.004089,
+          "rank": 2,
+          "in_top": true
+        },
+        "3": {
+          "pred": -0.017806,
+          "rank": 30,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.026098,
+          "rank": 19,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.04008,
+          "rank": 7,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.07813,
+          "rank": 5,
+          "in_top": true
+        },
+        "30": {
+          "pred": 0.071653,
+          "rank": 10,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "UBER",
+      "resonance_ratio": 0.3333,
+      "appearances": 2,
+      "total_horizons": 6,
+      "weighted_pred": 0.011886,
+      "price": 71.71,
+      "per_horizon": {
+        "1": {
+          "pred": 0.004758,
+          "rank": 1,
+          "in_top": true
+        },
+        "3": {
+          "pred": 0.00543,
+          "rank": 9,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.000137,
+          "rank": 5,
+          "in_top": true
+        },
+        "10": {
+          "pred": 0.041003,
           "rank": 6,
           "in_top": false
         },
         "20": {
-          "pred": 0.123314,
-          "rank": 2,
-          "in_top": true
-        },
-        "30": {
-          "pred": 0.162914,
-          "rank": 2,
-          "in_top": true
-        }
-      }
-    },
-    {
-      "symbol": "SOXX",
-      "resonance_ratio": 0.1667,
-      "appearances": 1,
-      "total_horizons": 6,
-      "weighted_pred": 0.037304,
-      "price": 328.66,
-      "per_horizon": {
-        "1": {
-          "pred": -0.004186,
-          "rank": 5,
-          "in_top": true
-        },
-        "3": {
-          "pred": -0.009087,
-          "rank": 11,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.019199,
-          "rank": 16,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.049133,
-          "rank": 7,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.057319,
-          "rank": 8,
+          "pred": 0.013479,
+          "rank": 21,
           "in_top": false
         },
         "30": {
-          "pred": 0.067884,
-          "rank": 12,
+          "pred": 0.00046,
+          "rank": 25,
           "in_top": false
         }
       }
@@ -334,476 +334,156 @@
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6,
-      "weighted_pred": 0.031615,
-      "price": 370.17,
+      "weighted_pred": 0.053307,
+      "price": 369.37,
       "per_horizon": {
         "1": {
-          "pred": -0.006405,
-          "rank": 9,
+          "pred": -0.006485,
+          "rank": 19,
           "in_top": false
         },
         "3": {
-          "pred": 0.000344,
-          "rank": 3,
-          "in_top": true
+          "pred": 0.001641,
+          "rank": 17,
+          "in_top": false
         },
         "5": {
-          "pred": -0.032372,
-          "rank": 24,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.034402,
-          "rank": 13,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.053395,
-          "rank": 9,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.064043,
-          "rank": 18,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "NVDA",
-      "resonance_ratio": 0.1667,
-      "appearances": 1,
-      "total_horizons": 6,
-      "weighted_pred": 0.024873,
-      "price": 174.4,
-      "per_horizon": {
-        "1": {
-          "pred": -0.019132,
-          "rank": 29,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.001973,
-          "rank": 4,
-          "in_top": true
-        },
-        "5": {
-          "pred": -0.03,
+          "pred": -0.027307,
           "rank": 22,
           "in_top": false
         },
         "10": {
-          "pred": -0.003478,
-          "rank": 29,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.050462,
-          "rank": 12,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.070336,
-          "rank": 10,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "TSLA",
-      "resonance_ratio": 0.1667,
-      "appearances": 1,
-      "total_horizons": 6,
-      "weighted_pred": 0.017549,
-      "price": 371.75,
-      "per_horizon": {
-        "1": {
-          "pred": -0.010785,
-          "rank": 25,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.003035,
-          "rank": 5,
-          "in_top": true
-        },
-        "5": {
-          "pred": -0.020175,
-          "rank": 17,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.007699,
-          "rank": 26,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.045165,
-          "rank": 17,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.033657,
-          "rank": 23,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "QCOM",
-      "resonance_ratio": 0.1667,
-      "appearances": 1,
-      "total_horizons": 6,
-      "weighted_pred": 0.009966,
-      "price": 128.78,
-      "per_horizon": {
-        "1": {
-          "pred": -0.001132,
-          "rank": 3,
-          "in_top": true
-        },
-        "3": {
-          "pred": -0.026201,
-          "rank": 28,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.016015,
-          "rank": 14,
-          "in_top": false
-        },
-        "10": {
-          "pred": -0.001971,
-          "rank": 28,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.022216,
-          "rank": 23,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.037836,
-          "rank": 21,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "SMH",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.040409,
-      "price": 383.4,
-      "per_horizon": {
-        "1": {
-          "pred": -0.00846,
-          "rank": 15,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.016061,
-          "rank": 26,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.027317,
-          "rank": 20,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.041637,
-          "rank": 10,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.047198,
-          "rank": 13,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.101529,
-          "rank": 6,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "CSCO",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.030746,
-      "price": 77.59,
-      "per_horizon": {
-        "1": {
-          "pred": -0.006781,
-          "rank": 10,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.007672,
-          "rank": 9,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.01196,
-          "rank": 11,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.01868,
-          "rank": 19,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.04554,
-          "rank": 15,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.071424,
-          "rank": 9,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "AVGO",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.028722,
-      "price": 309.51,
-      "per_horizon": {
-        "1": {
-          "pred": -0.012458,
-          "rank": 28,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.011387,
-          "rank": 18,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.014671,
-          "rank": 13,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.016704,
-          "rank": 21,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.060343,
-          "rank": 7,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.056225,
-          "rank": 19,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "AMZN",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.02744,
-      "price": 208.27,
-      "per_horizon": {
-        "1": {
-          "pred": -0.010735,
-          "rank": 24,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.007456,
+          "pred": 0.038097,
           "rank": 8,
           "in_top": false
         },
-        "5": {
-          "pred": -0.017014,
-          "rank": 15,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.020493,
-          "rank": 18,
-          "in_top": false
-        },
         "20": {
-          "pred": 0.041866,
-          "rank": 18,
+          "pred": 0.045102,
+          "rank": 10,
           "in_top": false
         },
         "30": {
-          "pred": 0.064488,
-          "rank": 16,
-          "in_top": false
+          "pred": 0.146192,
+          "rank": 1,
+          "in_top": true
         }
       }
     },
     {
       "symbol": "PANW",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
+      "resonance_ratio": 0.1667,
+      "appearances": 1,
       "total_horizons": 6,
-      "weighted_pred": 0.02669,
-      "price": 160.32,
+      "weighted_pred": 0.040877,
+      "price": 160.67,
       "per_horizon": {
         "1": {
-          "pred": -0.010352,
-          "rank": 23,
+          "pred": -0.001156,
+          "rank": 7,
           "in_top": false
         },
         "3": {
-          "pred": -0.013973,
-          "rank": 22,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.028608,
-          "rank": 21,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.033791,
-          "rank": 14,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.036676,
-          "rank": 19,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.065624,
-          "rank": 14,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "NOW",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.026224,
-      "price": 104.55,
-      "per_horizon": {
-        "1": {
-          "pred": -0.004833,
+          "pred": 0.007387,
           "rank": 6,
           "in_top": false
         },
-        "3": {
-          "pred": -0.011073,
-          "rank": 16,
-          "in_top": false
-        },
         "5": {
-          "pred": -0.035284,
-          "rank": 28,
+          "pred": -0.007052,
+          "rank": 9,
           "in_top": false
         },
         "10": {
-          "pred": 0.036451,
-          "rank": 12,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.034,
+          "pred": 0.011448,
           "rank": 20,
           "in_top": false
         },
-        "30": {
-          "pred": 0.065607,
-          "rank": 15,
+        "20": {
+          "pred": 0.021857,
+          "rank": 18,
           "in_top": false
+        },
+        "30": {
+          "pred": 0.125301,
+          "rank": 3,
+          "in_top": true
         }
       }
     },
     {
-      "symbol": "META",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
+      "symbol": "XLK",
+      "resonance_ratio": 0.1667,
+      "appearances": 1,
       "total_horizons": 6,
-      "weighted_pred": 0.022838,
-      "price": 572.13,
+      "weighted_pred": 0.02716,
+      "price": 134.91,
       "per_horizon": {
         "1": {
-          "pred": -0.019693,
-          "rank": 30,
+          "pred": -0.007807,
+          "rank": 22,
           "in_top": false
         },
         "3": {
-          "pred": -0.034204,
-          "rank": 29,
+          "pred": 0.005463,
+          "rank": 8,
           "in_top": false
         },
         "5": {
-          "pred": -0.037992,
-          "rank": 29,
-          "in_top": false
+          "pred": 0.0046,
+          "rank": 3,
+          "in_top": true
         },
         "10": {
-          "pred": 0.013978,
-          "rank": 24,
+          "pred": 0.01438,
+          "rank": 17,
           "in_top": false
         },
         "20": {
-          "pred": 0.051196,
-          "rank": 10,
+          "pred": 0.041152,
+          "rank": 11,
           "in_top": false
         },
         "30": {
-          "pred": 0.067235,
-          "rank": 13,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "NFLX",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.021432,
-      "price": 96.15,
-      "per_horizon": {
-        "1": {
-          "pred": -0.010244,
-          "rank": 21,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.009773,
+          "pred": 0.051267,
           "rank": 14,
           "in_top": false
-        },
-        "5": {
-          "pred": -0.013927,
-          "rank": 12,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.023264,
-          "rank": 16,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.014035,
+        }
+      }
+    },
+    {
+      "symbol": "AMD",
+      "resonance_ratio": 0.1667,
+      "appearances": 1,
+      "total_horizons": 6,
+      "weighted_pred": -0.003336,
+      "price": 210.21,
+      "per_horizon": {
+        "1": {
+          "pred": -0.010271,
           "rank": 27,
           "in_top": false
         },
+        "3": {
+          "pred": 0.011794,
+          "rank": 2,
+          "in_top": true
+        },
+        "5": {
+          "pred": -0.037236,
+          "rank": 27,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.005553,
+          "rank": 23,
+          "in_top": false
+        },
+        "20": {
+          "pred": -0.023597,
+          "rank": 28,
+          "in_top": false
+        },
         "30": {
-          "pred": 0.064152,
+          "pred": 0.021399,
           "rank": 17,
           "in_top": false
         }
@@ -814,357 +494,77 @@
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6,
-      "weighted_pred": 0.018938,
-      "price": 186.67,
+      "weighted_pred": 0.037803,
+      "price": 186.24,
       "per_horizon": {
         "1": {
-          "pred": -0.007986,
-          "rank": 11,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.015301,
-          "rank": 24,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.026296,
-          "rank": 19,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.009023,
-          "rank": 25,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.014464,
-          "rank": 26,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.072685,
-          "rank": 8,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "AMD",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.016114,
-      "price": 203.43,
-      "per_horizon": {
-        "1": {
-          "pred": -0.011373,
-          "rank": 27,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.044497,
-          "rank": 30,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.047068,
-          "rank": 30,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.014205,
-          "rank": 23,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.027952,
-          "rank": 22,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.069933,
-          "rank": 11,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "AMAT",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.014709,
-      "price": 341.79,
-      "per_horizon": {
-        "1": {
-          "pred": -0.00826,
+          "pred": -0.004483,
           "rank": 14,
           "in_top": false
         },
         "3": {
-          "pred": -0.022592,
-          "rank": 27,
+          "pred": 0.002302,
+          "rank": 14,
           "in_top": false
         },
         "5": {
-          "pred": -0.021642,
-          "rank": 18,
+          "pred": -0.010085,
+          "rank": 12,
           "in_top": false
         },
         "10": {
-          "pred": 0.042586,
-          "rank": 9,
+          "pred": 0.024182,
+          "rank": 14,
           "in_top": false
         },
         "20": {
-          "pred": 0.018022,
-          "rank": 25,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.030969,
-          "rank": 24,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "XLK",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.011863,
-      "price": 132.9,
-      "per_horizon": {
-        "1": {
-          "pred": -0.005004,
+          "pred": 0.057967,
           "rank": 7,
           "in_top": false
         },
-        "3": {
-          "pred": -0.009279,
-          "rank": 12,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.010817,
-          "rank": 10,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.017302,
-          "rank": 20,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.020833,
-          "rank": 24,
-          "in_top": false
-        },
         "30": {
-          "pred": 0.023884,
-          "rank": 26,
+          "pred": 0.077292,
+          "rank": 7,
           "in_top": false
         }
       }
     },
     {
-      "symbol": "AAPL",
+      "symbol": "CSCO",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6,
-      "weighted_pred": 0.010075,
-      "price": 253.79,
+      "weighted_pred": 0.030269,
+      "price": 77.93,
       "per_horizon": {
         "1": {
-          "pred": -0.008826,
-          "rank": 16,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.014985,
-          "rank": 23,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.035156,
-          "rank": 27,
-          "in_top": false
-        },
-        "10": {
-          "pred": -0.006059,
-          "rank": 30,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.045375,
-          "rank": 16,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.027577,
-          "rank": 25,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "GOOGL",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.009731,
-      "price": 287.56,
-      "per_horizon": {
-        "1": {
-          "pred": -0.008046,
-          "rank": 12,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.010874,
-          "rank": 15,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.033664,
-          "rank": 25,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.021469,
-          "rank": 17,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.050512,
-          "rank": 11,
-          "in_top": false
-        },
-        "30": {
-          "pred": -7.1e-05,
-          "rank": 29,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "SHOP",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.009077,
-      "price": 118.62,
-      "per_horizon": {
-        "1": {
-          "pred": -0.008868,
+          "pred": -0.005331,
           "rank": 17,
           "in_top": false
         },
         "3": {
-          "pred": -0.011304,
-          "rank": 17,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.004177,
-          "rank": 6,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.023621,
-          "rank": 15,
-          "in_top": false
-        },
-        "20": {
-          "pred": -0.012609,
-          "rank": 30,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.036913,
-          "rank": 22,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "UBER",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.004977,
-      "price": 71.93,
-      "per_horizon": {
-        "1": {
-          "pred": -0.008161,
+          "pred": 0.002319,
           "rank": 13,
           "in_top": false
         },
-        "3": {
-          "pred": -0.01279,
-          "rank": 21,
+        "5": {
+          "pred": -0.013053,
+          "rank": 14,
           "in_top": false
         },
-        "5": {
-          "pred": -0.009249,
+        "10": {
+          "pred": 0.035326,
           "rank": 9,
           "in_top": false
         },
-        "10": {
-          "pred": 0.044558,
-          "rank": 8,
-          "in_top": false
-        },
         "20": {
-          "pred": -0.005833,
-          "rank": 29,
+          "pred": 0.053073,
+          "rank": 9,
           "in_top": false
         },
         "30": {
-          "pred": 0.00417,
-          "rank": 28,
-          "in_top": false
-        }
-      }
-    },
-    {
-      "symbol": "ORCL",
-      "resonance_ratio": 0.0,
-      "appearances": 0,
-      "total_horizons": 6,
-      "weighted_pred": 0.004071,
-      "price": 147.11,
-      "per_horizon": {
-        "1": {
-          "pred": -0.011059,
-          "rank": 26,
-          "in_top": false
-        },
-        "3": {
-          "pred": -0.015937,
-          "rank": 25,
-          "in_top": false
-        },
-        "5": {
-          "pred": -0.030876,
-          "rank": 23,
-          "in_top": false
-        },
-        "10": {
-          "pred": 0.005264,
-          "rank": 27,
-          "in_top": false
-        },
-        "20": {
-          "pred": 0.028153,
-          "rank": 21,
-          "in_top": false
-        },
-        "30": {
-          "pred": 0.011253,
-          "rank": 27,
+          "pred": 0.047594,
+          "rank": 15,
           "in_top": false
         }
       }
@@ -1174,36 +574,636 @@
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6,
-      "weighted_pred": -0.007426,
-      "price": 243.08,
+      "weighted_pred": 0.029922,
+      "price": 241.37,
       "per_horizon": {
         "1": {
-          "pred": -0.009356,
-          "rank": 18,
+          "pred": -0.002822,
+          "rank": 11,
           "in_top": false
         },
         "3": {
-          "pred": -0.011963,
-          "rank": 19,
+          "pred": 0.006676,
+          "rank": 7,
           "in_top": false
         },
         "5": {
-          "pred": -0.034125,
-          "rank": 26,
+          "pred": -0.007403,
+          "rank": 10,
           "in_top": false
         },
         "10": {
-          "pred": 0.015724,
+          "pred": 0.018698,
+          "rank": 15,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.029317,
+          "rank": 15,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.073766,
+          "rank": 9,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "SMH",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": 0.028907,
+      "price": 391.97,
+      "per_horizon": {
+        "1": {
+          "pred": -0.008062,
+          "rank": 23,
+          "in_top": false
+        },
+        "3": {
+          "pred": 0.003717,
+          "rank": 12,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.022244,
+          "rank": 17,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.013027,
+          "rank": 19,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.058848,
+          "rank": 6,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.05777,
+          "rank": 12,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "INTC",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": 0.023963,
+      "price": 48.03,
+      "per_horizon": {
+        "1": {
+          "pred": -0.006912,
+          "rank": 20,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.006758,
+          "rank": 24,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.038324,
+          "rank": 29,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.006634,
           "rank": 22,
           "in_top": false
         },
         "20": {
-          "pred": 0.009361,
-          "rank": 28,
+          "pred": 0.038566,
+          "rank": 12,
           "in_top": false
         },
         "30": {
-          "pred": -0.022321,
+          "pred": 0.074251,
+          "rank": 8,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "QCOM",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": 0.016833,
+      "price": 127.28,
+      "per_horizon": {
+        "1": {
+          "pred": -0.000672,
+          "rank": 6,
+          "in_top": false
+        },
+        "3": {
+          "pred": 0.004634,
+          "rank": 11,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.00249,
+          "rank": 6,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.003878,
+          "rank": 24,
+          "in_top": false
+        },
+        "20": {
+          "pred": -0.006105,
+          "rank": 25,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.064757,
+          "rank": 11,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "NVDA",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": 0.011206,
+      "price": 175.75,
+      "per_horizon": {
+        "1": {
+          "pred": -0.00624,
+          "rank": 18,
+          "in_top": false
+        },
+        "3": {
+          "pred": 0.001576,
+          "rank": 18,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.028336,
+          "rank": 23,
+          "in_top": false
+        },
+        "10": {
+          "pred": -0.012235,
+          "rank": 29,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.034033,
+          "rank": 13,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.035378,
+          "rank": 16,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "SOXX",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": 0.007542,
+      "price": 338.54,
+      "per_horizon": {
+        "1": {
+          "pred": -0.00457,
+          "rank": 15,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.009924,
+          "rank": 27,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.03766,
+          "rank": 28,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.015354,
+          "rank": 16,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.03152,
+          "rank": 14,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.013911,
+          "rank": 19,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "PLTR",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": 0.004671,
+      "price": 146.49,
+      "per_horizon": {
+        "1": {
+          "pred": -0.009458,
+          "rank": 25,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.011177,
+          "rank": 28,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.019396,
+          "rank": 16,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.030504,
+          "rank": 10,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.007124,
+          "rank": 23,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.006266,
+          "rank": 22,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "NFLX",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": 0.004565,
+      "price": 95.55,
+      "per_horizon": {
+        "1": {
+          "pred": -0.004067,
+          "rank": 13,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.000817,
+          "rank": 19,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.022361,
+          "rank": 18,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.010429,
+          "rank": 21,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.018787,
+          "rank": 19,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.005824,
+          "rank": 23,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "ARKK",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": 0.001731,
+      "price": 68.4,
+      "per_horizon": {
+        "1": {
+          "pred": -0.002631,
+          "rank": 8,
+          "in_top": false
+        },
+        "3": {
+          "pred": 0.001726,
+          "rank": 16,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.00494,
+          "rank": 8,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.029766,
+          "rank": 11,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.015689,
+          "rank": 20,
+          "in_top": false
+        },
+        "30": {
+          "pred": -0.025857,
+          "rank": 28,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "AAPL",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": -0.003445,
+      "price": 255.63,
+      "per_horizon": {
+        "1": {
+          "pred": -0.002779,
+          "rank": 10,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.004141,
+          "rank": 22,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.009349,
+          "rank": 11,
+          "in_top": false
+        },
+        "10": {
+          "pred": -0.014627,
+          "rank": 30,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.024664,
+          "rank": 17,
+          "in_top": false
+        },
+        "30": {
+          "pred": -0.017333,
+          "rank": 27,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "GOOGL",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": -0.005937,
+      "price": 297.39,
+      "per_horizon": {
+        "1": {
+          "pred": -0.007516,
+          "rank": 21,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.008734,
+          "rank": 26,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.028673,
+          "rank": 24,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.028377,
+          "rank": 12,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.009788,
+          "rank": 22,
+          "in_top": false
+        },
+        "30": {
+          "pred": -0.030528,
+          "rank": 29,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "TSLA",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": -0.006026,
+      "price": 381.26,
+      "per_horizon": {
+        "1": {
+          "pred": -0.009802,
+          "rank": 26,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.007039,
+          "rank": 25,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.034717,
+          "rank": 26,
+          "in_top": false
+        },
+        "10": {
+          "pred": 0.014268,
+          "rank": 18,
+          "in_top": false
+        },
+        "20": {
+          "pred": -0.021564,
+          "rank": 27,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.00972,
+          "rank": 20,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "AMZN",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": -0.00812,
+      "price": 210.57,
+      "per_horizon": {
+        "1": {
+          "pred": -0.004623,
+          "rank": 16,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.001993,
+          "rank": 20,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.026377,
+          "rank": 21,
+          "in_top": false
+        },
+        "10": {
+          "pred": -0.008769,
+          "rank": 27,
+          "in_top": false
+        },
+        "20": {
+          "pred": -0.020305,
+          "rank": 26,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.009484,
+          "rank": 21,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "AVGO",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": -0.011433,
+      "price": 313.49,
+      "per_horizon": {
+        "1": {
+          "pred": -0.009158,
+          "rank": 24,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.014988,
+          "rank": 29,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.01841,
+          "rank": 15,
+          "in_top": false
+        },
+        "10": {
+          "pred": -0.002671,
+          "rank": 25,
+          "in_top": false
+        },
+        "20": {
+          "pred": -0.031105,
+          "rank": 29,
+          "in_top": false
+        },
+        "30": {
+          "pred": 0.004504,
+          "rank": 24,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "AMAT",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": -0.015286,
+      "price": 353.8,
+      "per_horizon": {
+        "1": {
+          "pred": -0.013787,
+          "rank": 30,
+          "in_top": false
+        },
+        "3": {
+          "pred": 0.002038,
+          "rank": 15,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.026179,
+          "rank": 20,
+          "in_top": false
+        },
+        "10": {
+          "pred": -0.003265,
+          "rank": 26,
+          "in_top": false
+        },
+        "20": {
+          "pred": -0.036552,
+          "rank": 30,
+          "in_top": false
+        },
+        "30": {
+          "pred": -0.006437,
+          "rank": 26,
+          "in_top": false
+        }
+      }
+    },
+    {
+      "symbol": "META",
+      "resonance_ratio": 0.0,
+      "appearances": 0,
+      "total_horizons": 6,
+      "weighted_pred": -0.018044,
+      "price": 579.23,
+      "per_horizon": {
+        "1": {
+          "pred": -0.011739,
+          "rank": 28,
+          "in_top": false
+        },
+        "3": {
+          "pred": -0.004056,
+          "rank": 21,
+          "in_top": false
+        },
+        "5": {
+          "pred": -0.040149,
+          "rank": 30,
+          "in_top": false
+        },
+        "10": {
+          "pred": -0.009187,
+          "rank": 28,
+          "in_top": false
+        },
+        "20": {
+          "pred": 0.00194,
+          "rank": 24,
+          "in_top": false
+        },
+        "30": {
+          "pred": -0.037332,
           "rank": 30,
           "in_top": false
         }
@@ -1212,46 +1212,46 @@
   ],
   "horizon_tops": {
     "1": [
-      "SNOW",
-      "MU",
-      "QCOM",
+      "UBER",
+      "ORCL",
       "TQQQ",
-      "SOXX"
+      "QQQ",
+      "NOW"
     ],
     "3": [
-      "ARKK",
-      "TQQQ",
-      "MSFT",
-      "NVDA",
-      "TSLA"
+      "QQQ",
+      "AMD",
+      "NOW",
+      "MU",
+      "SHOP"
     ],
     "5": [
-      "SNOW",
+      "QQQ",
       "TQQQ",
-      "ARKK",
-      "MU",
-      "PLTR"
+      "XLK",
+      "SNOW",
+      "UBER"
     ],
     "10": [
       "SNOW",
-      "MU",
-      "INTC",
+      "QQQ",
       "TQQQ",
-      "ARKK"
+      "MU",
+      "NOW"
     ],
     "20": [
-      "SNOW",
       "QQQ",
-      "INTC",
-      "PLTR",
-      "ARKK"
+      "SNOW",
+      "SHOP",
+      "TQQQ",
+      "ORCL"
     ],
     "30": [
-      "MU",
+      "MSFT",
       "QQQ",
-      "INTC",
-      "SNOW",
-      "PLTR"
+      "PANW",
+      "MU",
+      "SHOP"
     ]
   }
 }

@@ -1,0 +1,206 @@
+{
+  "updated_at": "2026-04-02T19:53:12.230486+08:00",
+  "events": [
+    {
+      "symbol": "NFLX",
+      "date": "2026-04-17",
+      "type": "earnings",
+      "eps_estimate": 0.76595,
+      "revenue_estimate": 12168551500,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "TSLA",
+      "date": "2026-04-22",
+      "type": "earnings",
+      "eps_estimate": 0.4126,
+      "revenue_estimate": 23062370140,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "NOW",
+      "date": "2026-04-23",
+      "type": "earnings",
+      "eps_estimate": 0.9749,
+      "revenue_estimate": 3747002180,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "GOOGL",
+      "date": "2026-04-24",
+      "type": "earnings",
+      "eps_estimate": 2.684,
+      "revenue_estimate": 106814264580,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "INTC",
+      "date": "2026-04-24",
+      "type": "earnings",
+      "eps_estimate": 0.0002,
+      "revenue_estimate": 12313072310,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "MSFT",
+      "date": "2026-04-30",
+      "type": "earnings",
+      "eps_estimate": 4.142,
+      "revenue_estimate": 81364996490,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "META",
+      "date": "2026-04-30",
+      "type": "earnings",
+      "eps_estimate": 6.8373,
+      "revenue_estimate": 55463382960,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "QCOM",
+      "date": "2026-04-30",
+      "type": "earnings",
+      "eps_estimate": 2.609,
+      "revenue_estimate": 10579849620,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "AAPL",
+      "date": "2026-05-01",
+      "type": "earnings",
+      "eps_estimate": 1.9828,
+      "revenue_estimate": 109116811940,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "AMZN",
+      "date": "2026-05-01",
+      "type": "earnings",
+      "eps_estimate": 1.64019,
+      "revenue_estimate": 177071512030,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "PLTR",
+      "date": "2026-05-05",
+      "type": "earnings",
+      "eps_estimate": 0.27888,
+      "revenue_estimate": 1538419820,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "AMD",
+      "date": "2026-05-06",
+      "type": "earnings",
+      "eps_estimate": 1.2728,
+      "revenue_estimate": 9863696220,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "UBER",
+      "date": "2026-05-06",
+      "type": "earnings",
+      "eps_estimate": 0.69194,
+      "revenue_estimate": 13303401340,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "SHOP",
+      "date": "2026-05-07",
+      "type": "earnings",
+      "eps_estimate": 0.3382,
+      "revenue_estimate": 3086658710,
+      "source": "yfinance",
+      "hour": "amc"
+    },
+    {
+      "symbol": "CSCO",
+      "date": "2026-05-14",
+      "type": "earnings",
+      "eps_estimate": 1.03512,
+      "revenue_estimate": 15542736790,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "AMAT",
+      "date": "2026-05-15",
+      "type": "earnings",
+      "eps_estimate": 2.67792,
+      "revenue_estimate": 7670870870,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "NVDA",
+      "date": "2026-05-21",
+      "type": "earnings",
+      "eps_estimate": 1.77513,
+      "revenue_estimate": 78744510200,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "PANW",
+      "date": "2026-05-21",
+      "type": "earnings",
+      "eps_estimate": 0.79691,
+      "revenue_estimate": 2944212700,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "CRM",
+      "date": "2026-05-28",
+      "type": "earnings",
+      "eps_estimate": 3.12698,
+      "revenue_estimate": 11055339710,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "SNOW",
+      "date": "2026-05-28",
+      "type": "earnings",
+      "eps_estimate": 0.31812,
+      "revenue_estimate": 1322601430,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "AVGO",
+      "date": "2026-06-04",
+      "type": "earnings",
+      "eps_estimate": 2.38838,
+      "revenue_estimate": 22057531860,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "ORCL",
+      "date": "2026-06-11",
+      "type": "earnings",
+      "eps_estimate": 1.9631,
+      "revenue_estimate": 19099060960,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "ADBE",
+      "date": "2026-06-12",
+      "type": "earnings",
+      "eps_estimate": 5.82827,
+      "revenue_estimate": 6456378710,
+      "source": "yfinance"
+    },
+    {
+      "symbol": "MU",
+      "date": "2026-06-25",
+      "type": "earnings",
+      "eps_estimate": 18.90635,
+      "revenue_estimate": 33387326840,
+      "source": "yfinance"
+    }
+  ]
+}
