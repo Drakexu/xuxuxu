@@ -477,7 +477,10 @@ export default function DraQTDashboard() {
             {indices.length > 0 && (
               <section>
                 <div className="grid grid-cols-3 gap-3">
-                  {indices.map((idx) => (
+                  {indices.map((idx) => {
+                    const change = idx.change ?? 0
+                    const changePct = idx.change_pct ?? 0
+                    return (
                     <motion.div
                       key={idx.symbol}
                       initial={{ opacity: 0, y: 8 }}
@@ -486,18 +489,18 @@ export default function DraQTDashboard() {
                     >
                       <div>
                         <p className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider">{idx.name}</p>
-                        <p className={`text-lg font-black tracking-tight ${idx.change >= 0 ? "text-emerald-600" : "text-red-500"}`}>{idx.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className={`text-lg font-black tracking-tight ${change >= 0 ? "text-emerald-600" : "text-red-500"}`}>{idx.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
                       <div className="text-right">
-                        <p className={`text-sm font-bold font-mono ${idx.change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                          {idx.change >= 0 ? "+" : ""}{fmt(idx.change, 2)}
+                        <p className={`text-sm font-bold font-mono ${change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                          {change >= 0 ? "+" : ""}{fmt(change, 2)}
                         </p>
-                        <p className={`text-xs font-mono ${idx.change >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                          {idx.change_pct >= 0 ? "+" : ""}{fmt(idx.change_pct, 2)}%
+                        <p className={`text-xs font-mono ${change >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {changePct >= 0 ? "+" : ""}{fmt(changePct, 2)}%
                         </p>
                       </div>
                     </motion.div>
-                  ))}
+                  )})}
                 </div>
               </section>
             )}
