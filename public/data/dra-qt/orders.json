@@ -1,5 +1,105 @@
 [
   {
+    "time": "2026-04-04 13:35:03",
+    "symbol": "SNOW",
+    "side": "buy",
+    "qty": 282,
+    "price": 151.85,
+    "status": "rejected",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-04 13:35:03",
+    "symbol": "NOW",
+    "side": "sell",
+    "qty": 1,
+    "price": 101.95,
+    "status": "filled",
+    "gross_value": 0.14,
+    "fee": 0.0001
+  },
+  {
+    "time": "2026-04-04 13:35:03",
+    "symbol": "TQQQ",
+    "side": "sell",
+    "qty": 1,
+    "price": 43.31,
+    "status": "filled",
+    "gross_value": 0.15,
+    "fee": 0.0001
+  },
+  {
+    "time": "2026-04-04 13:35:03",
+    "symbol": "TSLA",
+    "side": "sell",
+    "qty": 1,
+    "price": 360.41,
+    "status": "filled",
+    "gross_value": 0.16,
+    "fee": 0.0002
+  },
+  {
+    "time": "2026-04-04 13:35:03",
+    "symbol": "ARKK",
+    "side": "sell",
+    "qty": 1,
+    "price": 68.53,
+    "status": "filled",
+    "gross_value": 0.18,
+    "fee": 0.0002
+  },
+  {
+    "time": "2026-04-04 13:30:15",
+    "symbol": "SNOW",
+    "side": "buy",
+    "qty": 282,
+    "price": 151.85,
+    "status": "rejected",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-04 13:30:15",
+    "symbol": "TQQQ",
+    "side": "buy",
+    "qty": 1,
+    "price": 43.35,
+    "status": "filled",
+    "gross_value": 63.13,
+    "fee": 0.0631
+  },
+  {
+    "time": "2026-04-04 13:30:15",
+    "symbol": "TSLA",
+    "side": "buy",
+    "qty": 1,
+    "price": 360.77,
+    "status": "filled",
+    "gross_value": 407.22,
+    "fee": 0.4072
+  },
+  {
+    "time": "2026-04-04 13:30:15",
+    "symbol": "ARKK",
+    "side": "sell",
+    "qty": 2,
+    "price": 68.53,
+    "status": "filled",
+    "gross_value": 143.96,
+    "fee": 0.144
+  },
+  {
+    "time": "2026-04-04 13:30:15",
+    "symbol": "NOW",
+    "side": "sell",
+    "qty": 1,
+    "price": 101.95,
+    "status": "filled",
+    "gross_value": 116.89,
+    "fee": 0.1169
+  },
+  {
     "time": "2026-04-03 13:30:12",
     "symbol": "SNOW",
     "side": "buy",

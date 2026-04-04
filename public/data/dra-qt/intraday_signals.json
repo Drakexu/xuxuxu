@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-04-03T05:30:01.136401+00:00",
+  "timestamp": "2026-04-04T05:34:52.243173+00:00",
   "signals": [
     {
       "symbol": "SNOW",
       "action": "BUY",
       "confidence": 0.8333,
       "prediction": 0.103326,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.8333,
       "appearances": 5,
       "total_horizons": 6
@@ -15,8 +15,8 @@
       "symbol": "TSLA",
       "action": "BUY",
       "confidence": 0.6667,
-      "prediction": 0.035007,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.03628,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.6667,
       "appearances": 4,
       "total_horizons": 6
@@ -25,8 +25,8 @@
       "symbol": "NOW",
       "action": "BUY",
       "confidence": 0.6667,
-      "prediction": 0.032077,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.032063,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.6667,
       "appearances": 4,
       "total_horizons": 6
@@ -36,7 +36,7 @@
       "action": "BUY",
       "confidence": 0.5,
       "prediction": 0.041571,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.5,
       "appearances": 3,
       "total_horizons": 6
@@ -45,8 +45,8 @@
       "symbol": "TQQQ",
       "action": "BUY",
       "confidence": 0.5,
-      "prediction": 0.033294,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.033724,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.5,
       "appearances": 3,
       "total_horizons": 6
@@ -55,8 +55,8 @@
       "symbol": "QQQ",
       "action": "BUY",
       "confidence": 0.3333,
-      "prediction": 0.049332,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.051281,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.3333,
       "appearances": 2,
       "total_horizons": 6
@@ -65,8 +65,8 @@
       "symbol": "INTC",
       "action": "BUY",
       "confidence": 0.3333,
-      "prediction": 0.026161,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.02622,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.3333,
       "appearances": 2,
       "total_horizons": 6
@@ -75,8 +75,8 @@
       "symbol": "MU",
       "action": "BUY",
       "confidence": 0.1667,
-      "prediction": 0.032272,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.032261,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -85,8 +85,8 @@
       "symbol": "MSFT",
       "action": "BUY",
       "confidence": 0.1667,
-      "prediction": 0.026958,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.027025,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -96,7 +96,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.025601,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -106,7 +106,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.024859,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -116,7 +116,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.01739,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -126,7 +126,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.016226,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -135,8 +135,8 @@
       "symbol": "UBER",
       "action": "BUY",
       "confidence": 0.1667,
-      "prediction": 0.008441,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.008423,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -145,8 +145,8 @@
       "symbol": "PLTR",
       "action": "BUY",
       "confidence": 0.0,
-      "prediction": 0.028422,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.028547,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -156,7 +156,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.026503,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -166,7 +166,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.012194,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -176,7 +176,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.009339,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -186,7 +186,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.009122,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -196,7 +196,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.008272,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -206,7 +206,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.007549,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -216,7 +216,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.004827,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -226,7 +226,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.001199,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -235,8 +235,8 @@
       "symbol": "XLK",
       "action": "BUY",
       "confidence": 0.0,
-      "prediction": 0.001003,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": 0.000885,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -246,7 +246,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.000516,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -256,7 +256,7 @@
       "action": "SELL",
       "confidence": 0.0,
       "prediction": -0.002071,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -265,8 +265,8 @@
       "symbol": "AMD",
       "action": "SELL",
       "confidence": 0.0,
-      "prediction": -0.010047,
-      "timestamp": "2026-04-03T05:30:01.136401+00:00",
+      "prediction": -0.01004,
+      "timestamp": "2026-04-04T05:34:52.243173+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
