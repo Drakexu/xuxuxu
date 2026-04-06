@@ -6,7 +6,7 @@
     "market_price": 68.17,
     "market_value": 17152.58,
     "unrealized_pnl": -125.28,
-    "weight_pct": 28.8
+    "weight_pct": 28.7
   },
   {
     "symbol": "TSLA",
@@ -15,16 +15,16 @@
     "market_price": 360.16,
     "market_value": 15038.47,
     "unrealized_pnl": -40.34,
-    "weight_pct": 25.3
+    "weight_pct": 25.2
   },
   {
     "symbol": "TQQQ",
     "qty": 322,
     "avg_cost": 41.75,
-    "market_price": 43.28,
-    "market_value": 13979.32,
-    "unrealized_pnl": 494.19,
-    "weight_pct": 23.5
+    "market_price": 43.79,
+    "market_value": 14144.05,
+    "unrealized_pnl": 658.92,
+    "weight_pct": 23.7
   },
   {
     "symbol": "NOW",
@@ -33,6 +33,6 @@
     "market_price": 102.5,
     "market_value": 13371.38,
     "unrealized_pnl": 45.26,
-    "weight_pct": 22.5
+    "weight_pct": 22.4
   }
 ]
