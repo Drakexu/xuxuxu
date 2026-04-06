@@ -3,36 +3,36 @@
     "symbol": "ARKK",
     "qty": 251,
     "avg_cost": 68.66,
-    "market_price": 69.05,
-    "market_value": 17375.28,
-    "unrealized_pnl": 97.41,
+    "market_price": 69.09,
+    "market_value": 17386.6,
+    "unrealized_pnl": 108.74,
     "weight_pct": 29.1
   },
   {
     "symbol": "TSLA",
     "qty": 41,
     "avg_cost": 361.13,
-    "market_price": 355.58,
-    "market_value": 14847.02,
-    "unrealized_pnl": -231.78,
-    "weight_pct": 24.9
+    "market_price": 355.46,
+    "market_value": 14841.8,
+    "unrealized_pnl": -237.0,
+    "weight_pct": 24.8
   },
   {
     "symbol": "TQQQ",
     "qty": 322,
     "avg_cost": 41.75,
-    "market_price": 43.84,
-    "market_value": 14161.81,
-    "unrealized_pnl": 676.68,
+    "market_price": 43.92,
+    "market_value": 14187.65,
+    "unrealized_pnl": 702.52,
     "weight_pct": 23.7
   },
   {
     "symbol": "NOW",
     "qty": 130,
     "avg_cost": 102.15,
-    "market_price": 102.06,
-    "market_value": 13313.33,
-    "unrealized_pnl": -12.79,
+    "market_price": 102.17,
+    "market_value": 13328.98,
+    "unrealized_pnl": 2.86,
     "weight_pct": 22.3
   }
 ]
