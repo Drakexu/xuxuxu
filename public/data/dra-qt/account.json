@@ -1,10 +1,10 @@
 {
-  "nav": 102450.7,
+  "nav": 102503.09,
   "cash": 42880.32,
   "initial": 100000.0,
-  "total_pnl": 402.47,
-  "total_return_pct": 0.4025,
-  "drawdown_pct": 0.9882,
-  "daily_pnl": -39.43,
-  "daily_return_pct": -0.0385
+  "total_pnl": 454.85,
+  "total_return_pct": 0.4549,
+  "drawdown_pct": 0.9376,
+  "daily_pnl": 12.96,
+  "daily_return_pct": 0.0126
 }
