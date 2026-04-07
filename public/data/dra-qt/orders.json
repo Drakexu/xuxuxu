@@ -1,5 +1,115 @@
 [
   {
+    "time": "2026-04-08 03:56:06",
+    "symbol": "TQQQ",
+    "side": "sell",
+    "qty": 262,
+    "price": null,
+    "status": "filled",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:56:05",
+    "symbol": "SOXX",
+    "side": "sell",
+    "qty": 43,
+    "price": 347.45,
+    "status": "filled",
+    "gross_value": 14940.35,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:56:04",
+    "symbol": "SMH",
+    "side": "sell",
+    "qty": 38,
+    "price": 399.34,
+    "status": "filled",
+    "gross_value": 15174.92,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:56:03",
+    "symbol": "QCOM",
+    "side": "sell",
+    "qty": 122,
+    "price": 124.0,
+    "status": "filled",
+    "gross_value": 15128.0,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:56:02",
+    "symbol": "MU",
+    "side": "sell",
+    "qty": 26,
+    "price": 377.04,
+    "status": "filled",
+    "gross_value": 9802.91,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:56:01",
+    "symbol": "AVGO",
+    "side": "sell",
+    "qty": 82,
+    "price": 333.51,
+    "status": "filled",
+    "gross_value": 27347.82,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:53:00",
+    "symbol": "UBER",
+    "side": "sell",
+    "qty": 167,
+    "price": 71.69,
+    "status": "filled",
+    "gross_value": 11972.23,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:52:01",
+    "symbol": "SOXX",
+    "side": "buy",
+    "qty": 43,
+    "price": null,
+    "status": "filled",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:52:00",
+    "symbol": "XLK",
+    "side": "sell",
+    "qty": 174,
+    "price": 137.22,
+    "status": "filled",
+    "gross_value": 23876.28,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:51:02",
+    "symbol": "AVGO",
+    "side": "buy",
+    "qty": 45,
+    "price": 333.05,
+    "status": "filled",
+    "gross_value": 14987.25,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:51:01",
+    "symbol": "NVDA",
+    "side": "sell",
+    "qty": 68,
+    "price": 177.13,
+    "status": "filled",
+    "gross_value": 12045.18,
+    "fee": null
+  },
+  {
     "time": "2026-04-08 03:36:04",
     "symbol": "UBER",
     "side": "buy",
@@ -388,45 +498,5 @@
     "status": "filled",
     "gross_value": 5020.0,
     "fee": 5.02
-  },
-  {
-    "time": "2026-03-31 13:47:01",
-    "symbol": "TQQQ",
-    "side": "buy",
-    "qty": 659,
-    "price": 37.89,
-    "status": "rejected",
-    "gross_value": null,
-    "fee": null
-  },
-  {
-    "time": "2026-03-31 13:47:01",
-    "symbol": "NVDA",
-    "side": "buy",
-    "qty": 151,
-    "price": 165.25,
-    "status": "filled",
-    "gross_value": 25012.5,
-    "fee": 25.0125
-  },
-  {
-    "time": "2026-03-31 13:47:01",
-    "symbol": "GOOGL",
-    "side": "buy",
-    "qty": 91,
-    "price": 273.64,
-    "status": "filled",
-    "gross_value": 25012.5,
-    "fee": 25.0125
-  },
-  {
-    "time": "2026-03-31 13:47:01",
-    "symbol": "META",
-    "side": "buy",
-    "qty": 46,
-    "price": 536.65,
-    "status": "filled",
-    "gross_value": 25012.5,
-    "fee": 25.0125
   }
 ]
