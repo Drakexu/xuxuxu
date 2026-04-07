@@ -1,5 +1,15 @@
 [
   {
+    "time": "2026-04-08 03:34:00",
+    "symbol": "TQQQ",
+    "side": "buy",
+    "qty": 139,
+    "price": 43.3,
+    "status": "filled",
+    "gross_value": 6018.7,
+    "fee": null
+  },
+  {
     "time": "2026-04-08 03:27:04",
     "symbol": "XLK",
     "side": "buy",
