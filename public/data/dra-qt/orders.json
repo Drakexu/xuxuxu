@@ -1,5 +1,15 @@
 [
   {
+    "time": "2026-04-07 22:11:33",
+    "symbol": "TSLA",
+    "side": "sell",
+    "qty": 37,
+    "price": 342.33,
+    "status": "filled",
+    "gross_value": 12964.4,
+    "fee": 12.9644
+  },
+  {
     "time": "2026-04-07 13:30:32",
     "symbol": "QQQ",
     "side": "buy",
@@ -488,15 +498,5 @@
     "status": "filled",
     "gross_value": 15691.6,
     "fee": 15.6916
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "MSFT",
-    "side": "sell",
-    "qty": 55,
-    "price": 358.78,
-    "status": "filled",
-    "gross_value": 19967.5,
-    "fee": 19.9675
   }
 ]
