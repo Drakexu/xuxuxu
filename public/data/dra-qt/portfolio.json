@@ -12,18 +12,18 @@
     "symbol": "SMH",
     "qty": 38,
     "avg_cost": 396.57,
-    "market_price": 392.61,
-    "market_value": 15030.07,
-    "unrealized_pnl": -151.95,
+    "market_price": 393.13,
+    "market_value": 15050.17,
+    "unrealized_pnl": -131.85,
     "weight_pct": 22.9
   },
   {
     "symbol": "NOW",
     "qty": 114,
     "avg_cost": 102.15,
-    "market_price": 101.36,
-    "market_value": 11569.07,
-    "unrealized_pnl": -90.52,
+    "market_price": 101.34,
+    "market_value": 11566.22,
+    "unrealized_pnl": -93.37,
     "weight_pct": 17.6
   }
 ]
