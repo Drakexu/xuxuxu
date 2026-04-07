@@ -3,28 +3,28 @@
     "symbol": "SNOW",
     "qty": 264,
     "avg_cost": 149.6,
-    "market_price": 147.72,
-    "market_value": 39049.9,
-    "unrealized_pnl": -499.42,
+    "market_price": 149.05,
+    "market_value": 39401.5,
+    "unrealized_pnl": -147.82,
     "weight_pct": 49.7
   },
   {
     "symbol": "SMH",
     "qty": 38,
     "avg_cost": 396.57,
-    "market_price": 381.64,
-    "market_value": 14610.3,
-    "unrealized_pnl": -571.72,
-    "weight_pct": 18.6
+    "market_price": 393.12,
+    "market_value": 15049.79,
+    "unrealized_pnl": -132.24,
+    "weight_pct": 19.0
   },
   {
     "symbol": "TSLA",
     "qty": 37,
     "avg_cost": 361.13,
-    "market_price": 348.37,
-    "market_value": 13193.19,
-    "unrealized_pnl": -483.28,
-    "weight_pct": 16.8
+    "market_price": 347.72,
+    "market_value": 13168.39,
+    "unrealized_pnl": -508.08,
+    "weight_pct": 16.6
   },
   {
     "symbol": "NOW",
@@ -33,6 +33,6 @@
     "market_price": 102.41,
     "market_value": 11688.92,
     "unrealized_pnl": 29.33,
-    "weight_pct": 14.9
+    "weight_pct": 14.7
   }
 ]
