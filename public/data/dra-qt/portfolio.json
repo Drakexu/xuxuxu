@@ -3,27 +3,27 @@
     "symbol": "QQQ",
     "qty": 50,
     "avg_cost": 585.19,
-    "market_price": 584.54,
-    "market_value": 29787.89,
-    "unrealized_pnl": -32.96,
+    "market_price": 585.72,
+    "market_value": 29847.76,
+    "unrealized_pnl": 26.92,
     "weight_pct": 43.9
   },
   {
     "symbol": "TQQQ",
     "qty": 469,
     "avg_cost": 41.74,
-    "market_price": 43.21,
-    "market_value": 20307.93,
-    "unrealized_pnl": 689.68,
-    "weight_pct": 29.9
+    "market_price": 43.48,
+    "market_value": 20437.17,
+    "unrealized_pnl": 818.92,
+    "weight_pct": 30.1
   },
   {
     "symbol": "MU",
     "qty": 47,
     "avg_cost": 338.35,
-    "market_price": 371.9,
-    "market_value": 17755.99,
-    "unrealized_pnl": 1601.96,
-    "weight_pct": 26.2
+    "market_price": 370.02,
+    "market_value": 17666.23,
+    "unrealized_pnl": 1512.2,
+    "weight_pct": 26.0
   }
 ]
