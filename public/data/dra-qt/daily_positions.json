@@ -6,33 +6,33 @@
     "market_price": 149.02,
     "market_value": 39394.89,
     "unrealized_pnl": -154.43,
-    "weight_pct": 49.7
+    "weight_pct": 49.6
   },
   {
     "symbol": "SMH",
     "qty": 38,
     "avg_cost": 396.57,
-    "market_price": 394.14,
-    "market_value": 15089.03,
-    "unrealized_pnl": -93.0,
-    "weight_pct": 19.0
+    "market_price": 396.11,
+    "market_value": 15164.06,
+    "unrealized_pnl": -17.96,
+    "weight_pct": 19.1
   },
   {
     "symbol": "TSLA",
     "qty": 37,
     "avg_cost": 361.13,
-    "market_price": 347.69,
-    "market_value": 13167.44,
-    "unrealized_pnl": -509.03,
+    "market_price": 347.09,
+    "market_value": 13144.72,
+    "unrealized_pnl": -531.75,
     "weight_pct": 16.6
   },
   {
     "symbol": "NOW",
     "qty": 114,
     "avg_cost": 102.15,
-    "market_price": 102.11,
-    "market_value": 11654.68,
-    "unrealized_pnl": -4.91,
+    "market_price": 102.02,
+    "market_value": 11644.4,
+    "unrealized_pnl": -15.19,
     "weight_pct": 14.7
   }
 ]
