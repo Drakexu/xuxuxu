@@ -64,11 +64,59 @@
     "realized_pnl": 530.09
   },
   {
-    "time": "2026-04-07T19:19:22.096980+00:00",
-    "nav": 102823.93,
-    "cash": 34936.97,
-    "drawdown_pct": 0.6275,
-    "unrealized_pnl": 1763.76,
-    "realized_pnl": 530.09
+    "time": "2026-04-07 19:24:50.448691",
+    "nav": 100543.73,
+    "cash": 100543.73,
+    "drawdown_pct": -2.8312,
+    "unrealized_pnl": 0.0,
+    "realized_pnl": 0.0
+  },
+  {
+    "time": "2026-04-07 19:25:00.411705",
+    "nav": 100543.73,
+    "cash": 100543.73,
+    "drawdown_pct": -2.8312,
+    "unrealized_pnl": 0.0,
+    "realized_pnl": 0.0
+  },
+  {
+    "time": "2026-04-07 19:27:01.165791",
+    "nav": 100526.07,
+    "cash": 90888.56,
+    "drawdown_pct": -2.8482,
+    "unrealized_pnl": -17.66,
+    "realized_pnl": 0.0
+  },
+  {
+    "time": "2026-04-07 19:27:02.145354",
+    "nav": 100526.56,
+    "cash": 86319.43,
+    "drawdown_pct": -2.8478,
+    "unrealized_pnl": -18.26,
+    "realized_pnl": 0.0
+  },
+  {
+    "time": "2026-04-07 19:27:03.121156",
+    "nav": 100523.94,
+    "cash": 85331.51,
+    "drawdown_pct": -2.8503,
+    "unrealized_pnl": -20.03,
+    "realized_pnl": 0.0
+  },
+  {
+    "time": "2026-04-07 19:27:04.097540",
+    "nav": 100522.02,
+    "cash": 69214.16,
+    "drawdown_pct": -2.8522,
+    "unrealized_pnl": -22.33,
+    "realized_pnl": 0.0
+  },
+  {
+    "time": "2026-04-07T19:27:14.556997+00:00",
+    "nav": 110403.53,
+    "cash": 69214.16,
+    "drawdown_pct": 0.0,
+    "unrealized_pnl": -429.77,
+    "realized_pnl": 0.0
   }
 ]

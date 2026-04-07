@@ -1,5 +1,55 @@
 [
   {
+    "time": "2026-04-08 03:27:04",
+    "symbol": "XLK",
+    "side": "buy",
+    "qty": 87,
+    "price": 136.26,
+    "status": "filled",
+    "gross_value": 11854.62,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:27:03",
+    "symbol": "AVGO",
+    "side": "buy",
+    "qty": 37,
+    "price": null,
+    "status": "filled",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:27:02",
+    "symbol": "MU",
+    "side": "buy",
+    "qty": 26,
+    "price": null,
+    "status": "filled",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:27:01",
+    "symbol": "QCOM",
+    "side": "buy",
+    "qty": 122,
+    "price": 123.47,
+    "status": "filled",
+    "gross_value": 15063.34,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:25:00",
+    "symbol": "TQQQ",
+    "side": "buy",
+    "qty": 123,
+    "price": null,
+    "status": "filled",
+    "gross_value": null,
+    "fee": null
+  },
+  {
     "time": "2026-04-02 21:43:53",
     "symbol": "SHOP",
     "side": "sell",
