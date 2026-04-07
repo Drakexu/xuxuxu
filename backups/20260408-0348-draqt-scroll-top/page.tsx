@@ -301,16 +301,6 @@ export default function DraQTDashboard() {
     if (manual) setRefreshing(false)
   }, [activeTab, loadDaily, loadIntraday])
 
-  // Scroll-restore fix: force page to top on refresh (page-scoped)
-  useEffect(() => {
-    const prev = window.history.scrollRestoration
-    window.history.scrollRestoration = "manual"
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" })
-    return () => {
-      window.history.scrollRestoration = prev
-    }
-  }, [])
-
   useEffect(() => {
     setLoading(true)
     loadData().finally(() => setLoading(false))
