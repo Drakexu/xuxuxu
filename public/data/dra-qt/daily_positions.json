@@ -3,72 +3,72 @@
     "symbol": "XLK",
     "qty": 174,
     "avg_cost": 136.27,
-    "market_price": 136.48,
-    "market_value": 23747.52,
-    "unrealized_pnl": 36.74,
-    "weight_pct": 24.0
+    "market_price": 137.06,
+    "market_value": 23848.44,
+    "unrealized_pnl": 137.66,
+    "weight_pct": 24.1
   },
   {
     "symbol": "SMH",
     "qty": 38,
     "avg_cost": 395.67,
-    "market_price": 396.31,
-    "market_value": 15059.78,
-    "unrealized_pnl": 24.29,
-    "weight_pct": 15.2
+    "market_price": 398.3,
+    "market_value": 15135.4,
+    "unrealized_pnl": 99.91,
+    "weight_pct": 15.3
   },
   {
     "symbol": "QCOM",
     "qty": 122,
     "avg_cost": 123.49,
-    "market_price": 119.6,
-    "market_value": 14591.2,
-    "unrealized_pnl": -474.58,
-    "weight_pct": 14.7
+    "market_price": 119.95,
+    "market_value": 14633.9,
+    "unrealized_pnl": -431.88,
+    "weight_pct": 14.8
   },
   {
     "symbol": "AVGO",
     "qty": 37,
     "avg_cost": 329.67,
-    "market_price": 331.68,
-    "market_value": 12272.16,
-    "unrealized_pnl": 74.37,
-    "weight_pct": 12.4
+    "market_price": 328.94,
+    "market_value": 12170.97,
+    "unrealized_pnl": -26.83,
+    "weight_pct": 12.3
   },
   {
     "symbol": "TQQQ",
     "qty": 262,
     "avg_cost": 43.33,
-    "market_price": 43.36,
-    "market_value": 11359.01,
-    "unrealized_pnl": 5.9,
-    "weight_pct": 11.5
+    "market_price": 43.84,
+    "market_value": 11484.77,
+    "unrealized_pnl": 131.66,
+    "weight_pct": 11.6
   },
   {
     "symbol": "MU",
     "qty": 26,
     "avg_cost": 369.17,
-    "market_price": 373.01,
-    "market_value": 9698.39,
-    "unrealized_pnl": 99.87,
+    "market_price": 372.51,
+    "market_value": 9685.39,
+    "unrealized_pnl": 86.87,
     "weight_pct": 9.8
   },
   {
     "symbol": "NVDA",
     "qty": 46,
     "avg_cost": 176.18,
-    "market_price": 176.5,
-    "market_value": 8119.23,
-    "unrealized_pnl": 14.95,
+    "market_price": 177.18,
+    "market_value": 8150.05,
+    "unrealized_pnl": 45.77,
     "weight_pct": 8.2
   },
   {
     "symbol": "UBER",
     "qty": 56,
     "avg_cost": 71.45,
-    "market_price": 73.06,
-    "market_value": 4091.64,
-    "unrealized_pnl": 90.44,
-    "weight_pct": 4.1
+    "market_price": 71.64,
+    "market_value": 4011.84,
+    "unrealized_pnl": 10.64,
+    "weight_pct": 4.0
   }
 ]
