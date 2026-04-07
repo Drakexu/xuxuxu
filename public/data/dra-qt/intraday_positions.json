@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "symbol": "XLK",
+    "qty": 174,
+    "avg_cost": 136.27,
+    "market_price": 136.47,
+    "market_value": 23745.78,
+    "unrealized_pnl": 35.0,
+    "weight_pct": 21.4
+  },
+  {
+    "symbol": "SMH",
+    "qty": 38,
+    "avg_cost": 395.67,
+    "market_price": 396.3,
+    "market_value": 15059.4,
+    "unrealized_pnl": 23.91,
+    "weight_pct": 13.6
+  },
+  {
+    "symbol": "QCOM",
+    "qty": 122,
+    "avg_cost": 123.49,
+    "market_price": 123.27,
+    "market_value": 15038.94,
+    "unrealized_pnl": -26.84,
+    "weight_pct": 13.5
+  },
+  {
+    "symbol": "AVGO",
+    "qty": 37,
+    "avg_cost": 329.67,
+    "market_price": 331.6,
+    "market_value": 12269.2,
+    "unrealized_pnl": 71.41,
+    "weight_pct": 11.0
+  },
+  {
+    "symbol": "NVDA",
+    "qty": 68,
+    "avg_cost": 176.18,
+    "market_price": 176.49,
+    "market_value": 12001.31,
+    "unrealized_pnl": 21.07,
+    "weight_pct": 10.8
+  },
+  {
+    "symbol": "UBER",
+    "qty": 167,
+    "avg_cost": 71.45,
+    "market_price": 71.47,
+    "market_value": 11935.49,
+    "unrealized_pnl": 3.2,
+    "weight_pct": 10.7
+  },
+  {
+    "symbol": "TQQQ",
+    "qty": 262,
+    "avg_cost": 43.33,
+    "market_price": 43.34,
+    "market_value": 11355.08,
+    "unrealized_pnl": 1.97,
+    "weight_pct": 10.2
+  },
+  {
+    "symbol": "MU",
+    "qty": 26,
+    "avg_cost": 369.17,
+    "market_price": 373.05,
+    "market_value": 9699.3,
+    "unrealized_pnl": 100.78,
+    "weight_pct": 8.7
+  }
+]

@@ -1,5 +1,45 @@
 [
   {
+    "time": "2026-04-08 03:36:04",
+    "symbol": "UBER",
+    "side": "buy",
+    "qty": 167,
+    "price": 71.44,
+    "status": "filled",
+    "gross_value": 11930.48,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:36:03",
+    "symbol": "NVDA",
+    "side": "buy",
+    "qty": 68,
+    "price": null,
+    "status": "filled",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:36:02",
+    "symbol": "SMH",
+    "side": "buy",
+    "qty": 38,
+    "price": null,
+    "status": "filled",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 03:36:01",
+    "symbol": "XLK",
+    "side": "buy",
+    "qty": 87,
+    "price": 136.28,
+    "status": "filled",
+    "gross_value": 11856.36,
+    "fee": null
+  },
+  {
     "time": "2026-04-08 03:34:00",
     "symbol": "TQQQ",
     "side": "buy",
