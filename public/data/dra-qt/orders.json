@@ -1,5 +1,15 @@
 [
   {
+    "time": "2026-04-09 01:22:01",
+    "symbol": "NOW",
+    "side": "sell",
+    "qty": 148,
+    "price": 99.83,
+    "status": "filled",
+    "gross_value": 14774.84,
+    "fee": null
+  },
+  {
     "time": "2026-04-08 21:56:00",
     "symbol": "ORCL",
     "side": "sell",
@@ -488,15 +498,5 @@
     "status": "filled",
     "gross_value": 15829.95,
     "fee": 15.83
-  },
-  {
-    "time": "2026-04-02 19:47:47",
-    "symbol": "SNOW",
-    "side": "buy",
-    "qty": 125,
-    "price": 153.12,
-    "status": "rejected",
-    "gross_value": null,
-    "fee": null
   }
 ]
