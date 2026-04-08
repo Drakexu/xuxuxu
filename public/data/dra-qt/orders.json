@@ -1,5 +1,55 @@
 [
   {
+    "time": "2026-04-08 14:33:25",
+    "symbol": "TQQQ",
+    "side": "buy",
+    "qty": 269,
+    "price": 44.17,
+    "status": "filled",
+    "gross_value": 11882.29,
+    "fee": 11.8823
+  },
+  {
+    "time": "2026-04-08 14:33:25",
+    "symbol": "QQQ",
+    "side": "sell",
+    "qty": 1,
+    "price": 588.3,
+    "status": "filled",
+    "gross_value": 179.44,
+    "fee": 0.1794
+  },
+  {
+    "time": "2026-04-08 14:33:25",
+    "symbol": "NOW",
+    "side": "sell",
+    "qty": 1,
+    "price": 100.5,
+    "status": "filled",
+    "gross_value": 79.67,
+    "fee": 0.0797
+  },
+  {
+    "time": "2026-04-08 14:33:25",
+    "symbol": "SNOW",
+    "side": "sell",
+    "qty": 1,
+    "price": 149.17,
+    "status": "filled",
+    "gross_value": 106.27,
+    "fee": 0.1063
+  },
+  {
+    "time": "2026-04-08 14:33:25",
+    "symbol": "UBER",
+    "side": "sell",
+    "qty": 1,
+    "price": 71.69,
+    "status": "filled",
+    "gross_value": 44.35,
+    "fee": 0.0443
+  },
+  {
     "time": "2026-04-08 13:30:29",
     "symbol": "TQQQ",
     "side": "buy",
@@ -448,55 +498,5 @@
     "status": "filled",
     "gross_value": 15675.92,
     "fee": 15.6759
-  },
-  {
-    "time": "2026-04-02 03:07:09",
-    "symbol": "SNOW",
-    "side": "sell",
-    "qty": 192,
-    "price": 150.74,
-    "status": "filled",
-    "gross_value": 29014.84,
-    "fee": 29.0148
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "MU",
-    "side": "buy",
-    "qty": 65,
-    "price": 337.84,
-    "status": "rejected",
-    "gross_value": null,
-    "fee": null
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "TQQQ",
-    "side": "buy",
-    "qty": 260,
-    "price": 41.7,
-    "status": "filled",
-    "gross_value": 10848.11,
-    "fee": 10.8481
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "INTC",
-    "side": "buy",
-    "qty": 503,
-    "price": 44.15,
-    "status": "filled",
-    "gross_value": 22238.64,
-    "fee": 22.2386
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "SNOW",
-    "side": "buy",
-    "qty": 192,
-    "price": 150.9,
-    "status": "filled",
-    "gross_value": 29043.87,
-    "fee": 29.0439
   }
 ]
