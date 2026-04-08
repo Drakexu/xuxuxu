@@ -6,7 +6,7 @@
     "market_price": 149.02,
     "market_value": 52158.75,
     "unrealized_pnl": -153.63,
-    "weight_pct": 51.2
+    "weight_pct": 51.3
   },
   {
     "symbol": "QQQ",
@@ -21,10 +21,10 @@
     "symbol": "TQQQ",
     "qty": 268,
     "avg_cost": 44.22,
-    "market_price": 48.88,
-    "market_value": 13099.84,
-    "unrealized_pnl": 1249.89,
-    "weight_pct": 12.9
+    "market_price": 48.51,
+    "market_value": 12999.34,
+    "unrealized_pnl": 1149.39,
+    "weight_pct": 12.8
   },
   {
     "symbol": "NOW",
