@@ -3,36 +3,36 @@
     "symbol": "NOW",
     "qty": 148,
     "avg_cost": 101.49,
-    "market_price": 110.59,
-    "market_value": 16367.32,
-    "unrealized_pnl": 1347.32,
-    "weight_pct": 37.5
+    "market_price": 110.55,
+    "market_value": 16360.66,
+    "unrealized_pnl": 1340.66,
+    "weight_pct": 37.4
   },
   {
     "symbol": "ORCL",
     "qty": 82,
     "avg_cost": 149.81,
-    "market_price": 143.88,
-    "market_value": 11797.75,
-    "unrealized_pnl": -486.67,
+    "market_price": 144.19,
+    "market_value": 11823.58,
+    "unrealized_pnl": -460.84,
     "weight_pct": 27.0
   },
   {
     "symbol": "GOOGL",
     "qty": 35,
     "avg_cost": 316.83,
-    "market_price": 316.68,
-    "market_value": 11083.8,
-    "unrealized_pnl": -5.25,
-    "weight_pct": 25.4
+    "market_price": 316.71,
+    "market_value": 11084.68,
+    "unrealized_pnl": -4.37,
+    "weight_pct": 25.3
   },
   {
     "symbol": "MU",
     "qty": 11,
     "avg_cost": 404.55,
-    "market_price": 398.04,
-    "market_value": 4378.44,
-    "unrealized_pnl": -71.63,
-    "weight_pct": 10.0
+    "market_price": 406.77,
+    "market_value": 4474.52,
+    "unrealized_pnl": 24.46,
+    "weight_pct": 10.2
   }
 ]
