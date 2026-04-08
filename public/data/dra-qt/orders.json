@@ -1,5 +1,15 @@
 [
   {
+    "time": "2026-04-08 14:40:13",
+    "symbol": "TQQQ",
+    "side": "sell",
+    "qty": 1,
+    "price": 44.13,
+    "status": "filled",
+    "gross_value": 44.13,
+    "fee": 0.0441
+  },
+  {
     "time": "2026-04-08 14:33:25",
     "symbol": "TQQQ",
     "side": "buy",
@@ -488,15 +498,5 @@
     "status": "filled",
     "gross_value": 22367.94,
     "fee": 22.3679
-  },
-  {
-    "time": "2026-04-02 03:07:09",
-    "symbol": "ARKK",
-    "side": "sell",
-    "qty": 232,
-    "price": 67.56,
-    "status": "filled",
-    "gross_value": 15675.92,
-    "fee": 15.6759
   }
 ]

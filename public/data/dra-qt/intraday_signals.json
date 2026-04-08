@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-04-08T06:33:14.089281+00:00",
+  "timestamp": "2026-04-08T06:40:02.393447+00:00",
   "signals": [
     {
       "symbol": "SNOW",
       "action": "BUY",
       "confidence": 0.8333,
       "prediction": 0.115513,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.8333,
       "appearances": 5,
       "total_horizons": 6
@@ -16,7 +16,7 @@
       "action": "BUY",
       "confidence": 0.6667,
       "prediction": 0.027027,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.6667,
       "appearances": 4,
       "total_horizons": 6
@@ -26,7 +26,7 @@
       "action": "BUY",
       "confidence": 0.6667,
       "prediction": 0.026212,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.6667,
       "appearances": 4,
       "total_horizons": 6
@@ -36,7 +36,7 @@
       "action": "BUY",
       "confidence": 0.5,
       "prediction": 0.005322,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.5,
       "appearances": 3,
       "total_horizons": 6
@@ -46,7 +46,7 @@
       "action": "BUY",
       "confidence": 0.3333,
       "prediction": 0.049758,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.3333,
       "appearances": 2,
       "total_horizons": 6
@@ -56,7 +56,7 @@
       "action": "BUY",
       "confidence": 0.3333,
       "prediction": 0.032063,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.3333,
       "appearances": 2,
       "total_horizons": 6
@@ -66,7 +66,7 @@
       "action": "BUY",
       "confidence": 0.3333,
       "prediction": 0.018288,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.3333,
       "appearances": 2,
       "total_horizons": 6
@@ -76,7 +76,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.035765,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -86,7 +86,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.031884,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -96,7 +96,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.031752,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -106,7 +106,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.028594,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -116,7 +116,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.024211,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -126,7 +126,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.022152,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -136,7 +136,7 @@
       "action": "BUY",
       "confidence": 0.1667,
       "prediction": 0.015524,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -146,7 +146,7 @@
       "action": "SELL",
       "confidence": 0.1667,
       "prediction": -0.003458,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.1667,
       "appearances": 1,
       "total_horizons": 6
@@ -156,7 +156,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.026981,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -166,7 +166,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.024404,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -176,7 +176,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.019801,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -186,7 +186,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.016641,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -196,7 +196,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.014532,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -206,7 +206,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.012193,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -216,7 +216,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.011458,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -226,7 +226,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.01124,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -236,7 +236,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.008183,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -246,7 +246,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.007693,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -256,7 +256,7 @@
       "action": "BUY",
       "confidence": 0.0,
       "prediction": 0.005313,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -266,7 +266,7 @@
       "action": "SELL",
       "confidence": 0.0,
       "prediction": -0.006795,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -276,7 +276,7 @@
       "action": "SELL",
       "confidence": 0.0,
       "prediction": -0.007335,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -286,7 +286,7 @@
       "action": "SELL",
       "confidence": 0.0,
       "prediction": -0.012422,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
@@ -296,7 +296,7 @@
       "action": "SELL",
       "confidence": 0.0,
       "prediction": -0.019223,
-      "timestamp": "2026-04-08T06:33:14.089281+00:00",
+      "timestamp": "2026-04-08T06:40:02.393447+00:00",
       "resonance_ratio": 0.0,
       "appearances": 0,
       "total_horizons": 6
