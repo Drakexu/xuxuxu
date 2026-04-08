@@ -6,7 +6,7 @@
     "market_price": 149.02,
     "market_value": 52158.75,
     "unrealized_pnl": -153.63,
-    "weight_pct": 51.9
+    "weight_pct": 51.2
   },
   {
     "symbol": "QQQ",
@@ -15,7 +15,16 @@
     "market_price": 589.21,
     "market_value": 22390.17,
     "unrealized_pnl": -9.81,
-    "weight_pct": 22.3
+    "weight_pct": 22.0
+  },
+  {
+    "symbol": "TQQQ",
+    "qty": 268,
+    "avg_cost": 44.22,
+    "market_price": 48.76,
+    "market_value": 13066.34,
+    "unrealized_pnl": 1216.39,
+    "weight_pct": 12.8
   },
   {
     "symbol": "NOW",
@@ -24,16 +33,7 @@
     "market_price": 98.5,
     "market_value": 11918.5,
     "unrealized_pnl": -266.31,
-    "weight_pct": 11.8
-  },
-  {
-    "symbol": "TQQQ",
-    "qty": 268,
-    "avg_cost": 44.22,
-    "market_price": 44.27,
-    "market_value": 11865.7,
-    "unrealized_pnl": 15.75,
-    "weight_pct": 11.8
+    "weight_pct": 11.7
   },
   {
     "symbol": "UBER",
