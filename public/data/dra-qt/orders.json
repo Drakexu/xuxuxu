@@ -1,5 +1,105 @@
 [
   {
+    "time": "2026-04-08 13:30:29",
+    "symbol": "TQQQ",
+    "side": "buy",
+    "qty": 269,
+    "price": 44.15,
+    "status": "rejected",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 13:30:29",
+    "symbol": "UBER",
+    "side": "sell",
+    "qty": 1,
+    "price": 71.69,
+    "status": "filled",
+    "gross_value": 3.2,
+    "fee": 0.0032
+  },
+  {
+    "time": "2026-04-08 13:30:29",
+    "symbol": "SNOW",
+    "side": "sell",
+    "qty": 1,
+    "price": 149.17,
+    "status": "filled",
+    "gross_value": 69.4,
+    "fee": 0.0694
+  },
+  {
+    "time": "2026-04-08 13:30:29",
+    "symbol": "QQQ",
+    "side": "sell",
+    "qty": 1,
+    "price": 588.3,
+    "status": "filled",
+    "gross_value": 29.89,
+    "fee": 0.0299
+  },
+  {
+    "time": "2026-04-08 13:30:29",
+    "symbol": "NOW",
+    "side": "sell",
+    "qty": 1,
+    "price": 100.5,
+    "status": "filled",
+    "gross_value": 16.24,
+    "fee": 0.0162
+  },
+  {
+    "time": "2026-04-08 13:30:13",
+    "symbol": "TQQQ",
+    "side": "buy",
+    "qty": 269,
+    "price": 44.15,
+    "status": "rejected",
+    "gross_value": null,
+    "fee": null
+  },
+  {
+    "time": "2026-04-08 13:30:13",
+    "symbol": "NOW",
+    "side": "buy",
+    "qty": 121,
+    "price": 100.6,
+    "status": "filled",
+    "gross_value": 12268.63,
+    "fee": 12.2686
+  },
+  {
+    "time": "2026-04-08 13:30:13",
+    "symbol": "UBER",
+    "side": "buy",
+    "qty": 33,
+    "price": 71.77,
+    "status": "filled",
+    "gross_value": 2415.87,
+    "fee": 2.4159
+  },
+  {
+    "time": "2026-04-08 13:30:13",
+    "symbol": "SNOW",
+    "side": "buy",
+    "qty": 351,
+    "price": 149.31,
+    "status": "filled",
+    "gross_value": 52435.96,
+    "fee": 52.436
+  },
+  {
+    "time": "2026-04-08 13:30:13",
+    "symbol": "QQQ",
+    "side": "buy",
+    "qty": 38,
+    "price": 588.88,
+    "status": "filled",
+    "gross_value": 22587.14,
+    "fee": 22.5871
+  },
+  {
     "time": "2026-04-08 03:56:06",
     "symbol": "TQQQ",
     "side": "sell",
@@ -398,105 +498,5 @@
     "status": "filled",
     "gross_value": 29043.87,
     "fee": 29.0439
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "ARKK",
-    "side": "buy",
-    "qty": 232,
-    "price": 67.62,
-    "status": "filled",
-    "gross_value": 15691.6,
-    "fee": 15.6916
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "MSFT",
-    "side": "sell",
-    "qty": 55,
-    "price": 358.78,
-    "status": "filled",
-    "gross_value": 19967.5,
-    "fee": 19.9675
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "META",
-    "side": "sell",
-    "qty": 37,
-    "price": 536.11,
-    "status": "filled",
-    "gross_value": 19967.5,
-    "fee": 19.9675
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "NVDA",
-    "side": "sell",
-    "qty": 120,
-    "price": 165.09,
-    "status": "filled",
-    "gross_value": 19967.5,
-    "fee": 19.9675
-  },
-  {
-    "time": "2026-04-01 14:44:46",
-    "symbol": "GOOGL",
-    "side": "sell",
-    "qty": 73,
-    "price": 273.36,
-    "status": "filled",
-    "gross_value": 19967.5,
-    "fee": 19.9675
-  },
-  {
-    "time": "2026-03-31 16:06:18",
-    "symbol": "TSLA",
-    "side": "buy",
-    "qty": 56,
-    "price": 355.28,
-    "status": "rejected",
-    "gross_value": null,
-    "fee": null
-  },
-  {
-    "time": "2026-03-31 16:06:18",
-    "symbol": "MSFT",
-    "side": "buy",
-    "qty": 55,
-    "price": 359.14,
-    "status": "filled",
-    "gross_value": 19987.48,
-    "fee": 19.9875
-  },
-  {
-    "time": "2026-03-31 16:06:18",
-    "symbol": "META",
-    "side": "sell",
-    "qty": 9,
-    "price": 536.11,
-    "status": "filled",
-    "gross_value": 5020.0,
-    "fee": 5.02
-  },
-  {
-    "time": "2026-03-31 16:06:18",
-    "symbol": "NVDA",
-    "side": "sell",
-    "qty": 30,
-    "price": 165.09,
-    "status": "filled",
-    "gross_value": 5020.0,
-    "fee": 5.02
-  },
-  {
-    "time": "2026-03-31 16:06:18",
-    "symbol": "GOOGL",
-    "side": "sell",
-    "qty": 18,
-    "price": 273.36,
-    "status": "filled",
-    "gross_value": 5020.0,
-    "fee": 5.02
   }
 ]

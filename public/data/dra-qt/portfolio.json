@@ -1,74 +1,38 @@
 [
   {
-    "symbol": "XLK",
-    "qty": 174,
-    "avg_cost": 136.27,
-    "market_price": 137.06,
-    "market_value": 23848.44,
-    "unrealized_pnl": 137.66,
-    "weight_pct": 24.1
+    "symbol": "SNOW",
+    "qty": 350,
+    "avg_cost": 149.46,
+    "market_price": 149.02,
+    "market_value": 52264.92,
+    "unrealized_pnl": -153.94,
+    "weight_pct": 58.6
   },
   {
-    "symbol": "SMH",
+    "symbol": "QQQ",
     "qty": 38,
-    "avg_cost": 395.67,
-    "market_price": 398.3,
-    "market_value": 15135.4,
-    "unrealized_pnl": 99.91,
-    "weight_pct": 15.3
+    "avg_cost": 589.47,
+    "market_price": 589.21,
+    "market_value": 22569.89,
+    "unrealized_pnl": -9.89,
+    "weight_pct": 25.3
   },
   {
-    "symbol": "QCOM",
-    "qty": 122,
-    "avg_cost": 123.49,
-    "market_price": 119.95,
-    "market_value": 14633.9,
-    "unrealized_pnl": -431.88,
-    "weight_pct": 14.8
-  },
-  {
-    "symbol": "AVGO",
-    "qty": 37,
-    "avg_cost": 329.67,
-    "market_price": 328.94,
-    "market_value": 12170.97,
-    "unrealized_pnl": -26.83,
-    "weight_pct": 12.3
-  },
-  {
-    "symbol": "TQQQ",
-    "qty": 262,
-    "avg_cost": 43.33,
-    "market_price": 43.84,
-    "market_value": 11484.77,
-    "unrealized_pnl": 131.66,
-    "weight_pct": 11.6
-  },
-  {
-    "symbol": "MU",
-    "qty": 26,
-    "avg_cost": 369.17,
-    "market_price": 372.51,
-    "market_value": 9685.39,
-    "unrealized_pnl": 86.87,
-    "weight_pct": 9.8
-  },
-  {
-    "symbol": "NVDA",
-    "qty": 46,
-    "avg_cost": 176.18,
-    "market_price": 177.18,
-    "market_value": 8150.05,
-    "unrealized_pnl": 45.77,
-    "weight_pct": 8.2
+    "symbol": "NOW",
+    "qty": 121,
+    "avg_cost": 100.7,
+    "market_price": 98.5,
+    "market_value": 11996.58,
+    "unrealized_pnl": -268.05,
+    "weight_pct": 13.5
   },
   {
     "symbol": "UBER",
-    "qty": 56,
-    "avg_cost": 71.45,
-    "market_price": 71.64,
-    "market_value": 4011.84,
-    "unrealized_pnl": 10.64,
-    "weight_pct": 4.0
+    "qty": 33,
+    "avg_cost": 71.84,
+    "market_price": 68.11,
+    "market_value": 2289.76,
+    "unrealized_pnl": -125.32,
+    "weight_pct": 2.6
   }
 ]
