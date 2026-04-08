@@ -3,28 +3,28 @@
     "symbol": "SNOW",
     "qty": 350,
     "avg_cost": 149.46,
-    "market_price": 149.02,
-    "market_value": 52158.75,
-    "unrealized_pnl": -153.63,
-    "weight_pct": 50.9
+    "market_price": 155.53,
+    "market_value": 54433.75,
+    "unrealized_pnl": 2121.37,
+    "weight_pct": 51.8
   },
   {
     "symbol": "QQQ",
     "qty": 38,
     "avg_cost": 589.47,
-    "market_price": 609.41,
-    "market_value": 23157.77,
-    "unrealized_pnl": 757.79,
-    "weight_pct": 22.6
+    "market_price": 608.59,
+    "market_value": 23126.23,
+    "unrealized_pnl": 726.25,
+    "weight_pct": 22.0
   },
   {
     "symbol": "TQQQ",
     "qty": 268,
     "avg_cost": 44.22,
-    "market_price": 48.8,
-    "market_value": 13078.4,
-    "unrealized_pnl": 1228.45,
-    "weight_pct": 12.8
+    "market_price": 48.62,
+    "market_value": 13030.16,
+    "unrealized_pnl": 1180.21,
+    "weight_pct": 12.4
   },
   {
     "symbol": "NOW",
@@ -33,15 +33,15 @@
     "market_price": 98.5,
     "market_value": 11918.5,
     "unrealized_pnl": -266.31,
-    "weight_pct": 11.6
+    "weight_pct": 11.4
   },
   {
     "symbol": "UBER",
     "qty": 33,
     "avg_cost": 71.84,
-    "market_price": 68.11,
-    "market_value": 2247.63,
-    "unrealized_pnl": -123.01,
-    "weight_pct": 2.2
+    "market_price": 75.06,
+    "market_value": 2476.82,
+    "unrealized_pnl": 106.17,
+    "weight_pct": 2.4
   }
 ]
