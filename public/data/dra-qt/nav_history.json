@@ -392,11 +392,11 @@
     "realized_pnl": 0.0
   },
   {
-    "time": "2026-04-08T14:07:37.968710+00:00",
-    "nav": 100888.74,
+    "time": "2026-04-08T14:15:01.692681+00:00",
+    "nav": 100950.87,
     "cash": 58444.68,
-    "drawdown_pct": 2.4977,
-    "unrealized_pnl": -399.48,
+    "drawdown_pct": 2.4377,
+    "unrealized_pnl": -337.35,
     "realized_pnl": 0.0
   }
 ]

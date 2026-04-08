@@ -2,16 +2,16 @@
   {
     "name": "S&P 500",
     "symbol": "SPY",
-    "price": 674.93
+    "price": 674.98
   },
   {
     "name": "Nasdaq 100",
     "symbol": "QQQ",
-    "price": 605.7
+    "price": 605.68
   },
   {
     "name": "Dow Jones",
     "symbol": "DIA",
-    "price": 479.07
+    "price": 478.7
   }
 ]
