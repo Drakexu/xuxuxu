@@ -4,26 +4,26 @@
     "qty": 148,
     "avg_cost": 101.49,
     "market_price": 101.32,
-    "market_value": 14995.36,
-    "unrealized_pnl": -24.64,
+    "market_value": 14995.37,
+    "unrealized_pnl": -24.63,
     "weight_pct": 49.0
   },
   {
     "symbol": "GOOGL",
     "qty": 35,
     "avg_cost": 316.83,
-    "market_price": 318.26,
-    "market_value": 11139.1,
-    "unrealized_pnl": 50.05,
+    "market_price": 318.52,
+    "market_value": 11148.24,
+    "unrealized_pnl": 59.19,
     "weight_pct": 36.4
   },
   {
     "symbol": "MU",
     "qty": 11,
     "avg_cost": 404.55,
-    "market_price": 405.85,
-    "market_value": 4464.35,
-    "unrealized_pnl": 14.28,
+    "market_price": 406.57,
+    "market_value": 4472.32,
+    "unrealized_pnl": 22.26,
     "weight_pct": 14.6
   }
 ]
