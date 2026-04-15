@@ -10,6 +10,7 @@ import {
   Languages,
   Zap,
   TrendingUp,
+  Flame,
   type LucideIcon,
 } from "lucide-react"
 import Link from "next/link"
@@ -52,6 +53,18 @@ const projects: Project[] = [
     accentColor: "#10B981",
     lightAccentColor: "#ECFDF5",
     link: "/project/dra-qt",
+  },
+  {
+    id: "qingyun",
+    name: "青云挂记录",
+    subtitle: "国风修仙挂机页",
+    description: "独立单文件国风修仙挂机游戏页面，沉浸式放置修炼体验。",
+    tags: ["国风", "挂机", "游戏"],
+    status: "live",
+    icon: Flame,
+    accentColor: "#8B5CF6",
+    lightAccentColor: "#F5F3FF",
+    link: "/qingyun.html",
   },
   {
     id: "project-2",
