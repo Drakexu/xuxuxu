@@ -56,7 +56,7 @@ const projects: Project[] = [
   },
   {
     id: "qingyun",
-    name: "青云挂记录",
+    name: "青云挂机录",
     subtitle: "国风修仙挂机页",
     description: "独立单文件国风修仙挂机游戏页面，沉浸式放置修炼体验。",
     tags: ["国风", "挂机", "游戏"],
