@@ -64,7 +64,7 @@ const projects: Project[] = [
     icon: Flame,
     accentColor: "#8B5CF6",
     lightAccentColor: "#F5F3FF",
-    link: "/qingyun.html",
+    link: "/qy/",
   },
   {
     id: "project-2",
