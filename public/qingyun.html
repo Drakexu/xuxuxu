@@ -4543,10 +4543,10 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.2.2',
+  version: '0.3.0',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
-  updateManifestUrl: 'https://raw.githubusercontent.com/qingyun-release/qingyun/main/manifest.json',
+  updateManifestUrl: 'https://xuxuxu.com/update.json',
 
   realms: [
     // 修炼速率已于 v0.2.1 整体降速约 2.7x，min/max 比收紧至约 0.72（min ≥ 2/3 × max）
@@ -21653,6 +21653,47 @@ const Systems = {
       Systems.Equipment.recomputeStats(p);
       return { ok:true, expGain };
     },
+    // 灵宠境界→玩家境界上限映射：幼年=任何, 成年=筑基, 化形=元婴, 通灵=炼虚, 真灵=大乘, 圣灵=仙人
+    PET_REALM_CAP: [0, 1, 3, 5, 7, 9],
+    // 灵宠自动修炼（与tickDecay一起调用）
+    tickCultivation(p, realSeconds) {
+      if (!p.pets || !p.pets.owned.length) return;
+      const pRealm = p.cultivation.realm || 0;
+      p.pets.owned.forEach(inst => {
+        // 检查下一阶是否被玩家境界封顶
+        const nextStage = inst.stage + 1;
+        if (nextStage >= DATA.petStages.length) return; // 已满阶
+        const reqRealm = this.PET_REALM_CAP[nextStage] || 0;
+        if (pRealm < reqRealm) return; // 玩家境界不够，灵宠无法突破
+        // 经验增速：基于当前阶段 expReq，大约和玩家同步（一个境界时间内升完一阶）
+        const curStageData = DATA.petStages[inst.stage];
+        if (!curStageData || !curStageData.expReq) return;
+        const realmYears = [3, 8, 20, 50, 120, 350, 900, 2500, 8000, 99999];
+        const mappedRealm = Math.min(pRealm, realmYears.length - 1);
+        const yearsForStage = realmYears[mappedRealm] || 50;
+        // 游戏时间：1年 = 720真实秒 (12月 × 5天 × 12时辰 × 1秒/刻)
+        const realSecsPerYear = 720;
+        const expPerSec = curStageData.expReq / (yearsForStage * realSecsPerYear);
+        // 品阶加成
+        const gradeInfo = (DATA.petGrades && DATA.petGrades[inst.grade || 0]) || {mul:1};
+        const gradeMul = gradeInfo.mul || 1;
+        const gain = expPerSec * realSeconds * gradeMul;
+        if (gain <= 0) return;
+        inst.exp = (inst.exp || 0) + gain;
+        // 升阶判定（含连升）
+        while (inst.stage < DATA.petStages.length - 1) {
+          const stg = DATA.petStages[inst.stage];
+          if (!stg || inst.exp < stg.expReq) break;
+          // 检查下一阶的境界上限
+          const nxtCap = this.PET_REALM_CAP[inst.stage + 1] || 0;
+          if (pRealm < nxtCap) break;
+          inst.exp -= stg.expReq;
+          inst.stage++;
+          Log.add(`【灵宠】「${inst.name}」修为精进，晋入 ${DATA.petStages[inst.stage].name} 阶！`, 'hi');
+          if (p.pets.active === inst.rid) Systems.Equipment.recomputeStats(p);
+        }
+      });
+    },
     // 每小时衰减心情（挂机掉状态）
     tickDecay(p, realSeconds) {
       if (!p.pets || !p.pets.owned.length) return;
@@ -31733,6 +31774,9 @@ const UI = {
     return out;
   },
 
+  _portraitCache: { mode: null, gender: null, realm: null, sc: null, html: '', ts: 0 },
+  // 每种 mode 最少保持时间（毫秒），防止画面频繁闪动
+  _portraitMinHold: { cultivate: 8000, rest: 10000, adventure: 6000, herb: 6000, combat: 5000 },
   renderPortrait() {
     const el = document.getElementById('portrait');
     if (!el) return;
@@ -31741,14 +31785,12 @@ const UI = {
     const p = State.player;
     const sect0 = p ? Systems.Sect.current(p) : null;
     let loc = sect0 ? (sect0.name + ' · 静室') : '山野 · 蒲团';
-    // 模式识别：按优先级覆盖
-    const storyOn = Systems.Story && Systems.Story.hasForeground && Systems.Story.hasForeground();
+    // 模式识别：只随事件变化
     if (State.currentAdventure) {
       const l = DATA.locations.find(x => x.id === State.currentAdventure.locId);
       mode = 'adventure';
       label = '云游四方';
       loc = l ? l.name : '路途之中';
-      // 子模式识别：根据地点类型改变动作
       const tags = (l && l.tags) || [];
       if (tags.includes('herb') || tags.includes('grass') || tags.includes('山林')) { mode = 'herb'; label = '采药拾芝'; }
       else if (tags.includes('ruin') || tags.includes('danger') || tags.includes('combat') || tags.includes('险地')) { mode = 'combat'; label = '仗剑前行'; }
@@ -31756,13 +31798,27 @@ const UI = {
       mode = 'combat'; label = '擂台对决'; loc = '擂台 · 比武场';
     } else if (p && p.trialTower && p.trialTower.currentRun) {
       mode = 'combat'; label = '试炼塔'; loc = `试炼塔 · 第${p.trialTower.currentRun.floor}层`;
-    } else if (storyOn) {
-      mode = 'story'; label = '心念往事';
     }
     // 夜深 → 休憩（用游戏内时辰）
     const sc = (State.gameTime && State.gameTime.shichen != null) ? State.gameTime.shichen : 6;
     if (mode === 'cultivate' && (sc === 0 || sc === 1 || sc === 2)) { mode = 'rest'; label = '倚石假寐'; }
     const female = p && p.gender === 'female';
+
+    // ============ 缓存 + 最小保持时间：防止 portrait 频繁闪动 ============
+    const realm = p ? p.cultivation.realm : 0;
+    const cache = this._portraitCache;
+    const now = Date.now();
+    // 如果 mode 与缓存相同，直接跳过
+    if (cache.html && cache.mode === mode && cache.gender === female && cache.realm === realm && cache.sc === sc) {
+      return;
+    }
+    // 如果 mode 想要变化，但上一次切换还没过最小保持时间，则压住不变
+    if (cache.html && cache.mode !== mode) {
+      const minHold = this._portraitMinHold[cache.mode] || 5000;
+      if (now - cache.ts < minHold) {
+        return; // 上个姿态还没维持够时间，暂不切换
+      }
+    }
 
     // ============ A2 水墨小景 ============
     // 当处于挂机主页（layoutA2）时使用 320×240 水墨 SVG 场景；
@@ -31772,6 +31828,7 @@ const UI = {
       const pixelSvg = this._buildPixelScene(mode, female, p, sc);
       el.className = 'portrait pixel mode-' + mode;
       el.innerHTML = `<div class="pixel-scene">${pixelSvg}</div>`;
+      cache.mode = mode; cache.gender = female; cache.realm = realm; cache.sc = sc; cache.html = el.innerHTML; cache.ts = now;
       return;
     }
     // 根据境界调整光晕颜色
@@ -32014,6 +32071,7 @@ const UI = {
         <div class="scene-fore">${foreScene}</div>
       </div>
     `;
+    cache.mode = mode; cache.gender = female; cache.realm = realm; cache.sc = sc; cache.html = el.innerHTML; cache.ts = now;
   },
 
   // 身 世：道号/性别/年齿/出身/道途/血脉/命格/所属宗门
@@ -32081,13 +32139,11 @@ const UI = {
     const activePet = p.pets && p.pets.active ? (p.pets.owned || []).find(x => x.rid === p.pets.active) : null;
     if (activePet) {
       const petTpl = DATA.pets.find(x => x.id === activePet.tid);
-      const petStage = DATA.petStages[activePet.stage] || {name:'?', expReq:100};
+      const petStage = DATA.petStages[activePet.stage] || {name:'?'};
       const petGrade = (DATA.petGrades && DATA.petGrades[activePet.grade || 0]) || {name:'凡品', color:'#8a7a6a'};
-      const petExpPct = petStage.expReq > 0 ? Math.min(100, (activePet.exp / petStage.expReq) * 100) : 100;
-      const petTip = `${activePet.name}（${petTpl ? petTpl.name : ''}）\n品阶：${petGrade.name}\n阶段：${petStage.name}\n修为：${activePet.exp}/${petStage.expReq}\n忠诚：${activePet.loyalty.toFixed(0)}\n心情：${activePet.mood.toFixed(0)}`;
-      const petVal = `<span style="color:${petGrade.color}">${Utils.escape(activePet.name)}</span><span style="font-size:9px;opacity:0.7"> ${petGrade.name}·${petStage.name}</span>`
-        + `<div style="width:100%;height:3px;background:var(--border);border-radius:2px;margin-top:2px;overflow:hidden"><div style="width:${petExpPct}%;height:100%;background:${petGrade.color};transition:width .3s"></div></div>`;
-      rows.push(`<div class="reg-row" style="cursor:pointer;flex-wrap:wrap" onclick="if(UI.openPets)UI.openPets()"${petTip ? ' data-tip="' + Utils.escape(petTip) + '"' : ''}><span class="rk">灵宠</span><span class="rv" style="flex:1">${petVal}</span></div>`);
+      const petTip = `${activePet.name}（${petTpl ? petTpl.name : ''}）\n品阶：${petGrade.name}\n阶段：${petStage.name}\n忠诚：${activePet.loyalty.toFixed(0)}　心情：${activePet.mood.toFixed(0)}`;
+      const petVal = `<span style="color:${petGrade.color};font-weight:600">${Utils.escape(activePet.name)}</span> <span style="opacity:0.7;font-size:10px">${petStage.name}</span>`;
+      rows.push(`<div class="reg-row" style="cursor:pointer" onclick="if(UI.openPets)UI.openPets()" data-tip="${Utils.escape(petTip)}"><span class="rk">灵宠</span><span class="rv">${petVal}</span></div>`);
     } else {
       rows.push(row('灵宠', '—', '', '尚无主宠'));
     }
@@ -37435,7 +37491,8 @@ const Game = {
     } catch(e) { console.error('[tick] sectTrack error:', e); }
 
     // ── 独立子系统 tick（不受调度器管辖） ──
-    try { if (Systems.Pet && Systems.Pet.tickDecay) Systems.Pet.tickDecay(p, dt); } catch(e) { console.error('[tick] Pet error:', e); }
+    try { if (Systems.Pet && Systems.Pet.tickDecay) Systems.Pet.tickDecay(p, dt); } catch(e) { console.error('[tick] Pet decay error:', e); }
+    try { if (Systems.Pet && Systems.Pet.tickCultivation) Systems.Pet.tickCultivation(p, dt); } catch(e) { console.error('[tick] Pet cultivation error:', e); }
     try { if (Systems.Cave && Systems.Cave.tick) Systems.Cave.tick(p, dt); } catch(e) { console.error('[tick] Cave error:', e); }
     // 秘境看门狗：独立于调度器运行，确保秘境一旦开始必定跑到底（通关或失败退出）
     try { if (Systems.SecretRealm && Systems.SecretRealm.tick) Systems.SecretRealm.tick(p, dt); } catch(e) { console.error('[tick] SR watchdog error:', e); }
