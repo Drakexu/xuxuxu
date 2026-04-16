@@ -4543,7 +4543,7 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.0',
+  version: '0.4.1',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/update.json',
@@ -5516,7 +5516,8 @@ const DATA = {
     {key:'xun',    name:'寻常', mul:1.0,  weight:14, cls:'q2'},
     {key:'nongyu', name:'浓郁', mul:1.6,  weight:7,  cls:'q3'},
     {key:'chunzh', name:'纯正', mul:2.3,  weight:3,  cls:'q4'},
-    {key:'jue',    name:'觉醒', mul:3.5,  weight:1,  cls:'q5'}
+    {key:'jue',    name:'觉醒', mul:3.5,  weight:1,  cls:'q5'},
+    {key:'chaofan',name:'超凡', mul:5.0,  weight:0,  cls:'q5'}
   ],
   bloodlines: [
     {id:'bl_none',     name:'凡胎',    rarity:'common',    desc:'并无异血，平凡肉身',            effect:{}},
@@ -24279,8 +24280,9 @@ const Systems = {
               cur.treasures.push(m.name);
             }
           } else {
-            p.resources.stone += 500;
-            cur.treasures.push('灵石×500(替代)');
+            const _fallStone1 = Math.round(500 * realmStoneMul(p.cultivation.realm));
+            p.resources.stone += _fallStone1;
+            cur.treasures.push(`灵石×${Utils.fmtNum(_fallStone1)}(替代)`);
           }
           break;
         }
@@ -24293,8 +24295,9 @@ const Systems = {
         }
         case 'manual': {
           // 未实现功法赠予，折算成灵石
-          p.resources.stone += 5000;
-          cur.treasures.push('灵石×5000(古卷所得)');
+          const _fallStone2 = Math.round(5000 * realmStoneMul(p.cultivation.realm));
+          p.resources.stone += _fallStone2;
+          cur.treasures.push(`灵石×${Utils.fmtNum(_fallStone2)}(古卷所得)`);
           break;
         }
         case 'pet': {
@@ -25188,15 +25191,23 @@ const Systems = {
           }
         }
       }
+      // 【缺钱急务】灵石低于阈值时：拆解过气装备 + 加速赚钱行动
+      const _brokeThreshold = Math.round(100 * realmStoneMul(p.cultivation.realm));
+      const _isBroke = (p.resources.stone || 0) < _brokeThreshold;
+      if (_isBroke) {
+        this.tryAutoRecycle(p);  // 先拆废旧装备变现
+        // 加速赚钱活动冷却：擂台/试炼/秘境 立即可用
+        if (this._cd.secretRealm > 3) this._cd.secretRealm = 0;
+      }
       // 依序尝试：低成本 → 高成本
       if (State.autoAlchemy && this._cd.alchemy <= 0) { this._cd.alchemy = 6; this.tryAlchemy(p); }
       if (State.autoArtifact && this._cd.artifact <= 0) { this._cd.artifact = 10; this.tryArtifact(p); }
-      if (State.autoRelation && this._cd.relation <= 0) { this._cd.relation = 25; this.tryRelation(p); }
+      if (State.autoRelation && !_isBroke && this._cd.relation <= 0) { this._cd.relation = 25; this.tryRelation(p); }  // 缺钱时暂停社交花费
       if (State.autoSectMission && this._cd.sectMission <= 0) { this._cd.sectMission = 8; this.trySectMission(p); }
       if (State.autoSectMission && this._cd.sectProdigy <= 0) { this._cd.sectProdigy = 90; this.trySectProdigy(p); }
-      if (State.autoSecretRealm && this._cd.secretRealm <= 0) { this._cd.secretRealm = breakPriority ? 10 : 25; this.trySecretRealm(p); }
-      if (State.autoShop && this._cd.shop <= 0) { this._cd.shop = 40; this.tryShop(p); }
-      if (State.autoTravel && this._cd.travel <= 0) { this._cd.travel = 180; this.tryTravel(p); }
+      if (State.autoSecretRealm && this._cd.secretRealm <= 0) { this._cd.secretRealm = breakPriority ? 10 : (_isBroke ? 8 : 25); this.trySecretRealm(p); }
+      if (State.autoShop && !_isBroke && this._cd.shop <= 0) { this._cd.shop = 40; this.tryShop(p); }  // 缺钱时暂停自动购物
+      if (State.autoTravel && !_isBroke && this._cd.travel <= 0) { this._cd.travel = 180; this.tryTravel(p); }  // 缺钱时暂停游历
     },
     /** 破境受阻·急务：把破境所需条件转化为本次 tick 的高优先行动 */
     _tryBreakPrereq(p, needs, dt) {
@@ -25411,6 +25422,25 @@ const Systems = {
       if (p.resources.stone < (target.travelCost || 0) * 2) return;
       Systems.Map.travel(p, target.id);
       Log.add(`【自动·游历】闻得 ${target.name} 气象更盛，整装启程。`, 'sys');
+    },
+    // --- 自动拆解：缺钱时拆解低品阶/过气装备换灵石 ---
+    tryAutoRecycle(p) {
+      if (!p.inventory || !p.inventory.length) return;
+      const realm = p.cultivation.realm;
+      // 找出未装备且品阶低于当前境界的装备（过气装备）
+      const equippedIds = new Set(Object.values(p.equipped || {}).map(e => e && e.id).filter(Boolean));
+      const junk = p.inventory
+        .filter(it => it.type === 'equip' && !equippedIds.has(it.id) && (it.quality || 1) < Math.max(2, realm * 1.2))
+        .sort((a, b) => (a.quality || 1) - (b.quality || 1)); // 先拆最差的
+      let recycled = 0;
+      for (const it of junk) {
+        if (recycled >= 5) break; // 每次最多拆 5 件，不一次清空
+        const r = Systems.Recycle.disassemble(p, it.id);
+        if (r && r.ok) recycled++;
+      }
+      if (recycled > 0) {
+        Log.add(`【自动·变卖】囊中羞涩，拆解 ${recycled} 件过气法器换取灵石。`, 'sys');
+      }
     }
   },
 
@@ -26539,7 +26569,7 @@ const Systems = {
       if (p.cultivation.realm < 1) return { ok:false, reason:'需筑基期以上' };
       const cfg = DATA.purifyConfig;
       const count = p.purify ? p.purify.count : 0;
-      const cost = Math.ceil(cfg.baseCost * Math.pow(cfg.costMul, count));
+      const cost = Math.ceil(cfg.baseCost * Math.pow(cfg.costMul, count) * realmStoneMul(p.cultivation.realm));
       if ((p.resources.stone || 0) < cost) return { ok:false, reason:`灵石不足（需${Utils.fmtNum(cost)}）` };
       const next = this.findNextGrade(p);
       if (!next) return { ok:false, reason:'灵根已臻极致' };
@@ -26705,7 +26735,7 @@ const Systems = {
       if (p.cultivation.realm < 4) return { ok:false, reason:'需化神期以上' };
       const max = this.getMaxCount(p);
       if (p.clones.list.length >= max) return { ok:false, reason:`分身已达上限（${max}）` };
-      const cost = 5000 + p.clones.list.length * 8000;
+      const cost = Math.round((5000 + p.clones.list.length * 8000) * realmStoneMul(p.cultivation.realm));
       if ((p.resources.stone || 0) < cost) return { ok:false, reason:`灵石不足（需${Utils.fmtNum(cost)}）` };
       return { ok:true, cost };
     },
@@ -28333,12 +28363,12 @@ Providers.Bloodline = {
             const cc = DATA.bloodlineConcentrations;
             const curIdx = cc.findIndex(c => c.key === bl.concentrationKey);
             if (curIdx >= 0 && curIdx < cc.length - 1) {
-              // 基础 30%；rare=35%，epic=40%，legendary/mythic=50%；再除以(距顶档越远越容易)
-              const rarityBoost = { common:0, rare:0.05, epic:0.10, legendary:0.20, mythic:0.20 }[bl.rarity] || 0;
-              const base = 0.30 + rarityBoost;
-              // 越接近「觉醒」越难：从下往上每档难度乘 0.85
-              const distDecay = Math.pow(0.85, curIdx);
-              const chance = Math.min(0.65, base * distDecay);
+              // 基础 20%；rare=25%，epic=30%，legendary/mythic=38%；衰减 0.75 让高档更难
+              const rarityBoost = { common:0, rare:0.05, epic:0.10, legendary:0.18, mythic:0.18 }[bl.rarity] || 0;
+              const base = 0.20 + rarityBoost;
+              // 越接近「超凡」越难：从下往上每档难度乘 0.75
+              const distDecay = Math.pow(0.75, curIdx);
+              const chance = Math.min(0.50, base * distDecay);
               if (Math.random() < chance) {
                 const next = cc[curIdx + 1];
                 bl.concentrationKey = next.key;
@@ -28941,7 +28971,7 @@ Providers.PetBond = {
           `${name}揉了揉${pet.name}的耳朵：「往后护你周全。」`
         ],
         result: `${name}为${pet.name}制成一枚护身玉符，以契心意。`,
-        rewards: { daoHeart: 2, stone: -Math.round(Utils.rand(5, 20) * realmStoneMul(ctx.realm)) }
+        rewards: { daoHeart: 2, stone: -Math.round(Math.min((ctx.player.resources.stone || 0) * 0.03, 5 * realmStoneMul(ctx.realm))) }
       }
     ];
     const tpl = Utils.pick(templates);
@@ -37580,6 +37610,8 @@ const Game = {
     p.combat.hp = Math.min(p.combat.hpMax, p.combat.hp + p.combat.hpMax * 0.015 * dt);
     p.combat.mp = Math.min(p.combat.mpMax, p.combat.mp + p.combat.mpMax * 0.004 * dt);
     p.combat.sp = Math.min(p.combat.spMax, p.combat.sp + p.combat.spMax * 0.012 * dt);
+    // 灵石保底：任何 bug 或事件导致的负数都兜底到 0
+    if (p.resources.stone < 0) p.resources.stone = 0;
     // 定期存档
     if (now - State.lastSave > 30000) Systems.Save.save();
   }
