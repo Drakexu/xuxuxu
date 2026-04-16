@@ -33058,7 +33058,14 @@ const UI = {
   },
 
   async checkUpdate() {
-    const storedUrl = (typeof localStorage !== 'undefined' && localStorage.getItem('qy_update_url')) || DATA.updateManifestUrl;
+    // 若代码中更新源变更，清除旧缓存，以新源为准
+    let storedUrl = DATA.updateManifestUrl;
+    try {
+      const cached = localStorage.getItem('qy_update_url');
+      const cachedVer = localStorage.getItem('qy_update_url_ver');
+      if (cached && cachedVer === DATA.version) storedUrl = cached;
+      else localStorage.removeItem('qy_update_url');
+    } catch(e) {}
     this.showModal('检 查 更 新', `
       <div class="text" style="line-height:1.9">
         <div>当前版本：<span style="color:var(--gold)">v${DATA.version}</span></div>
@@ -33078,7 +33085,7 @@ const UI = {
     if (!inp || !out) return;
     const url = (inp.value || '').trim();
     if (!url) { out.innerHTML = '<span style="color:var(--cinnabar)">请填入 manifest URL</span>'; return; }
-    try { localStorage.setItem('qy_update_url', url); } catch(e) {}
+    try { localStorage.setItem('qy_update_url', url); localStorage.setItem('qy_update_url_ver', DATA.version); } catch(e) {}
     out.innerHTML = '<span style="color:var(--ink-light)">正在检查……</span>';
     try {
       const res = await fetch(url, { cache:'no-store' });
@@ -33203,7 +33210,7 @@ const UI = {
     const stoneTotal = (p.resources && p.resources.stone) || 0;
     const stoneLine = `<div class="inv-stones" style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin-bottom:6px;background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.3);border-radius:4px;">
       <span style="color:var(--ink);font-size:13px;">随身灵石</span>
-      <span style="color:var(--cinnabar);font-weight:bold;">${Utils.fmtInt ? Utils.fmtInt(stoneTotal) : stoneTotal}</span>
+      <span style="color:var(--cinnabar);font-weight:bold;">${Utils.fmtNum(stoneTotal)}</span>
     </div>`;
 
     const body = `
