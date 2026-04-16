@@ -4543,7 +4543,7 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.3.0',
+  version: '0.4.0',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/update.json',
@@ -23532,13 +23532,14 @@ const Systems = {
       if (!m) return { ok:false };
       if (m.progress < m.target) return { ok:false, reason:'未达成' };
       p.sect.contribution += m.rewardCont;
-      p.resources.stone += m.rewardStone;
+      const missionStone = Math.round(m.rewardStone * realmStoneMul(p.cultivation.realm));
+      p.resources.stone += missionStone;
       p.sect.reputation += Math.floor(m.rewardCont / 5);
       const lf = DATA.logFlavor || {};
       if (lf.sectMissionDone && lf.sectMissionDone.length) {
         Log.add(`【宗门·交差】${Utils.pickRotate(lf.sectMissionDone, 'flv_sectMissionDone', 6)}`, 'scene');
       }
-      Log.add(`【宗门】完成《${m.title}》—— 贡献 +${m.rewardCont}，灵石 +${m.rewardStone}。`, 'good');
+      Log.add(`【宗门】完成《${m.title}》—— 贡献 +${m.rewardCont}，灵石 +${Utils.fmtNum(missionStone)}。`, 'good');
       p.sect.missions = p.sect.missions.filter(x => x.mid !== mid);
       // 尝试晋升
       this._tryPromote(p);
@@ -23557,7 +23558,7 @@ const Systems = {
     exchange(p, kind) {
       if (!p.sect || !p.sect.id) return { ok:false };
       const shop = {
-        stone:    {cost:50,  give:()=>{ p.resources.stone += 500; return '灵石 +500'; }},
+        stone:    {cost:50,  give:()=>{ const amt = Math.round(500 * realmStoneMul(p.cultivation.realm)); p.resources.stone += amt; return `灵石 +${Utils.fmtNum(amt)}`; }},
         herb:     {cost:80,  give:()=>{ const pool = DATA.herbs.filter(h => !h.id.startsWith('h_xuantie') && !h.id.startsWith('h_wuxingshi')); const h = Utils.pick(pool); p.alchemy.materials[h.id] = (p.alchemy.materials[h.id]||0) + 3; return `${h.name}×3`; }},
         manual:   {cost:200, give:()=>{ if (Systems.Alchemy && Systems.Alchemy.grantRandomRecipe) { const r = Systems.Alchemy.grantRandomRecipe(p); return r ? `丹方《${r.name}》` : '丹方未得'; } return '丹方系统未就绪'; }},
         talisman: {cost:150, give:()=>{ const tids = ['fu_huoyan','fu_bingfeng','fu_jinbi','fu_fengxing','fu_shouhu']; const tid = Utils.pick(tids); p.talismans.inv[tid] = (p.talismans.inv[tid]||0) + 2; const t = DATA.talismans && DATA.talismans.find(x=>x.id===tid); return `${t ? t.name : tid}×2`; }}
@@ -23683,16 +23684,17 @@ const Systems = {
       const dd = (DATA.sectDuties || []).find(d => d.id === p.sect.currentDuty.id);
       if (!dd) { p.sect.currentDuty = null; return {ok:false}; }
       const bonus = Math.random() < (p.sect.rank * 0.08 + (p.sect.reputation||0) / 2000) ? 1.3 : 1;
+      const rsMul = realmStoneMul(p.cultivation.realm);
       const cont = Math.floor(dd.rewardCont * bonus);
       const rep = Math.floor(dd.rewardRep * bonus);
-      const st = Math.floor(dd.rewardStone * bonus);
+      const st = Math.round(dd.rewardStone * bonus * rsMul);
       p.sect.contribution += cont;
       p.sect.reputation = (p.sect.reputation||0) + rep;
       p.resources.stone += st;
       if (dd.rewardItems) {
         for (const it of dd.rewardItems) {
           if (Math.random() < it.chance) {
-            if (it.type === 'stone') p.resources.stone += it.count;
+            if (it.type === 'stone') p.resources.stone += Math.round(it.count * rsMul);
             else if (it.type === 'herb') {
               const pool = DATA.herbs.filter(h => !h.id.startsWith('h_xuantie') && !h.id.startsWith('h_wuxingshi'));
               for (let i = 0; i < it.count && pool.length; i++) { const h = Utils.pick(pool); p.alchemy.materials[h.id] = (p.alchemy.materials[h.id]||0)+1; }
@@ -23702,7 +23704,7 @@ const Systems = {
           }
         }
       }
-      Log.add(`【宗门】完成职责《${dd.name}》！贡献 +${cont}，声望 +${rep}，灵石 +${st}。`, 'good');
+      Log.add(`【宗门】完成职责《${dd.name}》！贡献 +${cont}，声望 +${rep}，灵石 +${Utils.fmtNum(st)}。`, 'good');
       p.sect.currentDuty = null;
       this._tryPromote(p);
       return {ok:true};
@@ -23718,7 +23720,7 @@ const Systems = {
       for (const eff of (evt.effects || [])) {
         if (eff.type === 'cont') p.sect.contribution += eff.amount;
         else if (eff.type === 'rep') p.sect.reputation = (p.sect.reputation||0) + eff.amount;
-        else if (eff.type === 'stone') p.resources.stone += eff.amount;
+        else if (eff.type === 'stone') p.resources.stone += Math.round(eff.amount * realmStoneMul(p.cultivation.realm));
         else if (eff.type === 'exp') p.cultivation.exp += eff.amount;
       }
       p.sect.recentEvents = p.sect.recentEvents || [];
@@ -24434,7 +24436,7 @@ const Systems = {
       const it = p.inventory[idx];
       if (it.type !== 'equip') return { ok:false, reason:'非装备' };
       const q = it.quality || 1;
-      const stoneGain = q * 15 + Utils.rand(0, 10);
+      const stoneGain = Math.round((q * 15 + Utils.rand(0, 10)) * realmStoneMul(p.cultivation.realm));
       p.resources.stone += stoneGain;
       // 材料产出按品阶给灵石碎片或药草
       const matGains = {};
@@ -24990,29 +24992,34 @@ const Systems = {
     getStock(p) {
       const realm = p.cultivation.realm;
       const stock = [];
+      // 坊市价格随境界缩放：低境界不加价，高境界同步收入增幅
+      // 用 realmMin 对应的倍率来缩放，让物品在解锁时的价格合理
+      const priceMul = realmStoneMul(realm);
       DATA.shopTemplates.forEach(tpl => {
         if (tpl.realmMin !== undefined && realm < tpl.realmMin) return;
+        // 价格缩放：以物品解锁境界为基准，补差额
+        const baseMul = realmStoneMul(tpl.realmMin || 0);
+        const scaledPrice = Math.floor(tpl.price * (priceMul / Math.max(1, baseMul)));
         if (tpl.type === 'technique') {
           const tq = DATA.techniques.find(x => x.id === tpl.ref);
           if (!tq) return;
-          stock.push({ kind:'technique', ref:tpl.ref, name:tq.name, quality:null, desc:tq.desc, grade:tq.grade, price:tpl.price });
+          stock.push({ kind:'technique', ref:tpl.ref, name:tq.name, quality:null, desc:tq.desc, grade:tq.grade, price:scaledPrice });
         } else if (tpl.type === 'consumable') {
           const pool = DATA.consumables.filter(c => c.quality >= tpl.quality && c.quality <= (tpl.qualityMax || tpl.quality));
           pool.forEach(c => {
-            stock.push({ kind:'consumable', ref:c.id, name:c.name, quality:c.quality, desc:c.desc, price:tpl.price });
+            stock.push({ kind:'consumable', ref:c.id, name:c.name, quality:c.quality, desc:c.desc, price:scaledPrice });
           });
         } else if (tpl.type === 'equip') {
-          // 商店里给每个部位一件样品装备
           DATA.equipSlots.forEach(s => {
             const q = Utils.rand(tpl.quality, tpl.qualityMax || tpl.quality);
             const it = rollEquip(s.id, q);
-            stock.push({ kind:'equip', it, name:it.name, quality:q, slotName:s.name, price:tpl.price + q * 50 });
+            stock.push({ kind:'equip', it, name:it.name, quality:q, slotName:s.name, price:scaledPrice + q * 50 * priceMul });
           });
         } else if (tpl.type === 'mineral') {
           const pool = DATA.minerals.filter(m => m.quality >= (tpl.qualityMin||1) && m.quality <= (tpl.qualityMax||m.quality));
           pool.forEach(m => {
             const qty = Utils.rand(2, 5);
-            stock.push({ kind:'mineral', ref:m.id, name:m.name+'×'+qty, quality:m.quality, desc:m.desc, price:tpl.price, qty });
+            stock.push({ kind:'mineral', ref:m.id, name:m.name+'×'+qty, quality:m.quality, desc:m.desc, price:scaledPrice, qty });
           });
         } else if (tpl.type === 'herb') {
           const herbs = DATA.herbs.filter(h => {
@@ -25021,7 +25028,7 @@ const Systems = {
           });
           herbs.slice(0, 6).forEach(h => {
             const qty = Utils.rand(2, 4);
-            stock.push({ kind:'herb', ref:h.id, name:h.name+'×'+qty, quality:h.quality||1, desc:h.desc, price:tpl.price, qty });
+            stock.push({ kind:'herb', ref:h.id, name:h.name+'×'+qty, quality:h.quality||1, desc:h.desc, price:scaledPrice, qty });
           });
         }
       });
@@ -25037,11 +25044,10 @@ const Systems = {
       return (h ^ (h >>> 16)) >>> 0;
     },
     isBlackMarketOpen() {
-      const gt = State.gameTime;
-      if (!gt) return false;
-      const absDay = (gt.year - 1) * 360 + (gt.month - 1) * 30 + (gt.day - 1);
-      const period = Math.floor(absDay / 7);
-      return (this._hashPeriod(period) % 100) < 28;
+      // 基于真实时间：每30分钟一个周期，30%概率开市（开了持续整个周期）
+      const now = Date.now();
+      const period = Math.floor(now / (30 * 60 * 1000)); // 每30分钟一期
+      return (this._hashPeriod(period) % 100) < 30;
     },
 
     // 黑 市 库存：高阶功法 + 高品阶丹药装备，价格是坊市的 3~5 倍
@@ -25049,10 +25055,8 @@ const Systems = {
     getBlackMarketStock(p) {
       const stock = [];
       const realm = p.cultivation.realm;
-      // 种子：按 period 固定，让同一期的黑市商品也固定下来（不会每次打开都换）
-      const gt = State.gameTime;
-      const absDay = gt ? ((gt.year - 1) * 360 + (gt.month - 1) * 30 + (gt.day - 1)) : 0;
-      const period = Math.floor(absDay / 7);
+      // 种子：按真实时间 period 固定，让同一期的黑市商品也固定下来
+      const period = Math.floor(Date.now() / (30 * 60 * 1000));
       // 伪随机函数：以 period+idx 为种子
       const seedRand = (idx) => {
         let h = ((period * 131) + idx * 9301 + 49297) | 0;
@@ -25077,39 +25081,41 @@ const Systems = {
         tian_xia: 280000, tian_zhong: 620000, tian_shang: 1.3e6,
         xian_xia: 2.6e6, xian_zhong: 5.2e6, xian_shang: 1e7
       };
+      // 境界灵石倍率：让价格与玩家收入同步
+      const rsMul = realmStoneMul(realm);
       tqPool.slice(0, tqCount).forEach(tid => {
         const tq = DATA.techniques.find(x => x.id === tid);
         if (!tq) return;
         const basePrice = gradePriceBase[tq.grade] || 50000;
-        // 黑市溢价：3~5 倍基准
-        const price = Math.floor(basePrice * (3 + seedRand(tid.length) * 2));
+        // 黑市溢价：3~5 倍基准 × 境界倍率
+        const price = Math.floor(basePrice * (3 + seedRand(tid.length) * 2) * rsMul);
         stock.push({ kind:'technique', ref:tid, name:tq.name, quality:null, desc:tq.desc, grade:tq.grade, price:price, blackMarket:true });
       });
       // 2) 高品阶丹药：quality = min(5, realm+2)
       const highQ = Math.min(6, realm + 3);
       const pillPool = DATA.consumables.filter(c => c.quality >= Math.max(3, realm + 1) && c.quality <= highQ);
       pillPool.slice(0, 4).forEach((c, idx) => {
-        const price = Math.floor((c.quality * c.quality * 900) * (2 + seedRand(idx + 500)));
+        const price = Math.floor((c.quality * c.quality * 900) * (2 + seedRand(idx + 500)) * rsMul);
         stock.push({ kind:'consumable', ref:c.id, name:c.name, quality:c.quality, desc:c.desc, price, blackMarket:true });
       });
       // 3) 高品阶装备：每个部位一件，品阶随境界提升
       DATA.equipSlots.forEach((s, idx) => {
         const q = Math.min(8, 4 + realm + (seedRand(idx + 100) > 0.5 ? 1 : 0));
         const it = rollEquip(s.id, q);
-        const price = Math.floor((q * q * q * 1500) * (2 + seedRand(idx + 200)));
+        const price = Math.floor((q * q * q * 1500) * (2 + seedRand(idx + 200)) * rsMul);
         stock.push({ kind:'equip', it, name:it.name, quality:q, slotName:s.name, price, blackMarket:true });
       });
       // 4) 增寿/道心/悟性丹药：黑市特供
       const specialPills = DATA.consumables.filter(c => c.effect && (c.effect.lifespan || c.effect.daoHeartBonus || c.effect.perceptionBonus));
       const spAvail = specialPills.filter(c => c.quality <= Math.min(6, realm + 3));
       spAvail.slice(0, 3 + Math.floor(seedRand(800) * 2)).forEach((c, idx) => {
-        const price = Math.floor((c.quality * c.quality * 1500) * (3 + seedRand(idx + 600)));
+        const price = Math.floor((c.quality * c.quality * 1500) * (3 + seedRand(idx + 600)) * rsMul);
         stock.push({ kind:'consumable', ref:c.id, name:c.name, quality:c.quality, desc:c.desc, price, blackMarket:true });
       });
       // 5) 高阶修为丹（黑市特供）
       const highExpPills = DATA.consumables.filter(c => c.effect && c.effect.exp && c.quality >= Math.max(4, realm + 1));
       highExpPills.slice(0, 2).forEach((c, idx) => {
-        const price = Math.floor((c.quality * c.quality * 1200) * (3 + seedRand(idx + 650)));
+        const price = Math.floor((c.quality * c.quality * 1200) * (3 + seedRand(idx + 650)) * rsMul);
         stock.push({ kind:'consumable', ref:c.id, name:c.name, quality:c.quality, desc:c.desc, price, blackMarket:true });
       });
       // 6) 稀有矿物：高品质矿物 3~5 件
@@ -25117,7 +25123,7 @@ const Systems = {
       const minePool = DATA.minerals.filter(m => m.quality >= minQ);
       minePool.slice(0, Math.min(minePool.length, 4)).forEach((m, idx) => {
         const qty = Utils.rand(3, 8);
-        const price = Math.floor((m.quality * m.quality * 600) * (2 + seedRand(idx + 700)));
+        const price = Math.floor((m.quality * m.quality * 600) * (2 + seedRand(idx + 700)) * rsMul);
         stock.push({ kind:'mineral', ref:m.id, name:m.name+'×'+qty, quality:m.quality, desc:m.desc, price, qty, blackMarket:true });
       });
       return stock;
@@ -25377,8 +25383,8 @@ const Systems = {
         Systems.Shop.buy(p, noviceTech);
         return;
       }
-      // 消耗品：只有灵石很多时才买
-      if (p.resources.stone < 2000) return;
+      // 消耗品：只有灵石很多时才买（阈值随境界缩放）
+      if (p.resources.stone < 2000 * realmStoneMul(p.cultivation.realm)) return;
       const cheap = stock.filter(e => e.kind === 'consumable' && e.price <= p.resources.stone * 0.05);
       if (cheap.length) {
         Systems.Shop.buy(p, Utils.pick(cheap));
@@ -27097,7 +27103,7 @@ const Systems = {
         ct.round++;
         const realmBonus = 1 + p.cultivation.realm * 0.3;
         const fameGain = Math.round((20 + ct.round * 15) * fameMul * realmBonus);
-        const stoneGain = Math.round(50 * (1 + ct.round) * fameMul * (1 + p.cultivation.realm * 0.5));
+        const stoneGain = Math.round(50 * (1 + ct.round) * fameMul * realmStoneMul(p.cultivation.realm));
         p.arena.fame += fameGain;
         p.arena.wins++;
         p.resources.stone += stoneGain;
@@ -27243,7 +27249,7 @@ const Systems = {
         // 奖励计算
         const expRate = Systems.Cultivation.computeExpPerSec(p);
         const expGain = Math.round(expRate * 30 * (1 + floor * 0.1));
-        const stoneGain = Math.round(20 * (1 + floor * 0.15) * (1 + p.cultivation.realm * 0.5));
+        const stoneGain = Math.round(20 * (1 + floor * 0.15) * realmStoneMul(p.cultivation.realm));
         run.totalExp += expGain;
         run.totalStone += stoneGain;
         p.cultivation.exp += expGain;
@@ -30063,7 +30069,8 @@ const UI = {
       eventInsight:'事件洞察', equipMul:'装备强化', rebirth:'重生',
       tribMul:'天劫强度', stone:'灵石', startEquip:'起始装备', startTech:'起始功法',
       alchemySuccBonus:'炼丹成功率', pillEffectMul:'丹药效用',
-      artifactNurtureMul:'法宝温养', equipStatMul:'装备属性', formationMul:'阵法强度'
+      artifactNurtureMul:'法宝温养', equipStatMul:'装备属性', formationMul:'阵法强度',
+      lifespan:'延寿', permPerception:'永久悟性', permLuck:'永久气运', permDaoHeart:'永久道心'
     }[k] || k;
   },
 
@@ -34072,8 +34079,8 @@ const UI = {
     body += `<div class="sect-header">
       <div class="sect-icon" style="font-size:18px">府</div>
       <div class="sect-meta">
-        <div class="sect-title" style="display:flex;align-items:center;gap:6px">
-          <span>${Utils.escape(p.cave.name || '无名洞府')}</span>
+        <div class="sect-title" style="display:flex;align-items:center;gap:6px" id="cave-name-row">
+          <span id="cave-name-display" ondblclick="UI.caveRename()">${Utils.escape(p.cave.name || '无名洞府')}</span>
           <button class="btn small" style="font-size:10px;padding:1px 6px" onclick="UI.caveRename()" title="更名">✎</button>
         </div>
         <div class="sect-sub">升阶 ${prestige} 重${p.cave.spirit ? '　·　洞府灵 第' + p.cave.spirit.level + '阶' : ''}　·　装饰 ${(p.cave.decos||[]).length} 件</div>
@@ -34280,7 +34287,7 @@ const UI = {
           <button class="btn small" onclick="UI.caveFeedSpirit(100)">喂 100</button>
           <button class="btn small" onclick="UI.caveFeedSpirit(500)">喂 500</button>
           <button class="btn small" onclick="UI.caveFeedSpirit(1000)">喂 1000</button>
-          <span style="font-size:11px;color:var(--ink-light);margin-left:auto">灵石 ${p.resources.stone}</span>
+          <span style="font-size:11px;color:var(--ink-light);margin-left:auto">灵石 ${Utils.fmtNum(p.resources.stone)}</span>
         </div>
       </div>`;
     } else {
@@ -34340,21 +34347,44 @@ const UI = {
   caveRename() {
     const p = State.player;
     if (!p || !p.cave) return;
+    const row = document.getElementById('cave-name-row');
+    if (!row || row.querySelector('input')) return; // 已在编辑
     const cur = p.cave.name || '无名洞府';
-    const next = (typeof prompt === 'function')
-      ? prompt('为洞府命名（最多 16 字）：', cur)
-      : null;
-    if (next == null) return;
-    const name = String(next).trim();
-    if (!name) { this.flash('洞府名不可为空'); return; }
-    if (name === cur) return;
-    if (Systems.Cave && typeof Systems.Cave.rename === 'function') {
-      Systems.Cave.rename(p, name);
-    } else {
-      p.cave.name = name.slice(0, 16);
-    }
-    this.openCave(); this.renderStatus();
-    this.flash(`洞府更名为「${p.cave.name}」`);
+    const display = document.getElementById('cave-name-display');
+    const editBtn = row.querySelector('button');
+    if (display) display.style.display = 'none';
+    if (editBtn) editBtn.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = cur;
+    input.maxLength = 16;
+    input.style.cssText = 'font-size:14px;font-family:inherit;background:var(--paper);color:var(--ink);border:1px solid var(--ink-faint);border-radius:3px;padding:2px 6px;width:10em;outline:none;';
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn small';
+    confirmBtn.style.cssText = 'font-size:10px;padding:1px 6px;color:var(--qing);border-color:var(--qing)';
+    confirmBtn.textContent = '保存';
+    const doSave = () => {
+      const name = input.value.trim();
+      if (!name) { UI.flash('洞府名不可为空'); return; }
+      if (name !== cur) {
+        if (Systems.Cave && typeof Systems.Cave.rename === 'function') {
+          Systems.Cave.rename(p, name);
+        } else {
+          p.cave.name = name.slice(0, 16);
+        }
+        UI.flash(`洞府更名为「${p.cave.name}」`);
+      }
+      if (display) { display.textContent = p.cave.name || '无名洞府'; display.style.display = ''; }
+      if (editBtn) editBtn.style.display = '';
+      input.remove(); confirmBtn.remove();
+      UI.renderStatus();
+    };
+    confirmBtn.onclick = doSave;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') { if (display) display.style.display = ''; if (editBtn) editBtn.style.display = ''; input.remove(); confirmBtn.remove(); } });
+    row.insertBefore(input, editBtn);
+    row.insertBefore(confirmBtn, editBtn);
+    input.focus();
+    input.select();
   },
 
   caveUpgrade(rid) {
@@ -34714,9 +34744,22 @@ const UI = {
     const rows = inv.map(it => {
       const cnt = it.count > 1 ? ` ×${it.count}` : '';
       const qStr = it.quality ? `<span style="color:${qColor(it.quality)}">品${it.quality}</span> ` : '';
-      return `<div class="item-row" style="cursor:pointer;padding:4px" onclick="UI.relGiftItemConfirm('${rid}','${it.id}')">
-        <span class="name">${qStr}${Utils.escape(it.name)}${cnt}</span>
-        <span style="font-size:10px;color:var(--ink-light)">${it.type === 'consumable' ? '丹药' : it.type === 'equip' ? '装备' : '材料'}</span>
+      const typeLabel = it.type === 'consumable' ? '丹药' : it.type === 'equip' ? '装备' : '材料';
+      // 功效说明
+      let effTxt = '';
+      if (it.effect) {
+        effTxt = Utils.formatEffect(it.effect) || '';
+      } else if (it.stats && it.type === 'equip') {
+        effTxt = Utils.formatEffect(it.stats) || '';
+      } else if (it.type === 'consumable' && it.templateId) {
+        const tpl = (DATA.consumables || []).find(c => c.id === it.templateId);
+        if (tpl && tpl.effect) effTxt = Utils.formatEffect(tpl.effect) || '';
+      }
+      if (!effTxt && it.desc) effTxt = it.desc;
+      const effHtml = effTxt ? `<div style="font-size:10px;color:var(--qing);margin-top:1px">${Utils.escape(effTxt)}</div>` : '';
+      return `<div class="item-row" style="cursor:pointer;padding:5px 4px;border-bottom:1px dashed var(--border-soft)" onclick="UI.relGiftItemConfirm('${rid}','${it.id}')">
+        <div><span class="name">${qStr}${Utils.escape(it.name)}${cnt}</span> <span style="font-size:10px;color:var(--ink-light)">${typeLabel}</span></div>
+        ${effHtml}
       </div>`;
     }).join('');
     this.showModal(`赠予 ${rec.name}`, `<div style="font-size:12px;margin-bottom:6px;color:var(--ink-light)">选择要赠予的物品：</div><div class="item-list" style="max-height:300px;overflow-y:auto">${rows}</div><div style="margin-top:8px"><button class="btn small" onclick="UI.openRelDetail('${rid}')">取消</button></div>`);
@@ -34746,8 +34789,9 @@ const UI = {
         else if ((rec.realm||0) < 9) { rec.realm = (rec.realm||0)+1; rec.stage = 0; }
       }
       if (it.effect.lifespan) {
-        rec.lifespan = (rec.lifespan || 80) + Math.round(it.effect.lifespan * 0.5);
-        Log.add(`${rec.name} 服下延寿丹，寿元增长。`, 'good');
+        const addYears = it.effect.lifespan;
+        rec.lifespan = (rec.lifespan || 80) + addYears;
+        Log.add(`${rec.name} 服下延寿丹，寿元增加 ${Utils.fmtNum(addYears)} 年。`, 'good');
       }
     }
     Log.add(`你赠予 ${rec.name}「${it.name}」，${rec.name}感激不已。（好感+${gain}）`, 'good');
@@ -35164,7 +35208,7 @@ const UI = {
           <button class="btn small" onclick="UI.sectDonate(100)">捐 100</button>
           <button class="btn small" onclick="UI.sectDonate(500)">捐 500</button>
           <button class="btn small" onclick="UI.sectDonate(1000)">捐 1000</button>
-          <span style="font-size:11px;color:var(--ink-light);margin-left:auto">灵石：${p.resources.stone}</span>
+          <span style="font-size:11px;color:var(--ink-light);margin-left:auto">灵石：${Utils.fmtNum(p.resources.stone)}</span>
         </div>
       </div>`;
 
@@ -36224,12 +36268,8 @@ const UI = {
       } else if (e.kind === 'consumable') {
         const _cs = DATA.consumables.find(x => x.id === e.ref);
         if (_cs && _cs.effect) {
-          const _eff = Object.entries(_cs.effect).map(([k,v]) => {
-            const lbl = this.statLabel(k);
-            const fmt = typeof v === 'number' && Math.abs(v) < 1 ? `${(v*100).toFixed(0)}%` : v;
-            return `${lbl}${v > 0 ? '+' : ''}${fmt}`;
-          });
-          if (_eff.length) tipParts.push(_eff.join('　'));
+          const _effTxt = Utils.formatEffect(_cs.effect);
+          if (_effTxt) tipParts.push(_effTxt);
         }
       }
       tipParts.push(`价格：${Utils.fmtNum(e.price)} 灵石`);
