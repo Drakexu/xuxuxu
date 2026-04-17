@@ -49,27 +49,30 @@ h1{font-size:28px;font-weight:700;color:#f0e6d3;margin-bottom:6px;letter-spacing
   </details>
 </div>
 <script>
-async function downloadGame() {
+function downloadGame() {
   const btn = document.getElementById('dl-btn');
   const statusEl = document.getElementById('status');
   btn.disabled = true;
   btn.textContent = '下载中…';
   statusEl.textContent = '';
   try {
-    const resp = await fetch('qingyun.html?v=' + Date.now(), { cache: 'no-store' });
-    if (!resp.ok) throw new Error('下载失败：' + resp.status);
-    const blob = await resp.blob();
+    // 用浏览器原生导航下载，走和地址栏直接访问一致的路径 —— 避开 fetch+blob
+    // 链路上部分 HTTP 缓存层忽略 query string 还继续命中旧 blob 的坑
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = 'qingyun.html?v=' + Date.now();
     a.download = '青云挂机录.html';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(a.href);
-    statusEl.textContent = '下载完成，双击文件即可开玩';
-  } catch(e) {
+    a.remove();
+    statusEl.textContent = '下载已开始，完成后双击文件即可开玩';
+  } catch (e) {
     statusEl.textContent = '下载失败，请刷新重试';
   }
-  btn.disabled = false;
-  btn.textContent = '下载游戏';
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = '下载游戏';
+  }, 1500);
 }
 (async () => {
   const verTag = document.getElementById('ver-tag');
