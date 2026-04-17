@@ -56,7 +56,7 @@ async function downloadGame() {
   btn.textContent = '下载中…';
   statusEl.textContent = '';
   try {
-    const resp = await fetch('qingyun.html?v=' + Date.now());
+    const resp = await fetch('qingyun.html?v=' + Date.now(), { cache: 'no-store' });
     if (!resp.ok) throw new Error('下载失败：' + resp.status);
     const blob = await resp.blob();
     const a = document.createElement('a');
