@@ -1,5 +1,5 @@
 {
   "version": "0.4.4",
-  "url": "https://xuxuxu.com/qy/",
+  "url": "https://xuxuxu.com/qy/?v=0.4.4",
   "notes": "v0.4.4 更新内容：\n1. 灵石/修为全局自救 —— renderStatus 检测到非有限值不再清零，而是恢复到上次的有限值，再有任何路径写入 NaN/Infinity 也不会让钱凭空消失\n2. 修补已知 NaN 注入源：宗门事件 eff.amount 缺失、宗门任务/职责 rewardStone 缺失、坊市 entry.price 缺失、离线修为 rate 异常 —— 全部按 0 处理\n3. 检测到异常时弹一条提示「灵石/修为数据异常，已自动恢复」，方便玩家知道游戏自救过\n4. 控制台 console.error 输出污染前的具体值，便于以后定位新的污染路径"
 }
