@@ -4543,7 +4543,7 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.3',
+  version: '0.4.4',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/qy/update.json',
@@ -23537,8 +23537,9 @@ const Systems = {
       const m = (p.sect.missions || []).find(x => x.mid === mid);
       if (!m) return { ok:false };
       if (m.progress < m.target) return { ok:false, reason:'未达成' };
-      p.sect.contribution += m.rewardCont;
-      const missionStone = Math.round(m.rewardStone * realmStoneMul(p.cultivation.realm));
+      p.sect.contribution += (typeof m.rewardCont === 'number' && isFinite(m.rewardCont)) ? m.rewardCont : 0;
+      const _mrs = (typeof m.rewardStone === 'number' && isFinite(m.rewardStone)) ? m.rewardStone : 0;
+      const missionStone = Math.round(_mrs * realmStoneMul(p.cultivation.realm));
       p.resources.stone += missionStone;
       p.sect.reputation += Math.floor(m.rewardCont / 5);
       const lf = DATA.logFlavor || {};
@@ -23691,16 +23692,17 @@ const Systems = {
       if (!dd) { p.sect.currentDuty = null; return {ok:false}; }
       const bonus = Math.random() < (p.sect.rank * 0.08 + (p.sect.reputation||0) / 2000) ? 1.3 : 1;
       const rsMul = realmStoneMul(p.cultivation.realm);
-      const cont = Math.floor(dd.rewardCont * bonus);
-      const rep = Math.floor(dd.rewardRep * bonus);
-      const st = Math.round(dd.rewardStone * bonus * rsMul);
+      const _safeNum = (v) => (typeof v === 'number' && isFinite(v)) ? v : 0;
+      const cont = Math.floor(_safeNum(dd.rewardCont) * bonus);
+      const rep = Math.floor(_safeNum(dd.rewardRep) * bonus);
+      const st = Math.round(_safeNum(dd.rewardStone) * bonus * rsMul);
       p.sect.contribution += cont;
       p.sect.reputation = (p.sect.reputation||0) + rep;
       p.resources.stone += st;
       if (dd.rewardItems) {
         for (const it of dd.rewardItems) {
           if (Math.random() < it.chance) {
-            if (it.type === 'stone') p.resources.stone += Math.round(it.count * rsMul);
+            if (it.type === 'stone') p.resources.stone += Math.round(_safeNum(it.count) * rsMul);
             else if (it.type === 'herb') {
               const pool = DATA.herbs.filter(h => !h.id.startsWith('h_xuantie') && !h.id.startsWith('h_wuxingshi'));
               for (let i = 0; i < it.count && pool.length; i++) { const h = Utils.pick(pool); p.alchemy.materials[h.id] = (p.alchemy.materials[h.id]||0)+1; }
@@ -23724,10 +23726,11 @@ const Systems = {
       for (const e of pool) { r -= e.weight; if (r <= 0) { evt = e; break; } }
       Log.add(`【宗门事务】${evt.name}——${evt.desc}`, 'scene');
       for (const eff of (evt.effects || [])) {
-        if (eff.type === 'cont') p.sect.contribution += eff.amount;
-        else if (eff.type === 'rep') p.sect.reputation = (p.sect.reputation||0) + eff.amount;
-        else if (eff.type === 'stone') p.resources.stone += Math.round(eff.amount * realmStoneMul(p.cultivation.realm));
-        else if (eff.type === 'exp') p.cultivation.exp += eff.amount;
+        const _amt = (typeof eff.amount === 'number' && isFinite(eff.amount)) ? eff.amount : 0;
+        if (eff.type === 'cont') p.sect.contribution += _amt;
+        else if (eff.type === 'rep') p.sect.reputation = (p.sect.reputation||0) + _amt;
+        else if (eff.type === 'stone') p.resources.stone += Math.round(_amt * realmStoneMul(p.cultivation.realm));
+        else if (eff.type === 'exp') p.cultivation.exp += _amt;
       }
       p.sect.recentEvents = p.sect.recentEvents || [];
       p.sect.recentEvents.push({name:evt.name, time:Utils.now(), desc:evt.desc});
@@ -25137,8 +25140,9 @@ const Systems = {
       return stock;
     },
     buy(p, entry) {
-      if (p.resources.stone < entry.price) { UI.flash('灵石不足'); return false; }
-      p.resources.stone -= entry.price;
+      const _price = (typeof entry.price === 'number' && isFinite(entry.price) && entry.price >= 0) ? entry.price : 0;
+      if (p.resources.stone < _price) { UI.flash('灵石不足'); return false; }
+      p.resources.stone -= _price;
       if (entry.kind === 'technique') {
         const tq = DATA.techniques.find(x => x.id === entry.ref);
         if (!tq) return false;
@@ -25722,7 +25726,8 @@ const Systems = {
         const delta = (Utils.now() - (data.savedAt || Utils.now())) / 1000;
         if (delta > 60) {
           const rate = Systems.Cultivation.computeExpPerSec(State.player);
-          const gain = Math.floor(rate * Math.min(delta, 7 * 86400) * 0.5);
+          const safeRate = (isFinite(rate) && rate > 0) ? rate : 0;
+          const gain = Math.floor(safeRate * Math.min(delta, 7 * 86400) * 0.5);
           State.player.cultivation.exp += gain;
           Log.add(`【离线】离开 ${Utils.fmtTime(delta)}，获得修为 ${Utils.fmtNum(gain)}。`, 'sys');
         }
@@ -32216,10 +32221,25 @@ const UI = {
   renderStatus() {
     const p = State.player;
     if (!p) return;
-    // 资源卫生检查：清理 NaN/Infinity
-    if (!isFinite(p.resources.stone || 0)) {
-      console.warn('[renderStatus] stone is non-finite, resetting to 0');
-      p.resources.stone = 0;
+    // 资源卫生检查：保留上次有限值，避免某条路径写入 NaN/Infinity 后玩家钱/修为被清零
+    // 任何 += undefined / Math.round(NaN) / Infinity * 0 之类的污染，都靠这里兜底自救
+    if (!isFinite(p.resources.stone)) {
+      const restored = isFinite(this._lastGoodStone) ? this._lastGoodStone : 0;
+      console.error('[renderStatus] stone became non-finite (' + p.resources.stone + '), restoring to', restored);
+      try { this.flash && this.flash('灵石数据异常，已自动恢复'); } catch(e) {}
+      p.resources.stone = restored;
+    } else {
+      this._lastGoodStone = p.resources.stone;
+    }
+    if (!isFinite(p.cultivation.exp)) {
+      const _nc = Systems.Cultivation.computeNextCost(p);
+      const _cap = (isFinite(_nc) && _nc > 0) ? _nc * 2 : 0;
+      const restored = isFinite(this._lastGoodExp) ? this._lastGoodExp : _cap;
+      console.error('[renderStatus] exp became non-finite (' + p.cultivation.exp + '), restoring to', restored);
+      try { this.flash && this.flash('修为数据异常，已自动恢复'); } catch(e) {}
+      p.cultivation.exp = restored;
+    } else {
+      this._lastGoodExp = p.cultivation.exp;
     }
     const realm = DATA.realms[p.cultivation.realm];
     const cost = Systems.Cultivation.computeNextCost(p);
