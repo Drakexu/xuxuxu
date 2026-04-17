@@ -27276,14 +27276,23 @@ const Systems = {
 
       if (result.win) {
         run.kills++;
-        // 奖励计算
+        // 奖励计算 —— 带防御：computeExpPerSec / realmStoneMul 若返回 NaN/Infinity
+        // 会让修为瞬间涨到 ∞、灵石触发 sanity 校验归零，需在此夹紧
         const expRate = Systems.Cultivation.computeExpPerSec(p);
-        const expGain = Math.round(expRate * 30 * (1 + floor * 0.1));
-        const stoneGain = Math.round(20 * (1 + floor * 0.15) * realmStoneMul(p.cultivation.realm));
+        const _expRaw = (isFinite(expRate) && expRate > 0) ? expRate * 30 * (1 + floor * 0.1) : 0;
+        const _nc = Systems.Cultivation.computeNextCost(p);
+        const _expCap = (isFinite(_nc) && _nc > 0) ? _nc * 2 : Number.MAX_SAFE_INTEGER;
+        const expGain = Math.max(0, Math.min(Math.round(_expRaw), _expCap));
+        const _stoneMul = realmStoneMul(p.cultivation.realm);
+        const _stoneRaw = (isFinite(_stoneMul) && _stoneMul > 0) ? 20 * (1 + floor * 0.15) * _stoneMul : 0;
+        const stoneGain = isFinite(_stoneRaw) ? Math.max(0, Math.round(_stoneRaw)) : 0;
         run.totalExp += expGain;
         run.totalStone += stoneGain;
         p.cultivation.exp += expGain;
         p.resources.stone += stoneGain;
+        // 卫生：若既有值已被污染（旧档/其它系统注入），在此拉回有限区间
+        if (!isFinite(p.cultivation.exp) || p.cultivation.exp < 0) p.cultivation.exp = _expCap;
+        if (!isFinite(p.resources.stone) || p.resources.stone < 0) p.resources.stone = 0;
         Log.add(`【试炼塔】通过第${floor}层（${challenge.name}）！修为+${Utils.fmtNum(expGain)} 灵石+${Utils.fmtNum(stoneGain)}`, 'good');
 
         // 里程碑宝物
@@ -31811,9 +31820,16 @@ const UI = {
     return out;
   },
 
-  _portraitCache: { mode: null, gender: null, realm: null, sc: null, html: '', ts: 0 },
+  _portraitCache: { mode: null, gender: null, realm: null, scBucket: null, html: '', ts: 0 },
   // 每种 mode 最少保持时间（毫秒），防止画面频繁闪动
   _portraitMinHold: { cultivate: 8000, rest: 10000, adventure: 6000, herb: 6000, combat: 5000 },
+  // 游戏内一个昼夜只 2 秒实时，按时辰值做桶归并避免画面每 ~170ms 重绘一次
+  _scBucket(sc) {
+    if (sc >= 3 && sc <= 4)  return 'dawn';   // 寅卯
+    if (sc >= 5 && sc <= 8)  return 'day';    // 辰巳午未
+    if (sc >= 9 && sc <= 10) return 'dusk';   // 申酉
+    return 'night';                            // 戌亥子丑
+  },
   renderPortrait() {
     const el = document.getElementById('portrait');
     if (!el) return;
@@ -31840,20 +31856,21 @@ const UI = {
     const sc = (State.gameTime && State.gameTime.shichen != null) ? State.gameTime.shichen : 6;
     if (mode === 'cultivate' && (sc === 0 || sc === 1 || sc === 2)) { mode = 'rest'; label = '倚石假寐'; }
     const female = p && p.gender === 'female';
+    const scBucket = this._scBucket(sc);
 
     // ============ 缓存 + 最小保持时间：防止 portrait 频繁闪动 ============
     const realm = p ? p.cultivation.realm : 0;
     const cache = this._portraitCache;
     const now = Date.now();
-    // 如果 mode 与缓存相同，直接跳过
-    if (cache.html && cache.mode === mode && cache.gender === female && cache.realm === realm && cache.sc === sc) {
+    // 如果 mode / scBucket 与缓存相同，直接跳过（游戏时辰秒级跳动不再触发重绘）
+    if (cache.html && cache.mode === mode && cache.gender === female && cache.realm === realm && cache.scBucket === scBucket) {
       return;
     }
-    // 如果 mode 想要变化，但上一次切换还没过最小保持时间，则压住不变
-    if (cache.html && cache.mode !== mode) {
+    // 如果 mode 或 scBucket 想变化，但未达最小保持时间，则压住不变
+    if (cache.html && (cache.mode !== mode || cache.scBucket !== scBucket)) {
       const minHold = this._portraitMinHold[cache.mode] || 5000;
       if (now - cache.ts < minHold) {
-        return; // 上个姿态还没维持够时间，暂不切换
+        return; // 上个姿态/天色还没维持够时间，暂不切换
       }
     }
 
@@ -31865,7 +31882,7 @@ const UI = {
       const pixelSvg = this._buildPixelScene(mode, female, p, sc);
       el.className = 'portrait pixel mode-' + mode;
       el.innerHTML = `<div class="pixel-scene">${pixelSvg}</div>`;
-      cache.mode = mode; cache.gender = female; cache.realm = realm; cache.sc = sc; cache.html = el.innerHTML; cache.ts = now;
+      cache.mode = mode; cache.gender = female; cache.realm = realm; cache.scBucket = scBucket; cache.html = el.innerHTML; cache.ts = now;
       return;
     }
     // 根据境界调整光晕颜色
@@ -32108,7 +32125,7 @@ const UI = {
         <div class="scene-fore">${foreScene}</div>
       </div>
     `;
-    cache.mode = mode; cache.gender = female; cache.realm = realm; cache.sc = sc; cache.html = el.innerHTML; cache.ts = now;
+    cache.mode = mode; cache.gender = female; cache.realm = realm; cache.scBucket = scBucket; cache.html = el.innerHTML; cache.ts = now;
   },
 
   // 身 世：道号/性别/年齿/出身/道途/血脉/命格/所属宗门
