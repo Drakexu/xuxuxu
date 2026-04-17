@@ -4543,7 +4543,7 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.2',
+  version: '0.4.3',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/qy/update.json',
@@ -33154,11 +33154,19 @@ const UI = {
       if (!latest) {
         out.innerHTML = '<span style="color:var(--cinnabar)">manifest 缺少 version 字段</span>';
       } else if (cmp > 0) {
+        // 构造 HTML 下载地址：若 mf.url 以 .html 结尾直接用，否则当作目录 + qingyun.html
+        const htmlUrl = /\.html?($|\?)/i.test(dl)
+          ? dl
+          : (dl.replace(/\/?$/, '/') + 'qingyun.html');
         out.innerHTML = `
           <div style="color:var(--gold);font-weight:bold">发现新版：v${Utils.escape(latest)}（当前 v${DATA.version}）</div>
           ${notes ? `<div style="margin-top:6px;font-size:12px;white-space:pre-wrap">${Utils.escape(notes)}</div>` : ''}
-          ${dl ? `<div style="margin-top:10px"><a href="${Utils.escape(dl)}" target="_blank" rel="noopener" style="color:var(--cinnabar);border-bottom:1px dotted var(--cinnabar)">下载最新版 →</a></div>
-          <div style="margin-top:6px;font-size:11px;color:var(--ink-light)">下载后用新文件替换当前 HTML 即可，存档保留于浏览器本地。</div>` : ''}
+          <div id="qy-update-dl-status" style="margin-top:10px;font-size:12px;color:var(--ink-light)"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn small" id="qy-update-dl-btn" onclick="UI._doAutoUpdate('${Utils.escape(htmlUrl)}', '${Utils.escape(latest)}')" style="background:var(--gold);color:var(--paper)">一键更新 v${Utils.escape(latest)}</button>
+            ${dl ? `<a href="${Utils.escape(dl)}" target="_blank" rel="noopener" style="color:var(--cinnabar);border-bottom:1px dotted var(--cinnabar);align-self:center;font-size:12px">或访问网页下载 →</a>` : ''}
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--ink-light)">下载后用新文件覆盖当前 HTML 重新打开即可，存档保留于浏览器本地。</div>
         `;
       } else if (cmp === 0) {
         out.innerHTML = '<span style="color:#2e7d32">已是最新版本</span>';
@@ -33167,6 +33175,40 @@ const UI = {
       }
     } catch (e) {
       out.innerHTML = `<span style="color:var(--cinnabar)">检查失败：${Utils.escape(e.message || String(e))}</span><div style="margin-top:6px;font-size:11px;color:var(--ink-light)">请确认 URL 可访问，且返回 JSON 格式 {"version":"...","url":"...","notes":"..."}</div>`;
+    }
+  },
+  // 一键更新：拉取最新 HTML → 触发浏览器下载同名文件。浏览器安全限制下无法直接覆盖磁盘上的旧文件，
+  // 但可以把"打开网页-点下载-另存"三步缩成"点一下"，用户在 Downloads 里把新文件替换旧的即可。
+  async _doAutoUpdate(htmlUrl, latest) {
+    const btn = document.getElementById('qy-update-dl-btn');
+    const status = document.getElementById('qy-update-dl-status');
+    if (!htmlUrl) { if (status) status.innerHTML = '<span style="color:var(--cinnabar)">下载地址缺失</span>'; return; }
+    if (btn) { btn.disabled = true; btn.textContent = '下载中…'; }
+    if (status) status.innerHTML = '<span style="color:var(--ink-light)">正在拉取新版 HTML……</span>';
+    try {
+      const res = await fetch(htmlUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      // 存档 sanity：触发一次落盘，避免用户刚下载就换文件丢最近动作
+      try { if (Systems.Save && Systems.Save.save) Systems.Save.save(); } catch(e) {}
+      const a = document.createElement('a');
+      const href = URL.createObjectURL(blob);
+      a.href = href;
+      a.download = '青云挂机录.html';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(href); a.remove(); }, 1500);
+      if (status) {
+        const sizeMb = (blob.size / 1048576).toFixed(2);
+        status.innerHTML = `<span style="color:#2e7d32">已下载 v${Utils.escape(latest || '')}（${sizeMb} MB），到下载目录用它覆盖当前 HTML 并重新打开即可。存档在浏览器本地，不会丢。</span>`;
+      }
+      if (btn) btn.textContent = '已下载';
+    } catch (e) {
+      // file:// 下常见：CORS 或混合内容阻断。提示用户走网页下载兜底
+      if (btn) { btn.disabled = false; btn.textContent = '重试下载'; }
+      if (status) {
+        status.innerHTML = `<span style="color:var(--cinnabar)">下载失败：${Utils.escape(e.message || String(e))}</span><div style="margin-top:4px;font-size:11px;color:var(--ink-light)">若本地文件协议被浏览器拦截，请点旁边的"访问网页下载"。</div>`;
+      }
     }
   },
   _cmpVersion(a, b) {
