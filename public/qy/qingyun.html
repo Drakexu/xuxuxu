@@ -4543,7 +4543,7 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.1',
+  version: '0.4.2',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/qy/update.json',
@@ -19868,9 +19868,14 @@ const Systems = {
         }
         if (Systems.Skills) Systems.Skills.gain(p, 'beastTaming', 2);
       }
-      rewards.exp = mon.exp;
+      // 防御：部分调用方（如试炼塔 attemptFloor 早期版本）构造的 monster 没写 exp/stone，
+      // 直接 += undefined 会把 p.cultivation.exp/p.resources.stone 污染成 NaN，
+      // 下一次 renderStatus 的卫生检查再把灵石归零 —— 体感就是"修为∞、钱没了"
+      const _monExp   = (typeof mon.exp   === 'number' && isFinite(mon.exp))   ? mon.exp   : 0;
+      const _monStone = (typeof mon.stone === 'number' && isFinite(mon.stone)) ? mon.stone : 0;
+      rewards.exp = _monExp;
       // 灵石收益按境界指数增长，高境界收益与消耗同步
-      rewards.stone = Math.round(mon.stone * realmStoneMul(p.cultivation.realm));
+      rewards.stone = Math.round(_monStone * realmStoneMul(p.cultivation.realm));
       // 物品掉落（爆率按境界缩放：越高境界越易爆高品）
       const dropRoll = Math.random();
       const baseDropRate = 0.32 + p.cultivation.realm * 0.02;
@@ -27254,7 +27259,11 @@ const Systems = {
         dodge: 0.02 + Math.min(floor * 0.001, 0.08),
         crit: 0.05 + Math.min(floor * 0.002, 0.15),
         baseRealm: p.cultivation.realm,
-        baseStage: Math.min(9, p.cultivation.stage + Math.floor(floor / 15))
+        baseStage: Math.min(9, p.cultivation.stage + Math.floor(floor / 15)),
+        // Combat.simulate 胜利时会 `p.cultivation.exp += mon.exp` / `p.resources.stone += mon.stone * realmStoneMul`
+        // 这里若不给零值，undefined 会把修为刷成 NaN、灵石刷成 NaN（之后被卫生检查归零）
+        exp: 0,
+        stone: 0
       };
 
       const result = Systems.Combat.simulate(p, enemy, { silent: true });
