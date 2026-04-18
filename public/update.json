@@ -1,5 +1,5 @@
 {
   "version": "0.4.6",
   "url": "https://xuxuxu.com/qy/?v=0.4.6",
-  "notes": "v0.4.6 更新内容：\n1. 修复「一键更新」按钮在 manifest url 带 ?v= 查询串时拼出错误下载地址的 bug（会把 index.html 当游戏下回来）\n2. 一键更新新增"下载内容嗅探" —— 若返回的 blob 不到 500 KB 且不含游戏关键字，直接报错提示，不会覆盖掉玩家原来的好文件\n3. 同步更新根目录的 qingyun.html 为最新版本 —— 访问 xuxuxu.com/qingyun.html（老书签/老链接）不再卡在 0.4.1"
+  "notes": "v0.4.6 更新内容：\n1. 修复「一键更新」按钮在 manifest url 带 ?v= 查询串时拼出错误下载地址的 bug（会把 index.html 当游戏下回来）\n2. 一键更新新增「下载内容嗅探」—— 若返回的 blob 不到 500 KB 且不含游戏关键字，直接报错提示，不会覆盖掉玩家原来的好文件\n3. 同步更新根目录的 qingyun.html 为最新版本 —— 访问 xuxuxu.com/qingyun.html（老书签/老链接）不再卡在 0.4.1"
 }
