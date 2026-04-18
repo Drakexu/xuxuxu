@@ -4543,10 +4543,10 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.1',
+  version: '0.4.6',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
-  updateManifestUrl: 'https://xuxuxu.com/update.json',
+  updateManifestUrl: 'https://xuxuxu.com/qy/update.json',
 
   realms: [
     // 修炼速率已于 v0.2.1 整体降速约 2.7x，min/max 比收紧至约 0.72（min ≥ 2/3 × max）
@@ -18002,6 +18002,60 @@ function rollItem(qMin = 1, qMax = 3) {
 
 /* ========== 系统 ========== */
 const Systems = {
+  /* ────────────────────────────────────────────────────────────
+   * Reward —— 奖励发放聚合器
+   * 所有对 p.cultivation.exp / p.resources.stone 的写入都应走这里。
+   * 把 isFinite、Math.max(0, …)、exp 封顶逻辑集中一处，避免任何奖励
+   * 路径因为字段缺失或乘子异常就污染玩家状态。
+   * 用法：
+   *   Systems.Reward.addStone(p, 100);
+   *   Systems.Reward.addExp(p, 500);
+   *   Systems.Reward.apply(p, { stone: 100, exp: 500, contribution: 10 });
+   * ──────────────────────────────────────────────────────────── */
+  Reward: {
+    _num(v) { return (typeof v === 'number' && isFinite(v)) ? v : 0; },
+    addStone(p, amount) {
+      if (!p || !p.resources) return 0;
+      const add = this._num(amount);
+      const cur = isFinite(p.resources.stone) ? p.resources.stone : 0;
+      p.resources.stone = Math.max(0, Math.round(cur + add));
+      return add;
+    },
+    addExp(p, amount) {
+      if (!p || !p.cultivation) return 0;
+      const add = this._num(amount);
+      const cur = isFinite(p.cultivation.exp) ? p.cultivation.exp : 0;
+      // 单笔奖励封顶 2× 当前破境需求，防止一次性跃级多个境界
+      const nc = Systems.Cultivation ? Systems.Cultivation.computeNextCost(p) : Infinity;
+      const cap = (isFinite(nc) && nc > 0) ? nc * 2 : Number.MAX_SAFE_INTEGER;
+      p.cultivation.exp = Math.max(0, Math.min(cap, cur + add));
+      return add;
+    },
+    // 批量发放 —— 支持 { exp, stone, items, contribution, reputation, daoHeart, perception, luck, charm, fate }
+    apply(p, r) {
+      if (!r || !p) return;
+      if (r.exp != null)   this.addExp(p, r.exp);
+      if (r.stone != null) this.addStone(p, r.stone);
+      if (r.items && Array.isArray(r.items) && Systems.Inventory && Systems.Inventory.add) {
+        r.items.forEach(it => { if (it) Systems.Inventory.add(p, it); });
+      }
+      if (r.contribution != null && p.sect)
+        p.sect.contribution = Math.max(0, (p.sect.contribution || 0) + this._num(r.contribution));
+      if (r.reputation != null && p.sect)
+        p.sect.reputation = Math.max(0, (p.sect.reputation || 0) + this._num(r.reputation));
+      if (r.daoHeart != null && p.stats)
+        p.stats.daoHeart = (p.stats.daoHeart || 0) + this._num(r.daoHeart);
+      if (r.perception != null && p.stats)
+        p.stats.perception = (p.stats.perception || 0) + this._num(r.perception);
+      if (r.luck != null && p.stats)
+        p.stats.luck = (p.stats.luck || 0) + this._num(r.luck);
+      if (r.charm != null && p.stats)
+        p.stats.charm = (p.stats.charm || 0) + this._num(r.charm);
+      if (r.fate != null && p.stats)
+        p.stats.fate = (p.stats.fate || 0) + this._num(r.fate);
+    }
+  },
+
   Cultivation: {
     // 返回单个综合系数（不含随机区间）
     computeMul(p) {
@@ -19868,9 +19922,14 @@ const Systems = {
         }
         if (Systems.Skills) Systems.Skills.gain(p, 'beastTaming', 2);
       }
-      rewards.exp = mon.exp;
+      // 防御：部分调用方（如试炼塔 attemptFloor 早期版本）构造的 monster 没写 exp/stone，
+      // 直接 += undefined 会把 p.cultivation.exp/p.resources.stone 污染成 NaN，
+      // 下一次 renderStatus 的卫生检查再把灵石归零 —— 体感就是"修为∞、钱没了"
+      const _monExp   = (typeof mon.exp   === 'number' && isFinite(mon.exp))   ? mon.exp   : 0;
+      const _monStone = (typeof mon.stone === 'number' && isFinite(mon.stone)) ? mon.stone : 0;
+      rewards.exp = _monExp;
       // 灵石收益按境界指数增长，高境界收益与消耗同步
-      rewards.stone = Math.round(mon.stone * realmStoneMul(p.cultivation.realm));
+      rewards.stone = Math.round(_monStone * realmStoneMul(p.cultivation.realm));
       // 物品掉落（爆率按境界缩放：越高境界越易爆高品）
       const dropRoll = Math.random();
       const baseDropRate = 0.32 + p.cultivation.realm * 0.02;
@@ -19912,8 +19971,9 @@ const Systems = {
           }
         }
       }
-      p.cultivation.exp += rewards.exp;
-      p.resources.stone += rewards.stone;
+      // 通过 Systems.Reward 集中校验，rewards.exp/stone 来自 mon，曾经是
+      // 重灾区（undefined → NaN 污染）；即使源头补过防御，这里再过一层不亏
+      Systems.Reward.apply(p, { exp: rewards.exp, stone: rewards.stone });
       rewards.items.forEach(it => Systems.Inventory.add(p, it));
       // 掌握度增长（战胜时多给一份）
       let masteryNotices = [];
@@ -23532,8 +23592,9 @@ const Systems = {
       const m = (p.sect.missions || []).find(x => x.mid === mid);
       if (!m) return { ok:false };
       if (m.progress < m.target) return { ok:false, reason:'未达成' };
-      p.sect.contribution += m.rewardCont;
-      const missionStone = Math.round(m.rewardStone * realmStoneMul(p.cultivation.realm));
+      p.sect.contribution += (typeof m.rewardCont === 'number' && isFinite(m.rewardCont)) ? m.rewardCont : 0;
+      const _mrs = (typeof m.rewardStone === 'number' && isFinite(m.rewardStone)) ? m.rewardStone : 0;
+      const missionStone = Math.round(_mrs * realmStoneMul(p.cultivation.realm));
       p.resources.stone += missionStone;
       p.sect.reputation += Math.floor(m.rewardCont / 5);
       const lf = DATA.logFlavor || {};
@@ -23686,16 +23747,17 @@ const Systems = {
       if (!dd) { p.sect.currentDuty = null; return {ok:false}; }
       const bonus = Math.random() < (p.sect.rank * 0.08 + (p.sect.reputation||0) / 2000) ? 1.3 : 1;
       const rsMul = realmStoneMul(p.cultivation.realm);
-      const cont = Math.floor(dd.rewardCont * bonus);
-      const rep = Math.floor(dd.rewardRep * bonus);
-      const st = Math.round(dd.rewardStone * bonus * rsMul);
+      const _safeNum = (v) => (typeof v === 'number' && isFinite(v)) ? v : 0;
+      const cont = Math.floor(_safeNum(dd.rewardCont) * bonus);
+      const rep = Math.floor(_safeNum(dd.rewardRep) * bonus);
+      const st = Math.round(_safeNum(dd.rewardStone) * bonus * rsMul);
       p.sect.contribution += cont;
       p.sect.reputation = (p.sect.reputation||0) + rep;
       p.resources.stone += st;
       if (dd.rewardItems) {
         for (const it of dd.rewardItems) {
           if (Math.random() < it.chance) {
-            if (it.type === 'stone') p.resources.stone += Math.round(it.count * rsMul);
+            if (it.type === 'stone') p.resources.stone += Math.round(_safeNum(it.count) * rsMul);
             else if (it.type === 'herb') {
               const pool = DATA.herbs.filter(h => !h.id.startsWith('h_xuantie') && !h.id.startsWith('h_wuxingshi'));
               for (let i = 0; i < it.count && pool.length; i++) { const h = Utils.pick(pool); p.alchemy.materials[h.id] = (p.alchemy.materials[h.id]||0)+1; }
@@ -23719,10 +23781,11 @@ const Systems = {
       for (const e of pool) { r -= e.weight; if (r <= 0) { evt = e; break; } }
       Log.add(`【宗门事务】${evt.name}——${evt.desc}`, 'scene');
       for (const eff of (evt.effects || [])) {
-        if (eff.type === 'cont') p.sect.contribution += eff.amount;
-        else if (eff.type === 'rep') p.sect.reputation = (p.sect.reputation||0) + eff.amount;
-        else if (eff.type === 'stone') p.resources.stone += Math.round(eff.amount * realmStoneMul(p.cultivation.realm));
-        else if (eff.type === 'exp') p.cultivation.exp += eff.amount;
+        const _amt = (typeof eff.amount === 'number' && isFinite(eff.amount)) ? eff.amount : 0;
+        if (eff.type === 'cont') p.sect.contribution += _amt;
+        else if (eff.type === 'rep') p.sect.reputation = (p.sect.reputation||0) + _amt;
+        else if (eff.type === 'stone') p.resources.stone += Math.round(_amt * realmStoneMul(p.cultivation.realm));
+        else if (eff.type === 'exp') p.cultivation.exp += _amt;
       }
       p.sect.recentEvents = p.sect.recentEvents || [];
       p.sect.recentEvents.push({name:evt.name, time:Utils.now(), desc:evt.desc});
@@ -25132,8 +25195,9 @@ const Systems = {
       return stock;
     },
     buy(p, entry) {
-      if (p.resources.stone < entry.price) { UI.flash('灵石不足'); return false; }
-      p.resources.stone -= entry.price;
+      const _price = (typeof entry.price === 'number' && isFinite(entry.price) && entry.price >= 0) ? entry.price : 0;
+      if (p.resources.stone < _price) { UI.flash('灵石不足'); return false; }
+      p.resources.stone -= _price;
       if (entry.kind === 'technique') {
         const tq = DATA.techniques.find(x => x.id === entry.ref);
         if (!tq) return false;
@@ -25713,13 +25777,21 @@ const Systems = {
           Systems.ActionScheduler._narrativeStats = ns.narrative || {};
           Systems.ActionScheduler._statsStartTime = ns.startTime || 0;
         }
-        // 离线结算
+        // 离线结算：修为按 50% 效率累计（上限 7 天），灵石按当前境界基础产出估算
+        // 结束后把统计挂在 State._offlineSummary，由 UI 在 init 末尾弹出一次性结算面板
         const delta = (Utils.now() - (data.savedAt || Utils.now())) / 1000;
         if (delta > 60) {
+          const cappedDt = Math.min(delta, 7 * 86400);
           const rate = Systems.Cultivation.computeExpPerSec(State.player);
-          const gain = Math.floor(rate * Math.min(delta, 7 * 86400) * 0.5);
-          State.player.cultivation.exp += gain;
-          Log.add(`【离线】离开 ${Utils.fmtTime(delta)}，获得修为 ${Utils.fmtNum(gain)}。`, 'sys');
+          const safeRate = (isFinite(rate) && rate > 0) ? rate : 0;
+          const expGain = Math.floor(safeRate * cappedDt * 0.5);
+          // 灵石：每 10 分钟现实时间发一份"基础怪物灵石"（5 × realmStoneMul），挂机产出
+          const rMul = (typeof realmStoneMul === 'function') ? realmStoneMul(State.player.cultivation.realm) : 1;
+          const stonePerMin = 5 * (isFinite(rMul) && rMul > 0 ? rMul : 1);
+          const stoneGain = Math.floor(stonePerMin * (cappedDt / 60) * 0.5);
+          Systems.Reward.apply(State.player, { exp: expGain, stone: stoneGain });
+          State._offlineSummary = { dt: delta, cappedDt, expGain, stoneGain };
+          Log.add(`【离线】离开 ${Utils.fmtTime(delta)}，获得修为 ${Utils.fmtNum(expGain)}、灵石 ${Utils.fmtNum(stoneGain)}。`, 'sys');
         }
         // 境界专属机制字段兼容
         if (!State.player.purify) State.player.purify = { count:0 };
@@ -27254,7 +27326,11 @@ const Systems = {
         dodge: 0.02 + Math.min(floor * 0.001, 0.08),
         crit: 0.05 + Math.min(floor * 0.002, 0.15),
         baseRealm: p.cultivation.realm,
-        baseStage: Math.min(9, p.cultivation.stage + Math.floor(floor / 15))
+        baseStage: Math.min(9, p.cultivation.stage + Math.floor(floor / 15)),
+        // Combat.simulate 胜利时会 `p.cultivation.exp += mon.exp` / `p.resources.stone += mon.stone * realmStoneMul`
+        // 这里若不给零值，undefined 会把修为刷成 NaN、灵石刷成 NaN（之后被卫生检查归零）
+        exp: 0,
+        stone: 0
       };
 
       const result = Systems.Combat.simulate(p, enemy, { silent: true });
@@ -27276,14 +27352,19 @@ const Systems = {
 
       if (result.win) {
         run.kills++;
-        // 奖励计算
+        // 奖励计算 —— 带防御：computeExpPerSec / realmStoneMul 若返回 NaN/Infinity
+        // 会让修为瞬间涨到 ∞、灵石触发 sanity 校验归零，需在此夹紧
         const expRate = Systems.Cultivation.computeExpPerSec(p);
-        const expGain = Math.round(expRate * 30 * (1 + floor * 0.1));
-        const stoneGain = Math.round(20 * (1 + floor * 0.15) * realmStoneMul(p.cultivation.realm));
+        const _expRaw = (isFinite(expRate) && expRate > 0) ? expRate * 30 * (1 + floor * 0.1) : 0;
+        const _nc = Systems.Cultivation.computeNextCost(p);
+        const _expCap = (isFinite(_nc) && _nc > 0) ? _nc * 2 : Number.MAX_SAFE_INTEGER;
+        const expGain = Math.max(0, Math.min(Math.round(_expRaw), _expCap));
+        const _stoneMul = realmStoneMul(p.cultivation.realm);
+        const _stoneRaw = (isFinite(_stoneMul) && _stoneMul > 0) ? 20 * (1 + floor * 0.15) * _stoneMul : 0;
+        const stoneGain = isFinite(_stoneRaw) ? Math.max(0, Math.round(_stoneRaw)) : 0;
         run.totalExp += expGain;
         run.totalStone += stoneGain;
-        p.cultivation.exp += expGain;
-        p.resources.stone += stoneGain;
+        Systems.Reward.apply(p, { exp: expGain, stone: stoneGain });
         Log.add(`【试炼塔】通过第${floor}层（${challenge.name}）！修为+${Utils.fmtNum(expGain)} 灵石+${Utils.fmtNum(stoneGain)}`, 'good');
 
         // 里程碑宝物
@@ -31811,9 +31892,16 @@ const UI = {
     return out;
   },
 
-  _portraitCache: { mode: null, gender: null, realm: null, sc: null, html: '', ts: 0 },
+  _portraitCache: { mode: null, gender: null, realm: null, scBucket: null, html: '', ts: 0 },
   // 每种 mode 最少保持时间（毫秒），防止画面频繁闪动
   _portraitMinHold: { cultivate: 8000, rest: 10000, adventure: 6000, herb: 6000, combat: 5000 },
+  // 游戏内一个昼夜只 2 秒实时，按时辰值做桶归并避免画面每 ~170ms 重绘一次
+  _scBucket(sc) {
+    if (sc >= 3 && sc <= 4)  return 'dawn';   // 寅卯
+    if (sc >= 5 && sc <= 8)  return 'day';    // 辰巳午未
+    if (sc >= 9 && sc <= 10) return 'dusk';   // 申酉
+    return 'night';                            // 戌亥子丑
+  },
   renderPortrait() {
     const el = document.getElementById('portrait');
     if (!el) return;
@@ -31840,20 +31928,21 @@ const UI = {
     const sc = (State.gameTime && State.gameTime.shichen != null) ? State.gameTime.shichen : 6;
     if (mode === 'cultivate' && (sc === 0 || sc === 1 || sc === 2)) { mode = 'rest'; label = '倚石假寐'; }
     const female = p && p.gender === 'female';
+    const scBucket = this._scBucket(sc);
 
     // ============ 缓存 + 最小保持时间：防止 portrait 频繁闪动 ============
     const realm = p ? p.cultivation.realm : 0;
     const cache = this._portraitCache;
     const now = Date.now();
-    // 如果 mode 与缓存相同，直接跳过
-    if (cache.html && cache.mode === mode && cache.gender === female && cache.realm === realm && cache.sc === sc) {
+    // 如果 mode / scBucket 与缓存相同，直接跳过（游戏时辰秒级跳动不再触发重绘）
+    if (cache.html && cache.mode === mode && cache.gender === female && cache.realm === realm && cache.scBucket === scBucket) {
       return;
     }
-    // 如果 mode 想要变化，但上一次切换还没过最小保持时间，则压住不变
-    if (cache.html && cache.mode !== mode) {
+    // 如果 mode 或 scBucket 想变化，但未达最小保持时间，则压住不变
+    if (cache.html && (cache.mode !== mode || cache.scBucket !== scBucket)) {
       const minHold = this._portraitMinHold[cache.mode] || 5000;
       if (now - cache.ts < minHold) {
-        return; // 上个姿态还没维持够时间，暂不切换
+        return; // 上个姿态/天色还没维持够时间，暂不切换
       }
     }
 
@@ -31865,7 +31954,7 @@ const UI = {
       const pixelSvg = this._buildPixelScene(mode, female, p, sc);
       el.className = 'portrait pixel mode-' + mode;
       el.innerHTML = `<div class="pixel-scene">${pixelSvg}</div>`;
-      cache.mode = mode; cache.gender = female; cache.realm = realm; cache.sc = sc; cache.html = el.innerHTML; cache.ts = now;
+      cache.mode = mode; cache.gender = female; cache.realm = realm; cache.scBucket = scBucket; cache.html = el.innerHTML; cache.ts = now;
       return;
     }
     // 根据境界调整光晕颜色
@@ -32108,7 +32197,7 @@ const UI = {
         <div class="scene-fore">${foreScene}</div>
       </div>
     `;
-    cache.mode = mode; cache.gender = female; cache.realm = realm; cache.sc = sc; cache.html = el.innerHTML; cache.ts = now;
+    cache.mode = mode; cache.gender = female; cache.realm = realm; cache.scBucket = scBucket; cache.html = el.innerHTML; cache.ts = now;
   },
 
   // 身 世：道号/性别/年齿/出身/道途/血脉/命格/所属宗门
@@ -32190,10 +32279,25 @@ const UI = {
   renderStatus() {
     const p = State.player;
     if (!p) return;
-    // 资源卫生检查：清理 NaN/Infinity
-    if (!isFinite(p.resources.stone || 0)) {
-      console.warn('[renderStatus] stone is non-finite, resetting to 0');
-      p.resources.stone = 0;
+    // 资源卫生检查：保留上次有限值，避免某条路径写入 NaN/Infinity 后玩家钱/修为被清零
+    // 任何 += undefined / Math.round(NaN) / Infinity * 0 之类的污染，都靠这里兜底自救
+    if (!isFinite(p.resources.stone)) {
+      const restored = isFinite(this._lastGoodStone) ? this._lastGoodStone : 0;
+      console.error('[renderStatus] stone became non-finite (' + p.resources.stone + '), restoring to', restored);
+      try { this.flash && this.flash('灵石数据异常，已自动恢复'); } catch(e) {}
+      p.resources.stone = restored;
+    } else {
+      this._lastGoodStone = p.resources.stone;
+    }
+    if (!isFinite(p.cultivation.exp)) {
+      const _nc = Systems.Cultivation.computeNextCost(p);
+      const _cap = (isFinite(_nc) && _nc > 0) ? _nc * 2 : 0;
+      const restored = isFinite(this._lastGoodExp) ? this._lastGoodExp : _cap;
+      console.error('[renderStatus] exp became non-finite (' + p.cultivation.exp + '), restoring to', restored);
+      try { this.flash && this.flash('修为数据异常，已自动恢复'); } catch(e) {}
+      p.cultivation.exp = restored;
+    } else {
+      this._lastGoodExp = p.cultivation.exp;
     }
     const realm = DATA.realms[p.cultivation.realm];
     const cost = Systems.Cultivation.computeNextCost(p);
@@ -33087,6 +33191,31 @@ const UI = {
     setTimeout(() => { if (d.parentNode) d.remove(); }, dur);
   },
 
+  // 离线结算面板 —— 玩家关游戏回来时给一次性汇总
+  showOfflineSummary(s) {
+    if (!s || s.dt == null) return;
+    const dtStr = Utils.fmtTime(s.dt);
+    const capped = s.dt > s.cappedDt;
+    const expStr = Utils.fmtNum(s.expGain || 0);
+    const stoneStr = Utils.fmtNum(s.stoneGain || 0);
+    const capHint = capped
+      ? `<div style="font-size:12px;color:var(--ink-light);margin-top:6px">离线结算上限 7 天；超出部分已舍去。</div>`
+      : '';
+    this.showModal('归 来 有 礼', `
+      <div class="text" style="line-height:2">
+        <div>道友离山 <span style="color:var(--gold)">${Utils.escape(dtStr)}</span>，蒲团未凉。</div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px">
+          <span style="color:var(--ink-light)">修为</span><span style="color:var(--cinnabar);font-weight:600">+${expStr}</span>
+          <span style="color:var(--ink-light)">灵石</span><span style="color:var(--gold);font-weight:600">+${stoneStr}</span>
+        </div>
+        ${capHint}
+      </div>
+      <div style="text-align:center;margin-top:14px">
+        <button class="btn" onclick="UI.closeModal()">谢 过</button>
+      </div>
+    `);
+  },
+
   async checkUpdate() {
     // 若代码中更新源变更，清除旧缓存，以新源为准
     let storedUrl = DATA.updateManifestUrl;
@@ -33099,8 +33228,8 @@ const UI = {
     this.showModal('检 查 更 新', `
       <div class="text" style="line-height:1.9">
         <div>当前版本：<span style="color:var(--gold)">v${DATA.version}</span></div>
-        <div style="margin-top:6px;color:var(--ink-light);font-size:12px">更新源：</div>
-        <input id="qy-update-url" value="${Utils.escape(storedUrl)}" style="width:100%;box-sizing:border-box;padding:4px 6px;font-size:12px;background:rgba(0,0,0,.05);border:1px solid var(--border);color:var(--ink);" />
+        <input id="qy-update-url" type="hidden" value="${Utils.escape(storedUrl)}" />
+        <div style="margin-top:8px;font-size:13px">最新版下载：<a href="https://xuxuxu.com/qy/" target="_blank" rel="noopener" style="color:var(--cinnabar);border-bottom:1px dotted var(--cinnabar)">xuxuxu.com/qy</a></div>
         <div id="qy-update-result" style="margin-top:10px;color:var(--ink-light)">点击「检查」以获取最新版本信息。</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
@@ -33128,11 +33257,17 @@ const UI = {
       if (!latest) {
         out.innerHTML = '<span style="color:var(--cinnabar)">manifest 缺少 version 字段</span>';
       } else if (cmp > 0) {
+        // 构造 HTML 下载地址：若 mf.url 以 .html 结尾直接用，否则当作目录 + qingyun.html
+        const htmlUrl = this._normalizeHtmlUrl(dl);
         out.innerHTML = `
           <div style="color:var(--gold);font-weight:bold">发现新版：v${Utils.escape(latest)}（当前 v${DATA.version}）</div>
           ${notes ? `<div style="margin-top:6px;font-size:12px;white-space:pre-wrap">${Utils.escape(notes)}</div>` : ''}
-          ${dl ? `<div style="margin-top:10px"><a href="${Utils.escape(dl)}" target="_blank" rel="noopener" style="color:var(--cinnabar);border-bottom:1px dotted var(--cinnabar)">下载最新版 →</a></div>
-          <div style="margin-top:6px;font-size:11px;color:var(--ink-light)">下载后用新文件替换当前 HTML 即可，存档保留于浏览器本地。</div>` : ''}
+          <div id="qy-update-dl-status" style="margin-top:10px;font-size:12px;color:var(--ink-light)"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn small" id="qy-update-dl-btn" onclick="UI._doAutoUpdate('${Utils.escape(htmlUrl)}', '${Utils.escape(latest)}')" style="background:var(--gold);color:var(--paper)">一键更新 v${Utils.escape(latest)}</button>
+            ${dl ? `<a href="${Utils.escape(dl)}" target="_blank" rel="noopener" style="color:var(--cinnabar);border-bottom:1px dotted var(--cinnabar);align-self:center;font-size:12px">或访问网页下载 →</a>` : ''}
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--ink-light)">下载后用新文件覆盖当前 HTML 重新打开即可，存档保留于浏览器本地。</div>
         `;
       } else if (cmp === 0) {
         out.innerHTML = '<span style="color:#2e7d32">已是最新版本</span>';
@@ -33141,6 +33276,64 @@ const UI = {
       }
     } catch (e) {
       out.innerHTML = `<span style="color:var(--cinnabar)">检查失败：${Utils.escape(e.message || String(e))}</span><div style="margin-top:6px;font-size:11px;color:var(--ink-light)">请确认 URL 可访问，且返回 JSON 格式 {"version":"...","url":"...","notes":"..."}</div>`;
+    }
+  },
+  // 一键更新：拉取最新 HTML → 触发浏览器下载同名文件。浏览器安全限制下无法直接覆盖磁盘上的旧文件，
+  // 但可以把"打开网页-点下载-另存"三步缩成"点一下"，用户在 Downloads 里把新文件替换旧的即可。
+  // 把 manifest 里 `url` 字段推成稳定的 qingyun.html 地址 —— 需要能处理
+  // "https://x.com/qy/"、"https://x.com/qy"、"https://x.com/qy/qingyun.html"
+  // 以及带查询串 "https://x.com/qy/?v=0.4.5" 四种格式，老的正则会把 ?v=... 直接
+  // 拼成 `…?v=0.4.5/qingyun.html`（变成主页 HTML）。
+  _normalizeHtmlUrl(dl) {
+    if (!dl) return '';
+    try {
+      const u = new URL(dl);
+      if (/\.html?$/i.test(u.pathname)) return u.toString();
+      if (!u.pathname.endsWith('/')) u.pathname += '/';
+      u.pathname += 'qingyun.html';
+      return u.toString();
+    } catch (e) {
+      return dl; // 非法 URL 兜底，原样返回
+    }
+  },
+  async _doAutoUpdate(htmlUrl, latest) {
+    const btn = document.getElementById('qy-update-dl-btn');
+    const status = document.getElementById('qy-update-dl-status');
+    if (!htmlUrl) { if (status) status.innerHTML = '<span style="color:var(--cinnabar)">下载地址缺失</span>'; return; }
+    if (btn) { btn.disabled = true; btn.textContent = '下载中…'; }
+    if (status) status.innerHTML = '<span style="color:var(--ink-light)">正在拉取新版 HTML……</span>';
+    try {
+      const res = await fetch(htmlUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      // 拉错了文件：若响应 < 500 KB 很可能是下载页/404 页面而不是 3 MB 的游戏本体，
+      // 或者其中检测不到游戏关键字。宁可报错，不要覆盖掉玩家的好文件
+      if (blob.size < 500 * 1024) {
+        const text = await blob.text();
+        if (!/const DATA\s*=|version:\s*['"]0\./.test(text)) {
+          throw new Error('服务器返回的不是游戏 HTML，可能是重定向或缓存问题，请稍后重试或用旁边"访问网页下载"');
+        }
+      }
+      // 存档 sanity：触发一次落盘，避免用户刚下载就换文件丢最近动作
+      try { if (Systems.Save && Systems.Save.save) Systems.Save.save(); } catch(e) {}
+      const a = document.createElement('a');
+      const href = URL.createObjectURL(blob);
+      a.href = href;
+      a.download = '青云挂机录.html';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(href); a.remove(); }, 1500);
+      if (status) {
+        const sizeMb = (blob.size / 1048576).toFixed(2);
+        status.innerHTML = `<span style="color:#2e7d32">已下载 v${Utils.escape(latest || '')}（${sizeMb} MB），到下载目录用它覆盖当前 HTML 并重新打开即可。存档在浏览器本地，不会丢。</span>`;
+      }
+      if (btn) btn.textContent = '已下载';
+    } catch (e) {
+      // file:// 下常见：CORS 或混合内容阻断。提示用户走网页下载兜底
+      if (btn) { btn.disabled = false; btn.textContent = '重试下载'; }
+      if (status) {
+        status.innerHTML = `<span style="color:var(--cinnabar)">下载失败：${Utils.escape(e.message || String(e))}</span><div style="margin-top:4px;font-size:11px;color:var(--ink-light)">若本地文件协议被浏览器拦截，请点旁边的"访问网页下载"。</div>`;
+      }
     }
   },
   _cmpVersion(a, b) {
@@ -37393,6 +37586,11 @@ const Game = {
     BGM.init();
     if (Systems.Save.load()) {
       UI.render();
+      // 若 load 中检测到离线时长且发放了奖励，弹一次性面板告诉玩家获得了多少
+      if (State._offlineSummary && UI.showOfflineSummary) {
+        try { UI.showOfflineSummary(State._offlineSummary); } catch(e) { console.error('[init] offline summary error:', e); }
+        State._offlineSummary = null;
+      }
     } else {
       UI.startCreate();
     }

@@ -4543,7 +4543,7 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.5',
+  version: '0.4.6',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/qy/update.json',
@@ -33258,9 +33258,7 @@ const UI = {
         out.innerHTML = '<span style="color:var(--cinnabar)">manifest 缺少 version 字段</span>';
       } else if (cmp > 0) {
         // 构造 HTML 下载地址：若 mf.url 以 .html 结尾直接用，否则当作目录 + qingyun.html
-        const htmlUrl = /\.html?($|\?)/i.test(dl)
-          ? dl
-          : (dl.replace(/\/?$/, '/') + 'qingyun.html');
+        const htmlUrl = this._normalizeHtmlUrl(dl);
         out.innerHTML = `
           <div style="color:var(--gold);font-weight:bold">发现新版：v${Utils.escape(latest)}（当前 v${DATA.version}）</div>
           ${notes ? `<div style="margin-top:6px;font-size:12px;white-space:pre-wrap">${Utils.escape(notes)}</div>` : ''}
@@ -33282,6 +33280,22 @@ const UI = {
   },
   // 一键更新：拉取最新 HTML → 触发浏览器下载同名文件。浏览器安全限制下无法直接覆盖磁盘上的旧文件，
   // 但可以把"打开网页-点下载-另存"三步缩成"点一下"，用户在 Downloads 里把新文件替换旧的即可。
+  // 把 manifest 里 `url` 字段推成稳定的 qingyun.html 地址 —— 需要能处理
+  // "https://x.com/qy/"、"https://x.com/qy"、"https://x.com/qy/qingyun.html"
+  // 以及带查询串 "https://x.com/qy/?v=0.4.5" 四种格式，老的正则会把 ?v=... 直接
+  // 拼成 `…?v=0.4.5/qingyun.html`（变成主页 HTML）。
+  _normalizeHtmlUrl(dl) {
+    if (!dl) return '';
+    try {
+      const u = new URL(dl);
+      if (/\.html?$/i.test(u.pathname)) return u.toString();
+      if (!u.pathname.endsWith('/')) u.pathname += '/';
+      u.pathname += 'qingyun.html';
+      return u.toString();
+    } catch (e) {
+      return dl; // 非法 URL 兜底，原样返回
+    }
+  },
   async _doAutoUpdate(htmlUrl, latest) {
     const btn = document.getElementById('qy-update-dl-btn');
     const status = document.getElementById('qy-update-dl-status');
@@ -33292,6 +33306,14 @@ const UI = {
       const res = await fetch(htmlUrl, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const blob = await res.blob();
+      // 拉错了文件：若响应 < 500 KB 很可能是下载页/404 页面而不是 3 MB 的游戏本体，
+      // 或者其中检测不到游戏关键字。宁可报错，不要覆盖掉玩家的好文件
+      if (blob.size < 500 * 1024) {
+        const text = await blob.text();
+        if (!/const DATA\s*=|version:\s*['"]0\./.test(text)) {
+          throw new Error('服务器返回的不是游戏 HTML，可能是重定向或缓存问题，请稍后重试或用旁边"访问网页下载"');
+        }
+      }
       // 存档 sanity：触发一次落盘，避免用户刚下载就换文件丢最近动作
       try { if (Systems.Save && Systems.Save.save) Systems.Save.save(); } catch(e) {}
       const a = document.createElement('a');
