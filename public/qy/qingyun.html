@@ -4543,7 +4543,7 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.4',
+  version: '0.4.5',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/qy/update.json',
@@ -18002,6 +18002,60 @@ function rollItem(qMin = 1, qMax = 3) {
 
 /* ========== 系统 ========== */
 const Systems = {
+  /* ────────────────────────────────────────────────────────────
+   * Reward —— 奖励发放聚合器
+   * 所有对 p.cultivation.exp / p.resources.stone 的写入都应走这里。
+   * 把 isFinite、Math.max(0, …)、exp 封顶逻辑集中一处，避免任何奖励
+   * 路径因为字段缺失或乘子异常就污染玩家状态。
+   * 用法：
+   *   Systems.Reward.addStone(p, 100);
+   *   Systems.Reward.addExp(p, 500);
+   *   Systems.Reward.apply(p, { stone: 100, exp: 500, contribution: 10 });
+   * ──────────────────────────────────────────────────────────── */
+  Reward: {
+    _num(v) { return (typeof v === 'number' && isFinite(v)) ? v : 0; },
+    addStone(p, amount) {
+      if (!p || !p.resources) return 0;
+      const add = this._num(amount);
+      const cur = isFinite(p.resources.stone) ? p.resources.stone : 0;
+      p.resources.stone = Math.max(0, Math.round(cur + add));
+      return add;
+    },
+    addExp(p, amount) {
+      if (!p || !p.cultivation) return 0;
+      const add = this._num(amount);
+      const cur = isFinite(p.cultivation.exp) ? p.cultivation.exp : 0;
+      // 单笔奖励封顶 2× 当前破境需求，防止一次性跃级多个境界
+      const nc = Systems.Cultivation ? Systems.Cultivation.computeNextCost(p) : Infinity;
+      const cap = (isFinite(nc) && nc > 0) ? nc * 2 : Number.MAX_SAFE_INTEGER;
+      p.cultivation.exp = Math.max(0, Math.min(cap, cur + add));
+      return add;
+    },
+    // 批量发放 —— 支持 { exp, stone, items, contribution, reputation, daoHeart, perception, luck, charm, fate }
+    apply(p, r) {
+      if (!r || !p) return;
+      if (r.exp != null)   this.addExp(p, r.exp);
+      if (r.stone != null) this.addStone(p, r.stone);
+      if (r.items && Array.isArray(r.items) && Systems.Inventory && Systems.Inventory.add) {
+        r.items.forEach(it => { if (it) Systems.Inventory.add(p, it); });
+      }
+      if (r.contribution != null && p.sect)
+        p.sect.contribution = Math.max(0, (p.sect.contribution || 0) + this._num(r.contribution));
+      if (r.reputation != null && p.sect)
+        p.sect.reputation = Math.max(0, (p.sect.reputation || 0) + this._num(r.reputation));
+      if (r.daoHeart != null && p.stats)
+        p.stats.daoHeart = (p.stats.daoHeart || 0) + this._num(r.daoHeart);
+      if (r.perception != null && p.stats)
+        p.stats.perception = (p.stats.perception || 0) + this._num(r.perception);
+      if (r.luck != null && p.stats)
+        p.stats.luck = (p.stats.luck || 0) + this._num(r.luck);
+      if (r.charm != null && p.stats)
+        p.stats.charm = (p.stats.charm || 0) + this._num(r.charm);
+      if (r.fate != null && p.stats)
+        p.stats.fate = (p.stats.fate || 0) + this._num(r.fate);
+    }
+  },
+
   Cultivation: {
     // 返回单个综合系数（不含随机区间）
     computeMul(p) {
@@ -19917,8 +19971,9 @@ const Systems = {
           }
         }
       }
-      p.cultivation.exp += rewards.exp;
-      p.resources.stone += rewards.stone;
+      // 通过 Systems.Reward 集中校验，rewards.exp/stone 来自 mon，曾经是
+      // 重灾区（undefined → NaN 污染）；即使源头补过防御，这里再过一层不亏
+      Systems.Reward.apply(p, { exp: rewards.exp, stone: rewards.stone });
       rewards.items.forEach(it => Systems.Inventory.add(p, it));
       // 掌握度增长（战胜时多给一份）
       let masteryNotices = [];
@@ -25722,14 +25777,21 @@ const Systems = {
           Systems.ActionScheduler._narrativeStats = ns.narrative || {};
           Systems.ActionScheduler._statsStartTime = ns.startTime || 0;
         }
-        // 离线结算
+        // 离线结算：修为按 50% 效率累计（上限 7 天），灵石按当前境界基础产出估算
+        // 结束后把统计挂在 State._offlineSummary，由 UI 在 init 末尾弹出一次性结算面板
         const delta = (Utils.now() - (data.savedAt || Utils.now())) / 1000;
         if (delta > 60) {
+          const cappedDt = Math.min(delta, 7 * 86400);
           const rate = Systems.Cultivation.computeExpPerSec(State.player);
           const safeRate = (isFinite(rate) && rate > 0) ? rate : 0;
-          const gain = Math.floor(safeRate * Math.min(delta, 7 * 86400) * 0.5);
-          State.player.cultivation.exp += gain;
-          Log.add(`【离线】离开 ${Utils.fmtTime(delta)}，获得修为 ${Utils.fmtNum(gain)}。`, 'sys');
+          const expGain = Math.floor(safeRate * cappedDt * 0.5);
+          // 灵石：每 10 分钟现实时间发一份"基础怪物灵石"（5 × realmStoneMul），挂机产出
+          const rMul = (typeof realmStoneMul === 'function') ? realmStoneMul(State.player.cultivation.realm) : 1;
+          const stonePerMin = 5 * (isFinite(rMul) && rMul > 0 ? rMul : 1);
+          const stoneGain = Math.floor(stonePerMin * (cappedDt / 60) * 0.5);
+          Systems.Reward.apply(State.player, { exp: expGain, stone: stoneGain });
+          State._offlineSummary = { dt: delta, cappedDt, expGain, stoneGain };
+          Log.add(`【离线】离开 ${Utils.fmtTime(delta)}，获得修为 ${Utils.fmtNum(expGain)}、灵石 ${Utils.fmtNum(stoneGain)}。`, 'sys');
         }
         // 境界专属机制字段兼容
         if (!State.player.purify) State.player.purify = { count:0 };
@@ -27302,11 +27364,7 @@ const Systems = {
         const stoneGain = isFinite(_stoneRaw) ? Math.max(0, Math.round(_stoneRaw)) : 0;
         run.totalExp += expGain;
         run.totalStone += stoneGain;
-        p.cultivation.exp += expGain;
-        p.resources.stone += stoneGain;
-        // 卫生：若既有值已被污染（旧档/其它系统注入），在此拉回有限区间
-        if (!isFinite(p.cultivation.exp) || p.cultivation.exp < 0) p.cultivation.exp = _expCap;
-        if (!isFinite(p.resources.stone) || p.resources.stone < 0) p.resources.stone = 0;
+        Systems.Reward.apply(p, { exp: expGain, stone: stoneGain });
         Log.add(`【试炼塔】通过第${floor}层（${challenge.name}）！修为+${Utils.fmtNum(expGain)} 灵石+${Utils.fmtNum(stoneGain)}`, 'good');
 
         // 里程碑宝物
@@ -33133,6 +33191,31 @@ const UI = {
     setTimeout(() => { if (d.parentNode) d.remove(); }, dur);
   },
 
+  // 离线结算面板 —— 玩家关游戏回来时给一次性汇总
+  showOfflineSummary(s) {
+    if (!s || s.dt == null) return;
+    const dtStr = Utils.fmtTime(s.dt);
+    const capped = s.dt > s.cappedDt;
+    const expStr = Utils.fmtNum(s.expGain || 0);
+    const stoneStr = Utils.fmtNum(s.stoneGain || 0);
+    const capHint = capped
+      ? `<div style="font-size:12px;color:var(--ink-light);margin-top:6px">离线结算上限 7 天；超出部分已舍去。</div>`
+      : '';
+    this.showModal('归 来 有 礼', `
+      <div class="text" style="line-height:2">
+        <div>道友离山 <span style="color:var(--gold)">${Utils.escape(dtStr)}</span>，蒲团未凉。</div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px">
+          <span style="color:var(--ink-light)">修为</span><span style="color:var(--cinnabar);font-weight:600">+${expStr}</span>
+          <span style="color:var(--ink-light)">灵石</span><span style="color:var(--gold);font-weight:600">+${stoneStr}</span>
+        </div>
+        ${capHint}
+      </div>
+      <div style="text-align:center;margin-top:14px">
+        <button class="btn" onclick="UI.closeModal()">谢 过</button>
+      </div>
+    `);
+  },
+
   async checkUpdate() {
     // 若代码中更新源变更，清除旧缓存，以新源为准
     let storedUrl = DATA.updateManifestUrl;
@@ -37481,6 +37564,11 @@ const Game = {
     BGM.init();
     if (Systems.Save.load()) {
       UI.render();
+      // 若 load 中检测到离线时长且发放了奖励，弹一次性面板告诉玩家获得了多少
+      if (State._offlineSummary && UI.showOfflineSummary) {
+        try { UI.showOfflineSummary(State._offlineSummary); } catch(e) { console.error('[init] offline summary error:', e); }
+        State._offlineSummary = null;
+      }
     } else {
       UI.startCreate();
     }
