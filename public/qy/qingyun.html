@@ -4541,25 +4541,37 @@ const Utils = {
   }
 };
 
+/* ════════════════════════════════════════════════════════════════
+ * ANCHORS —— 数值设计锚点（单一真源）
+ * α = 战力比，β = 经济比，γ = 时间比（由 β/α 推导）
+ * 所有跨境界强度数据应满足这三个比率，HealthCheck 以此为准绳校验
+ * ════════════════════════════════════════════════════════════════ */
+const ANCHORS = {
+  ALPHA: 5,    // 每大境界战斗属性倍数
+  BETA:  12,   // 每大境界灵石产出 / 物价 / 破境成本倍数
+  GAMMA: 12 / 5, // ≈ 2.4，每大境界耗时倍数
+  TOL:   0.4   // 健康检查允许偏差（±40%）
+};
+
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.7',
+  version: '0.4.8',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/qy/update.json',
 
   /* ════════════════════════════════════════════════════════════════
-   * 数值设计锚点（α / β / γ）—— 修改任何强度数据前，先确认符合这三个比率
+   * 数值设计锚点 —— 真源见文件顶部 ANCHORS const（α / β / γ / TOL）
    * ────────────────────────────────────────────────────────────────
-   *  α = 战力比 = 5×     每大境界战斗属性（HP / 攻 / 防 / 速率）的强度倍数
-   *  β = 经济比 = 12×    每大境界灵石产出 / 物价 / 破境成本 的倍数
-   *  γ = 时间比 = β/α    每大境界消耗时间倍数 ≈ 2.4-2.7×
+   *  α = ANCHORS.ALPHA = 5×    战力比：每大境界战斗属性（HP / 攻 / 防 / 速率）倍数
+   *  β = ANCHORS.BETA  = 12×   经济比：每大境界灵石产出 / 物价 / 破境成本倍数
+   *  γ = ANCHORS.GAMMA ≈ 2.4×  时间比：每大境界耗时倍数（= β/α）
    *
-   *  整个系统的数值应当从这三个比率派生出来：
-   *    • realms[i].patkBase / [i-1].patkBase   应 ≈ α (±40%)
-   *    • realms[i].baseCost / [i-1].baseCost   应 ≈ β (±40%)
-   *    • realmStoneMul(i) / realmStoneMul(i-1) 应 = β
-   *    • realms[i].maxRate / [i-1].maxRate     与 β/γ 保持兼容
+   *  所有跨境界强度数据应满足：
+   *    • realms[i].patkBase / [i-1].patkBase   应 ≈ α (±TOL)
+   *    • realms[i].baseCost / [i-1].baseCost   应 ≈ β (±TOL)
+   *    • realmStoneMul(i) / realmStoneMul(i-1) 应 = β（已由 ANCHORS.BETA 派生）
+   *    • realms[i].maxRate / [i-1].maxRate     应与 β/γ 兼容
    *
    *  玩家总战力预算（同境界内，除去基础 1.0×）：
    *    功法 +0.5~2.0× · 装备 +0.4~1.2× · 法宝 +0.2~0.6×
@@ -18084,10 +18096,15 @@ const Systems = {
    * 手动调用：Systems.HealthCheck.run() 或在控制台 run(true) 看详情。
    * ──────────────────────────────────────────────────────────── */
   HealthCheck: {
-    ALPHA: 5,            // 战力比
-    BETA:  12,           // 经济比
-    TOL:   0.4,          // 允许偏差 ±40% 以内算合格
+    // 读 ANCHORS 为真源，局部变量做缩写便于引用
+    get ALPHA() { return ANCHORS.ALPHA; },
+    get BETA()  { return ANCHORS.BETA;  },
+    get TOL()   { return ANCHORS.TOL;   },
     _ok(ratio, target)  { return Math.abs(ratio - target) / target <= this.TOL; },
+    _medianRatio(values) {
+      const sorted = values.filter(isFinite).slice().sort((a, b) => a - b);
+      return sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
+    },
     run(verbose = false) {
       const out = { passed: true, issues: [], stats: {} };
       const add = (lvl, msg) => {
@@ -18148,13 +18165,76 @@ const Systems = {
             }
           }
         });
+        // G. 装备品质倍率严格单调 + 最高品与最低品之比在合理区间
+        const qm = DATA.qualityMul || {};
+        const qKeys = Object.keys(qm).map(Number).sort((a, b) => a - b);
+        for (let i = 1; i < qKeys.length; i++) {
+          if (qm[qKeys[i]] <= qm[qKeys[i - 1]]) {
+            add('warn', `qualityMul[${qKeys[i]}] 未严格大于前一档 (${qm[qKeys[i-1]]}→${qm[qKeys[i]]})`);
+            break;
+          }
+        }
+        if (qKeys.length >= 2) {
+          const top = qm[qKeys[qKeys.length - 1]], bot = qm[qKeys[0]];
+          // 单装备 Q1→Q最高跨度应在 20×–500× 之间（6 档装备预算占比 40%-120%，配合 6 件叠加）
+          if (top / bot < 20 || top / bot > 500) {
+            add('warn', `装备品质倍率跨度 ${(top/bot).toFixed(1)}× 偏离参考范围 (20×–500×)`);
+          }
+        }
+        // H. 功法品阶倍率严格单调 + 区间合理
+        const tg = DATA.techniqueGrades || {};
+        const tgKeys = Object.keys(tg);
+        const tgMuls = tgKeys.map(k => tg[k] && tg[k].mul).filter(isFinite);
+        for (let i = 1; i < tgMuls.length; i++) {
+          if (tgMuls[i] <= tgMuls[i - 1]) {
+            add('warn', `techniqueGrades 第 ${i} 档 mul=${tgMuls[i]} 未大于前一档 ${tgMuls[i-1]}`);
+            break;
+          }
+        }
+        // I. 血脉浓度单调递增
+        const bc = DATA.bloodlineConcentrations || [];
+        for (let i = 1; i < bc.length; i++) {
+          if (bc[i].mul <= bc[i - 1].mul) {
+            add('warn', `bloodlineConcentrations[${i}] mul=${bc[i].mul} 未大于前一档 ${bc[i-1].mul}`);
+            break;
+          }
+        }
+        // J. 经济回路粗估：每境界"1 小时挂机估算灵石 / 同境界物价中位数" 应落在 0.25–4× 之间
+        //    收入模型：每 10 秒一次战斗，平均奖励 ≈ 5 × realmStoneMul；一小时 ≈ 1800 灵石 × realmStoneMul
+        //    物价：shopTemplates 所有商品价格经 realmStoneMul 缩放后的中位数
+        const shopTpl = DATA.shopTemplates || [];
+        const econIssues = [];
+        for (let r = 0; r < realms.length - 1; r++) {
+          const stonePerHour = 1800 * realmStoneMul(r);
+          const eligible = shopTpl.filter(t => (t.realmMin === undefined || t.realmMin <= r));
+          if (!eligible.length) continue;
+          const pricesAtRealm = eligible.map(t => {
+            const baseMul = realmStoneMul(t.realmMin || 0);
+            return Math.floor(t.price * (realmStoneMul(r) / Math.max(1, baseMul)));
+          });
+          const median = this._medianRatio(pricesAtRealm);
+          if (median && isFinite(median)) {
+            const ratio = stonePerHour / median;
+            if (ratio < 0.25 || ratio > 4) {
+              econIssues.push(`${realms[r].name}：1h 估算 ${Utils.fmtNum(stonePerHour)} 灵石 / 物价中位数 ${Utils.fmtNum(median)} = ${ratio.toFixed(2)}× (目标 0.25-4×)`);
+            }
+          }
+        }
+        if (econIssues.length) {
+          econIssues.slice(0, 3).forEach(msg => add('warn', '经济回路偏离：' + msg));
+          if (econIssues.length > 3) add('warn', `经济回路偏离：另有 ${econIssues.length - 3} 条…`);
+        }
         // 汇总 stats
         out.stats = {
+          anchors: { α: this.ALPHA, β: this.BETA, γ: ANCHORS.GAMMA.toFixed(2) },
           realmCount: realms.length,
           maxStages,
           alphaSample: realms[1] && realms[0] ? (realms[1].patkBase / realms[0].patkBase).toFixed(2) : null,
           betaSample: realms[1] && realms[0] ? (realms[1].baseCost / realms[0].baseCost).toFixed(2) : null,
-          stoneMulSample: (function(){ try { return realmStoneMul(1) / realmStoneMul(0); } catch(e) { return null; } })()
+          stoneMulSample: (function(){ try { return realmStoneMul(1) / realmStoneMul(0); } catch(e) { return null; } })(),
+          qualityTiers: qKeys.length,
+          techniqueGrades: tgKeys.length,
+          bloodlineConcentrations: bc.length
         };
       } catch (e) {
         add('err', '健康检查自身崩溃：' + (e.message || e));
@@ -27563,13 +27643,13 @@ const Systems = {
  *  行动提供者 Providers
  *  每个 Provider 实现统一接口：type, name, logCls, canStart, priority, create
  * ======================================================================== */
-/* ── 境界灵石倍率：与baseCost同步指数增长 ──
- * 对齐 β = 12×（见 DATA.realms 上方锚点说明）。v0.4.7 之前为 10×，
+/* ── 境界灵石倍率：与 baseCost 同步指数增长 ──
+ * 派生自 ANCHORS.BETA（β 经济比 = 12×）。v0.4.7 之前硬编码 10×，
  * 导致后期破境成本涨得比灵石快 ≈ 20%/境界，越到后面越穷。
- * 切换到 12× 后 Save.load() 会给老存档按境界补偿差价，避免突然变穷。
+ * 切换到 β 后 Save.load() 会给老存档按境界补偿差价。
  */
 function realmStoneMul(realm) {
-  return Math.pow(12, realm);
+  return Math.pow(ANCHORS.BETA, realm);
 }
 
 const Providers = {

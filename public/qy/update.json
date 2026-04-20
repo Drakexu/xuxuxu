@@ -1,5 +1,5 @@
 {
-  "version": "0.4.7",
-  "url": "https://xuxuxu.com/qy/?v=0.4.7",
-  "notes": "v0.4.7 更新内容：\n1. 数值设计锚点落地 —— 在 DATA.realms 上方钉死 α=5×（战力比）/ β=12×（经济比）/ γ≈2.7×（时间比），所有境界数据以后改动都应符合这三个锚点\n2. β 对齐 —— realmStoneMul 从 10× 调整为 12×，与破境成本比例一致，解决「越到后期越穷」的问题。老存档自动按境界 ×1.2^realm 补发灵石差价\n3. 新增 Systems.HealthCheck —— 启动时在 DevTools 控制台自检 α/β/γ 偏差，并检查 stageMul / 境界基础属性的单调性\n4. 同步根目录 qingyun.html 到最新版本"
+  "version": "0.4.8",
+  "url": "https://xuxuxu.com/qy/?v=0.4.8",
+  "notes": "v0.4.8 更新内容：\n1. 锚点常量化 —— α/β/γ/TOL 提炼为文件顶部的 ANCHORS const，作为整个数值系统的单一真源。realmStoneMul 和 HealthCheck 现在直接派生自 ANCHORS\n2. HealthCheck 增强 —— 额外校验装备品质（qualityMul）严格单调 + 跨度合理、功法品阶 mul 严格单调、血脉浓度 mul 严格单调\n3. HealthCheck 新增经济回路静态估算 —— 每境界按「10 秒一次战斗 × realmStoneMul」估算 1 小时挂机收入，对比同境界 shopTemplates 物价中位数，偏离 0.25×–4× 区间即报警\n4. 注释块升级 —— 境界数据上方的设计说明指向 ANCHORS const 作为真源"
 }
