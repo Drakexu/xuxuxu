@@ -4543,11 +4543,32 @@ const Utils = {
 
 /* ========== 游戏数据 ========== */
 const DATA = {
-  version: '0.4.6',
+  version: '0.4.7',
   // 在线更新检查：托管 manifest JSON { version, url, notes } 于此处
   // 自托管用户可在『设置-检查更新』中替换 URL
   updateManifestUrl: 'https://xuxuxu.com/qy/update.json',
 
+  /* ════════════════════════════════════════════════════════════════
+   * 数值设计锚点（α / β / γ）—— 修改任何强度数据前，先确认符合这三个比率
+   * ────────────────────────────────────────────────────────────────
+   *  α = 战力比 = 5×     每大境界战斗属性（HP / 攻 / 防 / 速率）的强度倍数
+   *  β = 经济比 = 12×    每大境界灵石产出 / 物价 / 破境成本 的倍数
+   *  γ = 时间比 = β/α    每大境界消耗时间倍数 ≈ 2.4-2.7×
+   *
+   *  整个系统的数值应当从这三个比率派生出来：
+   *    • realms[i].patkBase / [i-1].patkBase   应 ≈ α (±40%)
+   *    • realms[i].baseCost / [i-1].baseCost   应 ≈ β (±40%)
+   *    • realmStoneMul(i) / realmStoneMul(i-1) 应 = β
+   *    • realms[i].maxRate / [i-1].maxRate     与 β/γ 保持兼容
+   *
+   *  玩家总战力预算（同境界内，除去基础 1.0×）：
+   *    功法 +0.5~2.0× · 装备 +0.4~1.2× · 法宝 +0.2~0.6×
+   *    丹药 +0.1~0.3× · 灵宠 +0.05~0.2× · 阵法 +0.1~0.3×
+   *    天赋 +0.1~0.5× · 血脉 0~3.0×
+   *  所有加成相加（含 1.0 基础）经 computeMul 软上限封顶 8×
+   *
+   *  启动时 Systems.HealthCheck.run() 会自动检查实际数据与锚点的偏差
+   * ════════════════════════════════════════════════════════════════ */
   realms: [
     // 修炼速率已于 v0.2.1 整体降速约 2.7x，min/max 比收紧至约 0.72（min ≥ 2/3 × max）
     // v0.3: 速率不变，改用 computeMul 软上限（超 5x 后仅 20% 效率）控制加成叠加过快
@@ -18056,6 +18077,107 @@ const Systems = {
     }
   },
 
+  /* ────────────────────────────────────────────────────────────
+   * HealthCheck —— 数值设计健康度自检
+   * 启动时跑一遍，把不符合 α/β/γ 锚点的数据偏差打到 console。
+   * 不修数据，只报告 —— 便于作者发现某次改动意外拉偏了平衡。
+   * 手动调用：Systems.HealthCheck.run() 或在控制台 run(true) 看详情。
+   * ──────────────────────────────────────────────────────────── */
+  HealthCheck: {
+    ALPHA: 5,            // 战力比
+    BETA:  12,           // 经济比
+    TOL:   0.4,          // 允许偏差 ±40% 以内算合格
+    _ok(ratio, target)  { return Math.abs(ratio - target) / target <= this.TOL; },
+    run(verbose = false) {
+      const out = { passed: true, issues: [], stats: {} };
+      const add = (lvl, msg) => {
+        out.issues.push({ lvl, msg });
+        if (lvl === 'err') out.passed = false;
+      };
+      try {
+        const realms = DATA.realms || [];
+        // A. 境界间战力比（patkBase）应接近 α
+        for (let i = 1; i < realms.length; i++) {
+          const cur = realms[i], prev = realms[i - 1];
+          if (isFinite(cur.patkBase) && isFinite(prev.patkBase) && prev.patkBase > 0) {
+            const ratio = cur.patkBase / prev.patkBase;
+            if (!this._ok(ratio, this.ALPHA)) {
+              add('warn', `α 偏离：${prev.name}→${cur.name} patkBase 比 ${ratio.toFixed(2)}× (目标 ${this.ALPHA}×)`);
+            }
+          }
+        }
+        // B. 境界间破境成本比应接近 β
+        for (let i = 1; i < realms.length; i++) {
+          const cur = realms[i], prev = realms[i - 1];
+          if (isFinite(cur.baseCost) && isFinite(prev.baseCost) && prev.baseCost > 0) {
+            const ratio = cur.baseCost / prev.baseCost;
+            if (!this._ok(ratio, this.BETA)) {
+              add('warn', `β 偏离：${prev.name}→${cur.name} baseCost 比 ${ratio.toFixed(2)}× (目标 ${this.BETA}×)`);
+            }
+          }
+        }
+        // C. realmStoneMul 与 β 对齐
+        try {
+          const r1 = realmStoneMul(1), r0 = realmStoneMul(0);
+          if (r0 > 0) {
+            const ratio = r1 / r0;
+            if (!this._ok(ratio, this.BETA)) {
+              add('err', `realmStoneMul 比 ${ratio}× 与 β=${this.BETA}× 不一致`);
+            }
+          }
+        } catch(e) { add('err', 'realmStoneMul 调用失败：' + e.message); }
+        // D. stageMul 长度应覆盖所有境界最大阶数
+        const maxStages = Math.max(0, ...realms.map(r => r.stages || 0));
+        if ((DATA.stageMul || []).length < maxStages) {
+          add('err', `stageMul 长度 ${DATA.stageMul.length} < 最大境界阶数 ${maxStages}`);
+        }
+        // E. stageMul 单调递增
+        for (let i = 1; i < (DATA.stageMul || []).length; i++) {
+          if (DATA.stageMul[i] <= DATA.stageMul[i - 1]) {
+            add('warn', `stageMul[${i}]=${DATA.stageMul[i]} 未严格大于前一阶 ${DATA.stageMul[i-1]}`);
+            break;
+          }
+        }
+        // F. 基础属性（hpBase / patkBase / baseCost / minRate / maxRate）严格单调
+        ['hpBase','patkBase','matkBase','pdefBase','mdefBase','baseCost','minRate','maxRate'].forEach(k => {
+          for (let i = 1; i < realms.length; i++) {
+            const a = realms[i - 1][k], b = realms[i][k];
+            if (isFinite(a) && isFinite(b) && b <= a) {
+              add('warn', `${k} 在 ${realms[i - 1].name}→${realms[i].name} 未递增 (${a}→${b})`);
+              break;
+            }
+          }
+        });
+        // 汇总 stats
+        out.stats = {
+          realmCount: realms.length,
+          maxStages,
+          alphaSample: realms[1] && realms[0] ? (realms[1].patkBase / realms[0].patkBase).toFixed(2) : null,
+          betaSample: realms[1] && realms[0] ? (realms[1].baseCost / realms[0].baseCost).toFixed(2) : null,
+          stoneMulSample: (function(){ try { return realmStoneMul(1) / realmStoneMul(0); } catch(e) { return null; } })()
+        };
+      } catch (e) {
+        add('err', '健康检查自身崩溃：' + (e.message || e));
+      }
+      // 控制台输出
+      const prefix = '[HealthCheck]';
+      if (out.issues.length === 0) {
+        console.log(prefix, '✓ 数据通过所有锚点检查', out.stats);
+      } else {
+        const errs = out.issues.filter(x => x.lvl === 'err');
+        const warns = out.issues.filter(x => x.lvl === 'warn');
+        console.groupCollapsed(prefix, errs.length ? '✗' : '⚠', `${errs.length} 错误 / ${warns.length} 警告`);
+        out.issues.forEach(x => (x.lvl === 'err' ? console.error : console.warn)(prefix, x.msg));
+        console.log(prefix, 'stats:', out.stats);
+        console.groupEnd();
+      }
+      if (verbose) {
+        out.issues.forEach(x => console[x.lvl === 'err' ? 'error' : 'warn'](prefix, x.msg));
+      }
+      return out;
+    }
+  },
+
   Cultivation: {
     // 返回单个综合系数（不含随机区间）
     computeMul(p) {
@@ -25650,6 +25772,22 @@ const Systems = {
             }
           }
         } catch(e) { console.error('[load] exp sanitize error:', e); }
+        // 旧档迁移：β 经济比从 10× 对齐到 12×（v0.4.7）
+        // 物价和破境成本都按 12× 计了，老存档里的灵石按原来 10× 的基准存下来，
+        // 切换后相对贬值，给每个老玩家按其境界补一次 (12/10)^realm 的差价
+        try {
+          const _p = State.player;
+          if (_p && !_p._beta12Applied) {
+            const _r = _p.cultivation ? _p.cultivation.realm || 0 : 0;
+            if (_r > 0 && _p.resources && isFinite(_p.resources.stone)) {
+              const boost = Math.pow(1.2, _r);
+              const before = _p.resources.stone;
+              _p.resources.stone = Math.round(before * boost);
+              if (Log && Log.add) Log.add(`【数值对齐】β 经济比 10×→12×，按境界 ${_r} 补发灵石 ${Utils.fmtNum(_p.resources.stone - before)}。`, 'hi');
+            }
+            _p._beta12Applied = true;
+          }
+        } catch(e) { console.error('[load] beta12 migration error:', e); }
         // 旧档迁移：功诀拥有列表
         if (State.player.techniques) {
           const _tq = State.player.techniques;
@@ -27425,10 +27563,13 @@ const Systems = {
  *  行动提供者 Providers
  *  每个 Provider 实现统一接口：type, name, logCls, canStart, priority, create
  * ======================================================================== */
-/* ── 境界灵石倍率：与baseCost同步指数增长 ── */
+/* ── 境界灵石倍率：与baseCost同步指数增长 ──
+ * 对齐 β = 12×（见 DATA.realms 上方锚点说明）。v0.4.7 之前为 10×，
+ * 导致后期破境成本涨得比灵石快 ≈ 20%/境界，越到后面越穷。
+ * 切换到 12× 后 Save.load() 会给老存档按境界补偿差价，避免突然变穷。
+ */
 function realmStoneMul(realm) {
-  // baseCost 每大境界约12x，这里用10x保守一些，让高境界觉得"够用但仍需努力"
-  return Math.pow(10, realm);
+  return Math.pow(12, realm);
 }
 
 const Providers = {
@@ -37584,6 +37725,8 @@ const Game = {
     this._initTooltip();
     LogEnrich.init();
     BGM.init();
+    // 数值健康度自检 —— 不影响玩家体验，只在 DevTools 控制台输出
+    try { if (Systems.HealthCheck) Systems.HealthCheck.run(); } catch(e) { console.error('[init] HealthCheck error:', e); }
     if (Systems.Save.load()) {
       UI.render();
       // 若 load 中检测到离线时长且发放了奖励，弹一次性面板告诉玩家获得了多少

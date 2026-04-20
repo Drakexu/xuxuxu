@@ -1,5 +1,5 @@
 {
-  "version": "0.4.6",
-  "url": "https://xuxuxu.com/qy/?v=0.4.6",
-  "notes": "v0.4.6 更新内容：\n1. 修复「一键更新」按钮在 manifest url 带 ?v= 查询串时拼出错误下载地址的 bug（会把 index.html 当游戏下回来）\n2. 一键更新新增「下载内容嗅探」—— 若返回的 blob 不到 500 KB 且不含游戏关键字，直接报错提示，不会覆盖掉玩家原来的好文件\n3. 同步更新根目录的 qingyun.html 为最新版本 —— 访问 xuxuxu.com/qingyun.html（老书签/老链接）不再卡在 0.4.1"
+  "version": "0.4.7",
+  "url": "https://xuxuxu.com/qy/?v=0.4.7",
+  "notes": "v0.4.7 更新内容：\n1. 数值设计锚点落地 —— 在 DATA.realms 上方钉死 α=5×（战力比）/ β=12×（经济比）/ γ≈2.7×（时间比），所有境界数据以后改动都应符合这三个锚点\n2. β 对齐 —— realmStoneMul 从 10× 调整为 12×，与破境成本比例一致，解决「越到后期越穷」的问题。老存档自动按境界 ×1.2^realm 补发灵石差价\n3. 新增 Systems.HealthCheck —— 启动时在 DevTools 控制台自检 α/β/γ 偏差，并检查 stageMul / 境界基础属性的单调性\n4. 同步根目录 qingyun.html 到最新版本"
 }
